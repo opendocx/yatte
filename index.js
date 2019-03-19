@@ -67,6 +67,7 @@ const parseField = function(fieldObj, callback) {
         return compiledExpr;
     }
 };
+exports.parseFieldCallback = parseField;
 
 exports.compileText = function (template) {
     fieldCache = {};
