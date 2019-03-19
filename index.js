@@ -2,6 +2,9 @@ const textTemplater = require('./text-templater');
 const textEvaluator = require('./text-evaluator');
 const expressions= require('angular-expressions');
 const format = require('date-fns/format');
+exports.ContextStack = require('./context-stack');
+exports.FieldTypes = require('./fieldtypes');
+exports.Table = require('./table');
 
 // define built-in filters (todo: more needed)
 expressions.filters.upper = function(input) {
