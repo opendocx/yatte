@@ -5,6 +5,7 @@ const format = require('date-fns/format');
 exports.ContextStack = require('./context-stack');
 exports.FieldTypes = require('./fieldtypes');
 exports.Table = require('./table');
+exports.TestHelperTypes = require('./test/types-test');
 
 // define built-in filters (todo: more needed)
 expressions.filters.upper = function(input) {
@@ -44,7 +45,11 @@ const compile = function(expr) {
     if (expr == ".") expr = "this";
     return expressions.compile(expr);
 }
+exports.compileField = compile;
 
+// fieldCache is a cache of parsed fields for the template that is currently being compiled.
+// When a template has been compiled, the collection of all parsed fields in that template gets cached in templateCache.
+// These caches are NOT CURRENTLY USED, but they will be soon.
 var templateCache = {};
 var fieldCache;
 
@@ -69,11 +74,21 @@ const parseField = function(fieldObj, callback) {
 };
 exports.parseFieldCallback = parseField;
 
-exports.compileText = function (template) {
+const initFieldParsing = function(templateId) {
     fieldCache = {};
-    let result = textTemplater.parseTemplate(template, parseField);
-    templateCache[template] = fieldCache;
+}
+exports.initFieldParsing = initFieldParsing;
+
+const finalizeFieldParsing = function(templateId) {
+    templateCache[templateId] = fieldCache;
     fieldCache = void 0;
+}
+exports.finalizeFieldParsing = finalizeFieldParsing;
+
+exports.compileText = function (template) {
+    initFieldParsing(template);
+    let result = textTemplater.parseTemplate(template, parseField);
+    finalizeFieldParsing(template);
     return {
         TemplateAST: result,
         HasErrors: null
