@@ -1,0 +1,36 @@
+{
+  "name": "yatte",
+  "version": "1.0.0-alpha",
+  "description": "Yet Another Text Templating Engine",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/opendocx/yatte.git"
+  },
+  "keywords": [
+    "yatte",
+    "text",
+    "templating",
+    "engine"
+  ],
+  "author": {
+    "name": "Lowell Stewart",
+    "email": "lowell@opendocx.com"
+  },
+  "license": "MPL-2.0",
+  "bugs": {
+    "url": "https://github.com/opendocx/yatte/issues",
+    "email": "lowell@opendocx.com"
+  },
+  "homepage": "https://github.com/opendocx/yatte#readme",
+  "devDependencies": {
+    "mocha": "^6.0.2"
+  },
+  "dependencies": {
+    "angular-expressions": "^1.0.0",
+    "date-fns": "^1.30.1"
+  }
+}
