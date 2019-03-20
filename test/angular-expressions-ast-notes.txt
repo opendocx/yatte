@@ -1,0 +1,63 @@
+type=='Program'
+    body==array of nodes
+    constant==boolean
+
+type=='ExpressionStatement'
+    expression==node
+
+type=='Literal'
+    value==value (string?)
+    constant==boolean
+
+type=='Identifier'
+    name==string
+    constant==boolean (false)
+
+type=='MemberExpression'
+*    object==node
+*    property==node
+    computed==boolean // whether property name is computed (determined at run-time) or not (fixed at design-time)
+    constant==boolean
+
+type=='CallExpression'
+*    callee==node
+**    arguments==array of nodes
+    constant==boolean (false)
+    filter==boolean
+
+type=='ArrayExpression'  // [1,2]
+**    elements==array of nodes
+
+type=='ObjectExpression' // {a:"a", b:"b"}
+**    properties==array of nodes (with type=='Property')
+
+type=='Property'         // name/value pair in an object expression
+    kind=='init'
+*    key==node
+*    value==node
+    computed==boolean
+
+type=='BinaryExpression' //  a + b
+    operator==string
+*    left==node
+*    right==node
+
+type=='UnaryExpression'  // -a
+    operator==string
+    prefix==boolean
+*    argument==node
+
+type=='LogicalExpression' // a && b
+    operator==string
+*    left==node
+*    right==node
+
+type=='ConditionalExpression' // a ? b : c
+*    test==node
+*    alternate==node
+*    consequent==node
+
+ThisExpression   // this
+
+AssignmentExpression  // a = "a"    N/A?
+LocalsExpression // $locals  N/A?

@@ -100,3 +100,63 @@ exports.assembleText = function (template, data) {
     let result = textEvaluator.assembleText(data, compiled);
     return result;
 }
+
+exports.extractFields = function(template) {
+    let compiled = textTemplater.parseTemplate(template); // this fetches result out of a cache if it's already been called
+    let extractedFields = textTemplater.extractFields(compiled);
+    _parseExpressions(extractedFields);
+    return extractedFields;
+}
+
+const _parseExpressions = function(contentArray) {
+    for (const obj of contentArray) {
+        if (typeof obj.expr == 'string') {
+            obj.exprAst = _reduceAstNode(compile(obj.expr).ast.body[0].expression);
+        }
+        if (obj.type == 'List') {
+            obj.exprAst.expectarray = true;
+        }
+        if (obj.contentArray) {
+            _parseExpressions(obj.contentArray);
+        }
+    }
+}
+exports._parseExpressions = _parseExpressions;
+
+const _reduceAstNode = function(astNode) {
+    // prune endlessly recursive property
+    const {toWatch, ...simplified} = astNode; 
+    for (let prop in simplified) {
+        switch (prop) {
+            case 'object':
+            case 'property':
+            case 'callee':
+            case 'key':
+            case 'valule':
+            case 'left':
+            case 'right':
+            case 'argument':
+            case 'test':
+            case 'alternate':
+            case 'consequent':
+                // recurse into nodes that can contain expressions of their own
+                simplified[prop] = _reduceAstNode(simplified[prop]);
+                break;
+            case 'arguments':
+            case 'elements':
+            case 'properties':
+                // recurse into nodes containing arrays of items that can contain expressions
+                let thisArray = simplified[prop];
+                if (thisArray && thisArray.length > 0) {
+                    for (let i = 0; i++; i < thisArray.length) {
+                        thisArray[i] = _reduceAstNode(thisArray[i]);
+                    }
+                }
+                break;
+            default:
+                // should not need to do anything else
+        }
+    }
+    return simplified;
+}
+exports._reduceAstNode = _reduceAstNode;
