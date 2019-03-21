@@ -27,7 +27,7 @@ const assert = require('assert');
 
 
 describe('AST Experimentation', function() {
-    it('should retrieve a unified AST for a text template', async function() {
+    it('should retrieve a unified AST for a text template', function() {
         const template = "{[if x]}{[list []]}{[test]}{[endlist]}{[elseif y]}{[A]}{[list outer]}{[z?B:B2]}{[list inner]}{[C]}{[endlist]}{[D]}{[endlist]}{[E]}{[else]}{[F]}{[list another]}{[G]}{[endlist]}{[H]}{[endif]}";
         let result = yatte.extractFields(template);
         assert.deepEqual(result, [

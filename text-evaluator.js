@@ -1,8 +1,8 @@
 'use strict';
 
-const expressions= require('angular-expressions');
 const ContextStack = require('./context-stack');
 const OD = require('./fieldtypes');
+const base = require('./base-templater');
 
 var contextStack;
 
@@ -16,11 +16,6 @@ const assembleText = function (context, parsedTemplate) {
     return text;
 }
 exports.assembleText = assembleText;
-
-const compile = function(expr) {
-    if (expr == ".") expr = "this";
-    return expressions.compile(expr);
-}
 
 function ContentReplacementTransform(contentItem, contextFrame)
 {
@@ -36,7 +31,7 @@ function ContentReplacementTransform(contentItem, contextFrame)
     switch (contentItem.type) {
         case OD.Content:
             try {
-                const evaluator = compile(contentItem.expr); // these are cached so this should be fast
+                const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
                 let value = evaluator(contextFrame.context); // we need to make sure this is memoized to avoid unnecessary re-evaluation
                 if (value === null || typeof value === 'undefined') {
                     value = '[' + contentItem.expr + ']'; // missing value placeholder
@@ -49,7 +44,7 @@ function ContentReplacementTransform(contentItem, contextFrame)
         case OD.List:
             let iterable;
             try {
-                const evaluator = compile(contentItem.expr); // these are cached so this should be fast
+                const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
                 iterable = evaluator(contextFrame.context); // we need to make sure this is memoized to avoid unnecessary re-evaluation
             } catch (err) {
                 return CreateContextErrorMessage("EvaluationException: " + err);
@@ -71,7 +66,7 @@ function ContentReplacementTransform(contentItem, contextFrame)
                 if (frame.type != 'Object') {
                     throw `Internal error: cannot define a condition directly in a ${frame.type} context`;
                 }
-                const evaluator = compile(contentItem.expr); // these are cached so this should be fast
+                const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
                 const value = evaluator(frame.context); // we need to make sure this is memoized to avoid unnecessary re-evaluation
                 bValue = ContextStack.IsTruthy(value);
             } catch (err) {
