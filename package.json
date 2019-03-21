@@ -1,6 +1,6 @@
 {
   "name": "yatte",
-  "version": "1.0.7-alpha",
+  "version": "1.0.8-alpha",
   "description": "Yet Another Text Templating Engine",
   "main": "index.js",
   "scripts": {

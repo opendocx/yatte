@@ -59,6 +59,7 @@ describe('AST Experimentation', function() {
                                     constant: false
                                 },
                             },
+                            {type: "EndList"}
                         ]
                     },
                     {
@@ -131,6 +132,7 @@ describe('AST Experimentation', function() {
                                                     constant: false
                                                 },
                                             },
+                                            {type: "EndList"}
                                         ]
                                     },
                                     {
@@ -142,6 +144,7 @@ describe('AST Experimentation', function() {
                                             constant: false
                                         },
                                     },
+                                    {type: "EndList"}
                                 ]
                             },
                             {
@@ -184,6 +187,7 @@ describe('AST Experimentation', function() {
                                                     constant: false
                                                 },
                                             },
+                                            {type: "EndList"}
                                         ]
                                     },
                                     {
@@ -195,6 +199,7 @@ describe('AST Experimentation', function() {
                                             constant: false
                                         },
                                     },
+                                    {type: "EndIf"}
                                 ]
                             },
                         ]

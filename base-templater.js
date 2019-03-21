@@ -128,10 +128,10 @@ const parseContentUntil = function(contentArray, startIdx, targetType, bIncludeE
         const parsedContent = parseField(contentArray, idx, bIncludeExpressions);
         const isObj = (typeof parsedContent == "object" && parsedContent !== null);
         idx++;
-        if (isObj && parsedContent.type == targetType)
-            break;
         if (parsedContent)
             parentContent.push(parsedContent);
+        if (isObj && parsedContent.type == targetType)
+            break;
         if (isObj && (parsedContent.type == OD.ElseIf || parsedContent.type == OD.Else))
         {
             if (targetType == OD.EndIf) {

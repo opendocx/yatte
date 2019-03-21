@@ -8,16 +8,16 @@ describe('Parsing simple conditionals', function() {
         assert.deepEqual(result, [
             {type: "Content", expr: "First"},
             " ",
-            {type: "If",expr: "Middle", contentArray: [{type: "Content", expr: "Middle"}, " "]},
+            {type: "If",expr: "Middle", contentArray: [{type: "Content", expr: "Middle"}, " ", {type: "EndIf"}]},
             {type: "Content", expr: "Last"},
-            {type: "If", expr: "Suffix", contentArray: [" ", {type: "Content", expr: "Suffix"}]}
+            {type: "If", expr: "Suffix", contentArray: [" ", {type: "Content", expr: "Suffix"}, {type: "EndIf"}]}
         ]);
     });
     it('should parse the if/endif template', function() {
         const template = "{[if true]}A{[endif]}";
         const result = textTemplater.parseTemplate(template, false);
         assert.deepEqual(result, [
-            {type: "If", expr: "true", contentArray: ["A"]},
+            {type: "If", expr: "true", contentArray: ["A", {type: "EndIf"}]},
         ]);
     });
     it('should parse the if/else/endif template', function() {
@@ -26,7 +26,7 @@ describe('Parsing simple conditionals', function() {
         assert.deepEqual(result, [
             {type: "If", expr: "false", contentArray: [
                 "A",
-                {type: "Else", contentArray: ["B"]}
+                {type: "Else", contentArray: ["B", {type: "EndIf"}]}
             ]},
         ]);
     });
@@ -36,7 +36,7 @@ describe('Parsing simple conditionals', function() {
         assert.deepEqual(result, [
             {type: "If", expr: "false", contentArray: [
                 "A",
-                {type: "ElseIf", expr: "true", contentArray: ["B"]}
+                {type: "ElseIf", expr: "true", contentArray: ["B", {type: "EndIf"}]}
             ]},
         ]);
     });
@@ -48,7 +48,7 @@ describe('Parsing simple conditionals', function() {
                 "A",
                 {type: "ElseIf", expr: "false", contentArray: [
                     "B",
-                    {type: "Else", contentArray: ["C"]}
+                    {type: "Else", contentArray: ["C", {type: "EndIf"}]}
                 ]}
             ]},
         ]);
@@ -63,7 +63,7 @@ describe('Parsing simple conditionals', function() {
                     "B",
                     {type: "ElseIf", expr: "false", contentArray: [
                         "C",
-                        {type: "Else", contentArray: ["D"]}
+                        {type: "Else", contentArray: ["D", {type: "EndIf"}]}
                     ]}
                 ]}
             ]},
@@ -140,11 +140,12 @@ describe('Parsing nested conditionals', function() {
         const result = textTemplater.parseTemplate(template, false);
         assert.deepEqual(result, [
             {type: "If", expr: "false", contentArray: [
-                {type: "If", expr: "true", contentArray: ["A"]},
+                {type: "If", expr: "true", contentArray: ["A", {type: "EndIf"}]},
                 {type: "ElseIf", expr: "false", contentArray: [
-                    {type: "If", expr: "true", contentArray: ["B"]},
+                    {type: "If", expr: "true", contentArray: ["B", {type: "EndIf"}]},
                     {type: "Else", contentArray: [
-                        {type: "If", expr: "true", contentArray: ["C"]}
+                        {type: "If", expr: "true", contentArray: ["C", {type: "EndIf"}]},
+                        {type: "EndIf"}
                     ]}
                 ]}
             ]}
@@ -159,7 +160,7 @@ describe('Parsing nested conditionals', function() {
                     "A",
                     {type: "ElseIf", expr: "false", contentArray: [
                         "B",
-                        {type: "Else", contentArray: ["C"]}
+                        {type: "Else", contentArray: ["C", {type: "EndIf"}]}
                     ]}
                 ]},
                 {type: "ElseIf", expr: "false", contentArray: [
@@ -167,7 +168,7 @@ describe('Parsing nested conditionals', function() {
                         "D",
                         {type: "ElseIf", expr: "false", contentArray: [
                             "E",
-                            {type: "Else", contentArray: ["F"]}
+                            {type: "Else", contentArray: ["F", {type: "EndIf"}]}
                         ]}
                     ]},
                     {type: "Else", contentArray: [
@@ -175,9 +176,10 @@ describe('Parsing nested conditionals', function() {
                             "G",
                             {type: "ElseIf", expr: "false", contentArray: [
                                 "H",
-                                {type: "Else", contentArray: ["I"]}
+                                {type: "Else", contentArray: ["I", {type: "EndIf"}]}
                             ]}
-                        ]}
+                        ]},
+                        {type: "EndIf"}
                     ]}
                 ]}
             ]}
@@ -191,7 +193,7 @@ describe('Parsing lists and nested lists', function() {
         const result = textTemplater.parseTemplate(template, false);
         assert.deepEqual(result, [
             {type: "List", expr: "[]", contentArray: [
-                {type: "Content", expr: "."},
+                {type: "Content", expr: "."}, {type: "EndList"}
             ]}
         ]);
     });
@@ -203,7 +205,9 @@ describe('Parsing lists and nested lists', function() {
                 "A: ",
                 {type: "List", expr: "inner", contentArray: [
                     {type: "Content", expr: "."},
-                ]}
+                    {type: "EndList"}
+                ]},
+                {type: "EndList"}
             ]}
         ]);
     });
@@ -255,10 +259,11 @@ describe('Parsing nested conditionals and lists', function() {
                     "A",
                     {type: "ElseIf", expr: ".", contentArray: [
                         {type: "Content", expr: "."},
-                        {type: "Else", contentArray: ["C"]}
+                        {type: "Else", contentArray: ["C", {type: "EndIf"}]}
                     ]}
                 ]},
-                ", "
+                ", ",
+                {type: "EndList"}
             ]}
         ]);
     });
@@ -269,19 +274,22 @@ describe('Parsing nested conditionals and lists', function() {
             {type: "If", expr: "false", contentArray: [
                 {type: "List", expr: "[]", contentArray: [
                     {type: "Content", expr: "test"},
+                    {type: "EndList"}
                 ]},
                 {type: "ElseIf", expr: "false", contentArray: [
                     "A",
                     {type: "List", expr: "outer", contentArray: [
                         "B",
-                        {type: "List", expr: "inner", contentArray: ["C"]},
+                        {type: "List", expr: "inner", contentArray: ["C", {type: "EndList"}]},
                         "D",
+                        {type: "EndList"}
                     ]},
                     "E",
                     {type: "Else", contentArray: [
                         "F",
-                        {type: "List", expr: "another", contentArray: ["G"]},
+                        {type: "List", expr: "another", contentArray: ["G", {type: "EndList"}]},
                         "H",
+                        {type: "EndIf"}
                     ]}
                 ]}
             ]}
