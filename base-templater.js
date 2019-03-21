@@ -227,7 +227,7 @@ const serializeAstNode = function(astNode) {
             if (astNode.filter) {
                 str = serializeAstNode(astNode.arguments[0]) + '|' + serializeAstNode(astNode.callee);
                 for (let i = 1; i < astNode.arguments.length; i++) {
-                    str += ':' + _serializeAstNode(astNode.arguments[i]);
+                    str += ':' + serializeAstNode(astNode.arguments[i]);
                 }
             } else {
                 str = serializeAstNode(astNode.callee) + '(' + astNode.arguments.map(argObj => serializeAstNode(argObj)).join(',') + ')';
