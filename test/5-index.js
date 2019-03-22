@@ -1,4 +1,5 @@
 const yatte = require("../index");
+const engine = require('../base-templater');
 const assert = require('assert');
 
 /*
@@ -27,186 +28,21 @@ const assert = require('assert');
 
 
 describe('AST Experimentation', function() {
-    it('should retrieve a unified AST for a text template', function() {
+    it('should retrieve a unified AST for the TestNest text template', function() {
         const template = "{[if x]}{[list []]}{[test]}{[endlist]}{[elseif y]}{[A]}{[list outer]}{[z?B:B2]}{[list inner]}{[C]}{[endlist]}{[D]}{[endlist]}{[E]}{[else]}{[F]}{[list another]}{[G]}{[endlist]}{[H]}{[endif]}";
         let result = yatte.extractFields(template);
-        assert.deepEqual(result, [
-            {
-                type: "If",
-                expr: "x",
-                exprAst: {
-                    type: "Identifier",
-                    name: "x",
-                    constant: false
-                },
-                contentArray: [
-                    {
-                        type: "List",
-                        expr: "[]",
-                        exprAst: {
-                            type: "ArrayExpression",
-                            elements: [],
-                            expectarray: true,
-                            constant: true
-                        },
-                        contentArray: [
-                            {
-                                type: "Content",
-                                expr: "test",
-                                exprAst: {
-                                    type: "Identifier",
-                                    name: "test",
-                                    constant: false
-                                },
-                            },
-                            {type: "EndList"}
-                        ]
-                    },
-                    {
-                        type: "ElseIf",
-                        expr: "y",
-                        exprAst: {
-                            type: "Identifier",
-                            name: "y",
-                            constant: false
-                        },
-                        contentArray: [
-                            {
-                                type: "Content",
-                                expr: "A",
-                                exprAst: {
-                                    type: "Identifier",
-                                    name: "A",
-                                    constant: false
-                                },
-                            },
-                            {
-                                type: "List",
-                                expr: "outer",
-                                exprAst: {
-                                    type: "Identifier",
-                                    name: "outer",
-                                    expectarray: true,
-                                    constant: false
-                                },
-                                contentArray: [
-                                    {
-                                        type: "Content",
-                                        expr: "z?B:B2",
-                                        exprAst: {
-                                            type: "ConditionalExpression",
-                                            test: {
-                                                type: "Identifier",
-                                                name: "z",
-                                                constant: false
-                                            },
-                                            alternate: {
-                                                type: "Identifier",
-                                                name: "B",
-                                                constant: false
-                                            },
-                                            consequent: {
-                                                type: "Identifier",
-                                                name: "B2",
-                                                constant: false
-                                            },
-                                            constant: false
-                                        },
-                                    },
-                                    {
-                                        type: "List",
-                                        expr: "inner",
-                                        exprAst: {
-                                            type: "Identifier",
-                                            name: "inner",
-                                            expectarray: true,
-                                            constant: false
-                                        },
-                                        contentArray: [
-                                            {
-                                                type: "Content",
-                                                expr: "C",
-                                                exprAst: {
-                                                    type: "Identifier",
-                                                    name: "C",
-                                                    constant: false
-                                                },
-                                            },
-                                            {type: "EndList"}
-                                        ]
-                                    },
-                                    {
-                                        type: "Content",
-                                        expr: "D",
-                                        exprAst: {
-                                            type: "Identifier",
-                                            name: "D",
-                                            constant: false
-                                        },
-                                    },
-                                    {type: "EndList"}
-                                ]
-                            },
-                            {
-                                type: "Content",
-                                expr: "E",
-                                exprAst: {
-                                    type: "Identifier",
-                                    name: "E",
-                                    constant: false
-                                },
-                            },
-                            {
-                                type: "Else",
-                                contentArray: [
-                                    {
-                                        type: "Content",
-                                        expr: "F",
-                                        exprAst: {
-                                            type: "Identifier",
-                                            name: "F",
-                                            constant: false
-                                        },
-                                    },
-                                    {
-                                        type: "List",
-                                        expr: "another",
-                                        exprAst: {
-                                            type: "Identifier",
-                                            name: "another",
-                                            expectarray: true,
-                                            constant: false
-                                        },
-                                        contentArray: [
-                                            {
-                                                type: "Content",
-                                                expr: "G",
-                                                exprAst: {
-                                                    type: "Identifier",
-                                                    name: "G",
-                                                    constant: false
-                                                },
-                                            },
-                                            {type: "EndList"}
-                                        ]
-                                    },
-                                    {
-                                        type: "Content",
-                                        expr: "H",
-                                        exprAst: {
-                                            type: "Identifier",
-                                            name: "H",
-                                            constant: false
-                                        },
-                                    },
-                                    {type: "EndIf"}
-                                ]
-                            },
-                        ]
-                    },
-                ]
-            },
-        ]);
+        let logic = engine.buildLogicTree(result);
+        assert.deepStrictEqual(logic, TestNestLogicTree);
+    });
+    it('should retrieve a unified AST for the redundant_if text template', function() {
+        const template = `Redundant Ifs
+Well, all I can say is “{[?x]}Something {[adjective]}{[:]}nothing{[/?]}.”
+{[name]}, do you think {[if x]}about it much{[else]}anything{[endif]}?
+        
+The logic tree should include the if twice, but should call for the data only once.`;
+        let result = yatte.extractFields(template);
+        let logic = engine.buildLogicTree(result);
+        assert.deepStrictEqual(logic, redundant_if_logic_tree);
     });
 })
 
@@ -239,3 +75,227 @@ can quickly & optimally determine the relevance and requiredness of any property
     {[H]}               H is relevant AND required IF: !x && !y
 {[endif]}
 */
+
+const redundant_if_logic_tree = [
+    {
+        "type": "If",
+        "expr": "x",
+        "exprAst": {
+            "type": "Identifier",
+            "name": "x",
+            "constant": false
+        },
+        "new": true,
+        "contentArray": [{
+                "type": "Content",
+                "expr": "adjective",
+                "exprAst": {
+                    "type": "Identifier",
+                    "name": "adjective",
+                    "constant": false
+                }
+            }, {
+                "type": "Else",
+                "contentArray": []
+            }
+        ]
+    }, {
+        "type": "Content",
+        "expr": "name",
+        "exprAst": {
+            "type": "Identifier",
+            "name": "name",
+            "constant": false
+        }
+    }, {
+        "type": "If",
+        "expr": "x",
+        "exprAst": {
+            "type": "Identifier",
+            "name": "x",
+            "constant": false
+        },
+        "new": false,
+        "contentArray": [{
+                "type": "Else",
+                "contentArray": []
+            }
+        ]
+    }
+    ];
+    
+    const TestNestLogicTree = [
+        {
+            type: "If",
+            expr: "x",
+            exprAst: {
+                type: "Identifier",
+                name: "x",
+                constant: false
+            },
+            new: true,
+            contentArray: [
+                {
+                    type: "List",
+                    expr: "[]",
+                    exprAst: {
+                        type: "ArrayExpression",
+                        elements: [],
+                        expectarray: true,
+                        constant: true
+                    },
+                    contentArray: [
+                        {
+                            type: "Content",
+                            expr: "test",
+                            exprAst: {
+                                type: "Identifier",
+                                name: "test",
+                                constant: false
+                            },
+                        },
+                    ]
+                },
+                {
+                    type: "ElseIf",
+                    expr: "y",
+                    exprAst: {
+                        type: "Identifier",
+                        name: "y",
+                        constant: false
+                    },
+                    new: true,
+                    contentArray: [
+                        {
+                            type: "Content",
+                            expr: "A",
+                            exprAst: {
+                                type: "Identifier",
+                                name: "A",
+                                constant: false
+                            },
+                        },
+                        {
+                            type: "List",
+                            expr: "outer",
+                            exprAst: {
+                                type: "Identifier",
+                                name: "outer",
+                                expectarray: true,
+                                constant: false
+                            },
+                            contentArray: [
+                                {
+                                    type: "Content",
+                                    expr: "z?B:B2",
+                                    exprAst: {
+                                        type: "ConditionalExpression",
+                                        test: {
+                                            type: "Identifier",
+                                            name: "z",
+                                            constant: false
+                                        },
+                                        alternate: {
+                                            type: "Identifier",
+                                            name: "B",
+                                            constant: false
+                                        },
+                                        consequent: {
+                                            type: "Identifier",
+                                            name: "B2",
+                                            constant: false
+                                        },
+                                        constant: false
+                                    },
+                                },
+                                {
+                                    type: "List",
+                                    expr: "inner",
+                                    exprAst: {
+                                        type: "Identifier",
+                                        name: "inner",
+                                        expectarray: true,
+                                        constant: false
+                                    },
+                                    contentArray: [
+                                        {
+                                            type: "Content",
+                                            expr: "C",
+                                            exprAst: {
+                                                type: "Identifier",
+                                                name: "C",
+                                                constant: false
+                                            },
+                                        },
+                                    ]
+                                },
+                                {
+                                    type: "Content",
+                                    expr: "D",
+                                    exprAst: {
+                                        type: "Identifier",
+                                        name: "D",
+                                        constant: false
+                                    },
+                                },
+                            ]
+                        },
+                        {
+                            type: "Content",
+                            expr: "E",
+                            exprAst: {
+                                type: "Identifier",
+                                name: "E",
+                                constant: false
+                            },
+                        },
+                        {
+                            type: "Else",
+                            contentArray: [
+                                {
+                                    type: "Content",
+                                    expr: "F",
+                                    exprAst: {
+                                        type: "Identifier",
+                                        name: "F",
+                                        constant: false
+                                    },
+                                },
+                                {
+                                    type: "List",
+                                    expr: "another",
+                                    exprAst: {
+                                        type: "Identifier",
+                                        name: "another",
+                                        expectarray: true,
+                                        constant: false
+                                    },
+                                    contentArray: [
+                                        {
+                                            type: "Content",
+                                            expr: "G",
+                                            exprAst: {
+                                                type: "Identifier",
+                                                name: "G",
+                                                constant: false
+                                            },
+                                        },
+                                    ]
+                                },
+                                {
+                                    type: "Content",
+                                    expr: "H",
+                                    exprAst: {
+                                        type: "Identifier",
+                                        name: "H",
+                                        constant: false
+                                    },
+                                },
+                            ]
+                        },
+                    ]
+                },
+            ]
+        },
+    ];
+    

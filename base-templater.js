@@ -226,12 +226,17 @@ const reduceContentNode = function(astNode, scope, parentScope = null) {
             // but we still need to check whether the expr is in the scope already (or not)
             // so we can place a hint in the node (which will be needed down the line when transforming data)
             const {id, contentArray, ...copy} = astNode;
-            const pc = (parentScope != null) ? parentScope : scope;
+            const ps = (parentScope != null) ? parentScope : scope;
             if (copy.type == OD.If || copy.type == OD.ElseIf) {
-                copy.new = !(astNode.expr in pc)
+                if (astNode.expr in ps) {
+                    copy.new = false;
+                } else {
+                    ps[astNode.expr] = true;
+                    copy.new = true;
+                }
             }
-            const childContext = Object.create(pc);
-            copy.contentArray = reduceContentArray(contentArray, null, childContext, pc);
+            const childContext = Object.create(ps);
+            copy.contentArray = reduceContentArray(contentArray, null, childContext, ps);
             return copy;
     }
 }
