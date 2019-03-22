@@ -29,8 +29,16 @@ const parseContentArray = function(contentArray, bIncludeExpressions = true) {
 exports.parseContentArray = parseContentArray;
 
 const simplifyLogic = function(astBody) {
-    // TODO: return a copy of astBody with all logically insignificant nodes pruned out
-    return astBody;
+    // return a copy of astBody with all (or at least some) logically insignificant nodes pruned out:
+    // remove plain text nodes (non-dynamic)
+    // remove EndIf and EndList nodes
+    // remove Content nodes that are already defined in the same logical/list context
+    // always process down all if branches & lists
+    // strip field ID metadata (for docx templates) since it no longer applies
+    // future: compare logical & list contexts of each item, and eliminate logical branches and list iterations that are redundant
+    const copy = simplifyContentArray(astBody);
+    simplifyContentArray2(copy);
+    return copy;
 }
 exports.simplifyLogic = simplifyLogic;
 
@@ -171,6 +179,72 @@ const getFieldContent = function(text) {
     return null;
 }
 
+const simplifyContentArray = function(astBody, newBody = null, context = null, parentContext = null) {
+    // remove plain text nodes (non-dynamic)
+    // remove EndIf and EndList nodes
+    // remove Content nodes that are already defined in the same logical & list context
+    // always process down all if branches & lists
+    // future: compare logical & list contexts of each item, and eliminate logical branches and list iterations that are redundant
+    if (newBody === null) newBody = [];
+    if (context === null) context = {};
+    for (const obj of astBody) {
+        let newObj = simplifyNodeInContext(obj, context, parentContext);
+        if (newObj !== null) {
+            newBody.push(newObj);
+        }
+    }
+    return newBody;
+}
+
+const simplifyNodeInContext = function(astNode, context, parentContext = null) {
+    if (typeof astNode == 'string') return null; // plain text node -- non-dynamic content in a text template
+    if (astNode.type == OD.EndList || astNode.type == OD.EndIf) return null;
+    if (astNode.type == OD.Content) {
+        if (astNode.exprN in context) return null; // expression already defined in this context
+        const {id, ...copy} = astNode; // strip field id if it's there
+        context[astNode.exprN] = copy;
+        return copy;
+    }
+    if (astNode.type == OD.List) {
+        if (astNode.exprN in context) { // this list has already been added to the parent context; revisit it to add more content members if necessary
+            const existingListNode = context[astNode.exprN];
+            simplifyContentArray(astNode.contentArray, existingListNode.contentArray, existingListNode.context);
+            return null;
+        } else {
+            const {id, contentArray, ...copy} = astNode;
+            copy.context = {}; // fresh new wholly separate context for lists
+            copy.contentArray = simplifyContentArray(contentArray, null, copy.context);
+            context[astNode.exprN] = copy;
+            return copy;
+        }
+    }
+    if (astNode.type == OD.If || astNode.type == OD.ElseIf || astNode.type == OD.Else) {
+            // we don't check for whether anything's already in the context or not, because
+            // if's are logical and therefore are always evaluated (until we figure out
+            // how to optimize them out)
+            const {id, contentArray, ...copy} = astNode;
+            const pc = (parentContext != null) ? parentContext : context;
+            const childContext = Object.create(pc);
+            copy.contentArray = simplifyContentArray(contentArray, null, childContext, pc);
+            return copy;
+    }
+}
+
+const simplifyContentArray2 = function(astBody) {
+    // 2nd pass at simplifying logic
+    // for now, just clean up context helpers leftover from first pass
+    for (const obj of astBody) {
+        simplifyNode2(obj);
+    }
+}
+
+const simplifyNode2 = function(astNode) {
+    if (astNode.context)
+        delete astNode.context;
+    if (Array.isArray(astNode.contentArray))
+        simplifyContentArray2(astNode.contentArray);
+}
+
 const reduceAstNode = function(astNode) {
     // prune endlessly recursive property
     const {toWatch, ...simplified} = astNode; 
@@ -196,7 +270,7 @@ const reduceAstNode = function(astNode) {
                 // recurse into nodes containing arrays of items that can contain expressions
                 let thisArray = simplified[prop];
                 if (thisArray && thisArray.length > 0) {
-                    for (let i = 0; i++; i < thisArray.length) {
+                    for (let i = 0; i < thisArray.length; i++) {
                         thisArray[i] = reduceAstNode(thisArray[i]);
                     }
                 }
