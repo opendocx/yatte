@@ -184,6 +184,7 @@ const simplifyContentArray = function(astBody, newBody = null, context = null, p
     // remove EndIf and EndList nodes
     // remove Content nodes that are already defined in the same logical & list context
     // always process down all if branches & lists
+    //    but mark check whether each if expression is the first (in its context) to refer to the expression, and if so, indicate it on the node
     // future: compare logical & list contexts of each item, and eliminate logical branches and list iterations that are redundant
     if (newBody === null) newBody = [];
     if (context === null) context = {};
@@ -219,11 +220,15 @@ const simplifyNodeInContext = function(astNode, context, parentContext = null) {
         }
     }
     if (astNode.type == OD.If || astNode.type == OD.ElseIf || astNode.type == OD.Else) {
-            // we don't check for whether anything's already in the context or not, because
-            // if's are logical and therefore are always evaluated (until we figure out
-            // how to optimize them out)
+            // if's are logical and therefore are always evaluated (until we do the work
+            // to detect their redundancy and then safely optimize them out)
+            // but we still need to check whether the expr is in the context already (or not)
+            // so we can place a hint in the node (which will be needed down the line when transforming data)
             const {id, contentArray, ...copy} = astNode;
             const pc = (parentContext != null) ? parentContext : context;
+            if (copy.type == OD.If || copy.type == OD.ElseIf) {
+                copy.new = !(astNode.exprN in pc)
+            }
             const childContext = Object.create(pc);
             copy.contentArray = simplifyContentArray(contentArray, null, childContext, pc);
             return copy;
