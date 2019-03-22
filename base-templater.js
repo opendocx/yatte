@@ -28,19 +28,19 @@ const parseContentArray = function(contentArray, bIncludeExpressions = true) {
 }
 exports.parseContentArray = parseContentArray;
 
-const simplifyLogic = function(astBody) {
+const buildLogicTree = function(astBody) {
     // return a copy of astBody with all (or at least some) logically insignificant nodes pruned out:
     // remove plain text nodes (non-dynamic)
     // remove EndIf and EndList nodes
-    // remove Content nodes that are already defined in the same logical/list context
+    // remove Content nodes that are already defined in the same logical/list scope
     // always process down all if branches & lists
     // strip field ID metadata (for docx templates) since it no longer applies
-    // future: compare logical & list contexts of each item, and eliminate logical branches and list iterations that are redundant
-    const copy = simplifyContentArray(astBody);
+    // future: compare logical & list scopes of each item, and eliminate logical branches and list iterations that are redundant
+    const copy = reduceContentArray(astBody);
     simplifyContentArray2(copy);
     return copy;
 }
-exports.simplifyLogic = simplifyLogic;
+exports.buildLogicTree = buildLogicTree;
 
 const compileExpr = function(expr) {
     if (expr == ".") expr = "this";
@@ -119,7 +119,7 @@ const parseFieldExpr = function(fieldObj) {
     try {
         compiledExpr = compileExpr(fieldObj.expr);
         fieldObj.exprAst = reduceAstNode(compiledExpr.ast.body[0].expression);
-        fieldObj.exprN = serializeAstNode(fieldObj.exprAst);
+        fieldObj.expr = serializeAstNode(fieldObj.exprAst); // normalize all expressions
     } catch (err) {
         error = err;
     }
@@ -179,17 +179,17 @@ const getFieldContent = function(text) {
     return null;
 }
 
-const simplifyContentArray = function(astBody, newBody = null, context = null, parentContext = null) {
-    // remove plain text nodes (non-dynamic)
-    // remove EndIf and EndList nodes
-    // remove Content nodes that are already defined in the same logical & list context
+const reduceContentArray = function(astBody, newBody = null, scope = null, parentScope = null) {
+    // prune plain text nodes (non-dynamic, so they don't affect logic)
+    // prune EndIf and EndList nodes (only important insofar as we need to match up nodes to fields -- which will not be the case with a reduced logic tree)
+    // prune redundant Content nodes that are already defined in the same logical & list scope
     // always process down all if branches & lists
-    //    but mark check whether each if expression is the first (in its context) to refer to the expression, and if so, indicate it on the node
-    // future: compare logical & list contexts of each item, and eliminate logical branches and list iterations that are redundant
+    //    but mark check whether each if expression is the first (in its scope) to refer to the expression, and if so, indicate it on the node
+    // future: compare logical & list scopes of each item, and eliminate logical branches and list iterations that are redundant
     if (newBody === null) newBody = [];
-    if (context === null) context = {};
+    if (scope === null) scope = {};
     for (const obj of astBody) {
-        let newObj = simplifyNodeInContext(obj, context, parentContext);
+        let newObj = reduceContentNode(obj, scope, parentScope);
         if (newObj !== null) {
             newBody.push(newObj);
         }
@@ -197,55 +197,56 @@ const simplifyContentArray = function(astBody, newBody = null, context = null, p
     return newBody;
 }
 
-const simplifyNodeInContext = function(astNode, context, parentContext = null) {
+const reduceContentNode = function(astNode, scope, parentScope = null) {
     if (typeof astNode == 'string') return null; // plain text node -- non-dynamic content in a text template
     if (astNode.type == OD.EndList || astNode.type == OD.EndIf) return null;
+
     if (astNode.type == OD.Content) {
-        if (astNode.exprN in context) return null; // expression already defined in this context
+        if (astNode.expr in scope) return null; // expression already defined in this scope
         const {id, ...copy} = astNode; // strip field id if it's there
-        context[astNode.exprN] = copy;
+        scope[astNode.expr] = copy;
         return copy;
     }
     if (astNode.type == OD.List) {
-        if (astNode.exprN in context) { // this list has already been added to the parent context; revisit it to add more content members if necessary
-            const existingListNode = context[astNode.exprN];
-            simplifyContentArray(astNode.contentArray, existingListNode.contentArray, existingListNode.context);
+        if (astNode.expr in scope) { // this list has already been added to the parent scope; revisit it to add more content members if necessary
+            const existingListNode = scope[astNode.expr];
+            reduceContentArray(astNode.contentArray, existingListNode.contentArray, existingListNode.scope);
             return null;
         } else {
             const {id, contentArray, ...copy} = astNode;
-            copy.context = {}; // fresh new wholly separate context for lists
-            copy.contentArray = simplifyContentArray(contentArray, null, copy.context);
-            context[astNode.exprN] = copy;
+            copy.scope = {}; // fresh new wholly separate scope for lists
+            copy.contentArray = reduceContentArray(contentArray, null, copy.scope);
+            scope[astNode.expr] = copy;
             return copy;
         }
     }
     if (astNode.type == OD.If || astNode.type == OD.ElseIf || astNode.type == OD.Else) {
             // if's are logical and therefore are always evaluated (until we do the work
             // to detect their redundancy and then safely optimize them out)
-            // but we still need to check whether the expr is in the context already (or not)
+            // but we still need to check whether the expr is in the scope already (or not)
             // so we can place a hint in the node (which will be needed down the line when transforming data)
             const {id, contentArray, ...copy} = astNode;
-            const pc = (parentContext != null) ? parentContext : context;
+            const pc = (parentScope != null) ? parentScope : scope;
             if (copy.type == OD.If || copy.type == OD.ElseIf) {
-                copy.new = !(astNode.exprN in pc)
+                copy.new = !(astNode.expr in pc)
             }
             const childContext = Object.create(pc);
-            copy.contentArray = simplifyContentArray(contentArray, null, childContext, pc);
+            copy.contentArray = reduceContentArray(contentArray, null, childContext, pc);
             return copy;
     }
 }
 
 const simplifyContentArray2 = function(astBody) {
     // 2nd pass at simplifying logic
-    // for now, just clean up context helpers leftover from first pass
+    // for now, just clean up scope helpers leftover from first pass
     for (const obj of astBody) {
         simplifyNode2(obj);
     }
 }
 
 const simplifyNode2 = function(astNode) {
-    if (astNode.context)
-        delete astNode.context;
+    if (astNode.scope)
+        delete astNode.scope;
     if (Array.isArray(astNode.contentArray))
         simplifyContentArray2(astNode.contentArray);
 }
