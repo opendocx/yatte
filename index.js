@@ -1,26 +1,23 @@
 const textTemplater = require('./text-templater');
 const textEvaluator = require('./text-evaluator');
+const base = require('./base-templater');
+exports.Engine = base;
 
-exports.Engine = require('./base-templater');
-
-exports.extractFields = function(template) {
-    let compiled = textTemplater.parseTemplate(template); // this fetches result out of a cache if it's already been called
-    let extractedFields = textTemplater.extractFields(compiled);
-    return extractedFields;
+exports.extractLogic = function (template) {
+    // returns a 'logic tree' for this template -- a filtered, optimized AST representing the logical structure of the template
+    return base.buildLogicTree(textTemplater.parseTemplate(template)); // note: parseTemplate uses caching for performance
 }
 
 exports.compileText = function (template) {
-    let result = textTemplater.parseTemplate(template, parseField);
-    return {
-        TemplateAST: result,
-        HasErrors: null
-    };
+    // returns curried function that will assemble the text template (given the data context as input)
+    return function(context) {
+        return textEvaluator.assembleText(context, textTemplater.parseTemplate(template)); // note: parseTemplate uses caching for performance
+    }
 }
 
-exports.assembleText = function (template, data) {
-    let compiled = textTemplater.parseTemplate(template); // this fetches result out of a cache if it's already been called
-    let result = textEvaluator.assembleText(data, compiled);
-    return result;
+exports.assembleText = function (template, context) {
+    // non-curried version of assembly: pass in a template AND a context
+    return textEvaluator.assembleText(context, textTemplater.parseTemplate(template)); // note: parseTemplate uses caching for performance
 }
 
 exports.FieldTypes = require('./fieldtypes');

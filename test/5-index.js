@@ -1,6 +1,28 @@
 const yatte = require("../index");
-const engine = require('../base-templater');
 const assert = require('assert');
+
+describe('Assembly of text template via exported API', function() {
+    it('should assemble the oceans template', function() {
+        const template = "Oceans are:\n\n{[list Oceans]}\n * {[Name]} (Average depth {[AverageDepth]} m)\n{[endlist]}";
+        const evaluator = yatte.compileText(template);
+        const data = {
+            "Planet":"Earth",
+            "Continents":["Africa","Asia","Europe","North America","South America","Antarctica","Australia/Oceania"],
+            "Oceans":[
+                {"Name":"Pacific","AverageDepth":3970},
+                {"Name":"Atlantic","AverageDepth":3646},
+                {"Name":"Indian","AverageDepth":3741},
+                {"Name":"Southern","AverageDepth":3270},
+                {"Name":"Arctic","AverageDepth":1205}
+            ],
+            "IsHome":true,
+            "Lifeless":false
+        };
+        const result = evaluator(data);
+        assert.equal(result, "Oceans are:\n\n * Pacific (Average depth 3970 m)\n * Atlantic (Average depth 3646 m)\n * Indian (Average depth 3741 m)\n * Southern (Average depth 3270 m)\n * Arctic (Average depth 1205 m)\n");
+    });
+
+})
 
 /*
 {[if x]}
@@ -26,12 +48,10 @@ const assert = require('assert');
 {[endif]}
 */
 
-
-describe('AST Experimentation', function() {
+describe('Extracting logic from text templates', function() {
     it('should retrieve a unified AST for the TestNest text template', function() {
         const template = "{[if x]}{[list []]}{[test]}{[endlist]}{[elseif y]}{[A]}{[list outer]}{[z?B:B2]}{[list inner]}{[C]}{[endlist]}{[D]}{[endlist]}{[E]}{[else]}{[F]}{[list another]}{[G]}{[endlist]}{[H]}{[endif]}";
-        let result = yatte.extractFields(template);
-        let logic = engine.buildLogicTree(result);
+        let logic = yatte.extractLogic(template);
         assert.deepStrictEqual(logic, TestNestLogicTree);
     });
     it('should retrieve a unified AST for the redundant_if text template', function() {
@@ -40,8 +60,7 @@ Well, all I can say is “{[?x]}Something {[adjective]}{[:]}nothing{[/?]}.”
 {[name]}, do you think {[if x]}about it much{[else]}anything{[endif]}?
         
 The logic tree should include the if twice, but should call for the data only once.`;
-        let result = yatte.extractFields(template);
-        let logic = engine.buildLogicTree(result);
+        let logic = yatte.extractLogic(template);
         assert.deepStrictEqual(logic, redundant_if_logic_tree);
     });
 })
