@@ -4,20 +4,25 @@ const ContextStack = require('./context-stack');
 const OD = require('./fieldtypes');
 const base = require('./base-templater');
 
-var contextStack;
+class TextEvaluator {
+    constructor (context) {
+        this.context = context;
+        this.contextStack = new ContextStack();
+    }
 
-const assembleText = function (context, parsedTemplate) {
-    contextStack = new ContextStack();
-    contextStack.pushObject('_top', context);
-    let contextFrame = contextStack.peek();
-    const text = parsedTemplate.map(contentItem => ContentReplacementTransform(contentItem, contextFrame)).join("");
-    contextStack.popObject();
-    contextStack = null;
-    return text;
+    assemble(contentArray) {
+        this.contextStack.pushObject('_top', this.context);
+        let contextFrame = this.contextStack.peek();
+        const text = contentArray.map(contentItem => ContentReplacementTransform(contentItem, contextFrame, this.contextStack)).join("");
+        this.contextStack.popObject();
+        if (!this.contextStack.empty())
+            throw "Error: context stack not empty after text assembly"
+        return text;
+    }
 }
-exports.assembleText = assembleText;
+module.exports = TextEvaluator;
 
-function ContentReplacementTransform(contentItem, contextFrame)
+function ContentReplacementTransform(contentItem, contextFrame, contextStack)
 {
     if (!contentItem)
         return "";
@@ -52,7 +57,7 @@ function ContentReplacementTransform(contentItem, contextFrame)
             const indices = contextStack.pushList(contentItem.expr, iterable);
             const allContent = indices.map(index => {
                 contextStack.pushObject('o' + index, index);
-                const listItemContent = contentItem.contentArray.map(listContentItem => ContentReplacementTransform(listContentItem, contextStack.peek()));
+                const listItemContent = contentItem.contentArray.map(listContentItem => ContentReplacementTransform(listContentItem, contextStack.peek(), contextStack));
                 contextStack.popObject();
                 return listItemContent.join("");
             });
@@ -76,16 +81,16 @@ function ContentReplacementTransform(contentItem, contextFrame)
             {
                 const content = contentItem.contentArray
                     .filter(item => (typeof item != "object") || (item == null) || (item.type != OD.ElseIf && item.type != OD.Else))
-                    .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, frame));
+                    .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, frame, contextStack));
                 return content.join("");
             }
             let elseCond = contentItem.contentArray.find(item => (typeof item == "object" && item != null && (item.type == OD.ElseIf || item.type == OD.Else)));
             if (elseCond) {
                 if (elseCond.type == OD.ElseIf)
-                    return ContentReplacementTransform(elseCond, frame);
+                    return ContentReplacementTransform(elseCond, frame, contextStack);
                 // else
                 const content = elseCond.contentArray
-                    .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, frame));
+                    .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, frame, contextStack));
                 return content.join("");
             }
             return "";

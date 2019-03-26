@@ -21,6 +21,23 @@ describe('Assembly of text template via exported API', function() {
         const result = evaluator(data);
         assert.equal(result, "Oceans are:\n\n * Pacific (Average depth 3970 m)\n * Atlantic (Average depth 3646 m)\n * Indian (Average depth 3741 m)\n * Southern (Average depth 3270 m)\n * Arctic (Average depth 1205 m)\n");
     });
+    it('should assemble the (simple) full name template, then another template which uses that one', function() {
+        const fullName = '{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}';
+        const evaluator = yatte.compileText(fullName);
+        const data = {
+            "FirstName":"John",
+            "MiddleName":"Jacob",
+            "LastName":"Smith"
+        };
+        Object.defineProperty(data, 'FullName', {
+            get () {
+                return evaluator(this)
+            }
+        })
+        const template2 = "Who is {[FullName]}?"
+        const result = yatte.assembleText(template2, data);
+        assert.equal(result, "Who is John Jacob Smith?");
+    })
 
 })
 
@@ -143,6 +160,34 @@ const redundant_if_logic_tree = [
     }
     ];
     
+/*
+    way to recursively process logic tree to accumulate two lists:
+     - a list of logical conditions for when each identifier is relevant (i.e., the user must have the opportunity to provide a value for it)
+     - a list of logical conditions for when each identifier should be required (i.e., the user is required to provide a value for it before finishing)
+
+    * an If node imposes on its expression, that the constituents of that expression are relevant so its Truthiness can be assessed
+        * also on its contentArray, that they are relevant if that expression evaluates to Truthy (&&'ed with whatever relevance conditions were present from the If's own context)
+    * an ElseIf node imposes on its expression, that the constituents of that expression are relevant (so its Truthiness can be assessed, regardless of whether the If's expression or preceding ElseIf's evaluate to Truthy or not)
+        * also on its content array, that they are relvant if the proceeding If is Falsy, and all preceding ElseIfs are also Falsy, and this one evaluates to Truthy (&&'ed with whatever relevance conditions were present from the If's own context)
+    * an Else node imposes on its content array, that they are relevant if all preceeding If and ElseIf nodes are Falsy (&&'ed with whatever relevance conditions were present from the If's own context)
+    * a List node imposes on its expression, that the constituents of that expression are relevant so the list can be answered in the app
+        * also on everything in its contentArray, that they are relevant only if _index0 < _count
+    * a Content node imposes on the components of its expression, that they are relevant according to the relevance of the Context node
+    * Inside expressions:
+        * ConditionalExpression: 
+            * test: imposes that the constituents of that expression are relevant so its Truthiness can be assessed -- && true
+            * alternate: imposes that the constituents of that expression are relevant if test evaluates to Truthy -- && test
+            * consequent: imposes that the constituents of that expression are relevant if test evaluates to Falsy -- && !test
+        * LogicalExpression and BinaryExpression:
+            * left: always relevant -- && true
+            * right: always relevant -- && true
+        * Unary Expression: no impact -- always relevant -- && true
+        * MemberExpression, CallExpression, etc. -- always relevant
+    
+    * a Content node imposes on the components of its expression, that they are REQUIRED according to the relevance of the Context node
+
+ */
+
     const TestNestLogicTree = [
         {
             type: "If",
