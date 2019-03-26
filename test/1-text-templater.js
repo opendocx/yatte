@@ -1,7 +1,7 @@
 const textTemplater = require("../text-templater");
 var assert = require('assert');
 
-describe('Parsing simple conditionals', function() {
+describe('Field parsing of simple conditionals', function() {
     it('should parse the FullName template', function() {
         const template = "{[First]} {[if Middle]}{[Middle]} {[endif]}{[Last]}{[if Suffix]} {[Suffix]}{[endif]}";
         const result = textTemplater.parseTemplate(template, false);
@@ -134,7 +134,7 @@ describe('Parsing simple conditionals', function() {
     });
 })
 
-describe('Parsing nested conditionals', function() {
+describe('Field parsing of nested conditionals', function() {
     it('should parse the if/if/endif/elseif/if/endif/else/if/endif/endif template', function() {
         const template = "{[if false]}{[if true]}A{[endif]}{[elseif false]}{[if true]}B{[endif]}{[else]}{[if true]}C{[endif]}{[endif]}";
         const result = textTemplater.parseTemplate(template, false);
@@ -187,7 +187,7 @@ describe('Parsing nested conditionals', function() {
     });
 })
 
-describe('Parsing lists and nested lists', function() {
+describe('Field parsing of lists and nested lists', function() {
     it('should parse the list/endlist template', function() {
         const template = "{[list []]}{[.]}{[endlist]}";
         const result = textTemplater.parseTemplate(template, false);
@@ -357,5 +357,74 @@ describe('Parsing nested conditionals and lists', function() {
         } catch(err) {
             assert.equal(err, "Else cannot be in a List");
         }
+    });
+})
+
+describe('Parsing and normalization of expressions', function() {
+    it('should parse and cache an expression with no fields', function() {
+        const template = "static text";
+        const result = textTemplater.parseTemplate(template);
+        assert.deepEqual(result, ["static text"]);
+        const result2= textTemplater.parseTemplate(template);
+        assert.deepEqual(result2, ["static text"]);
+        assert(result === result2);
+    });
+    it('should correctly normalize conditional and binary expressions', function() {
+        const template = '{[a]} {[b ? b + " " : ""]}{[c]}'
+        const result = textTemplater.parseTemplate(template);
+        assert.deepStrictEqual(result, [
+            {
+                "type": "Content",
+                "expr": "a",
+                "exprAst": {
+                    "type": "Identifier",
+                    "name": "a",
+                    "constant": false
+                },
+            }, 
+            " ",
+            {
+                "type": "Content",
+                "expr": 'b?b+" ":""',
+                "exprAst": {
+                    "type": "ConditionalExpression",
+                    "test": {
+                        "type": "Identifier",
+                        "name": "b",
+                        "constant": false
+                    },
+                    "alternate": {
+                        "type": "BinaryExpression",
+                        "left": {
+                            "type": "Identifier",
+                            "name": "b",
+                            "constant": false
+                        },
+                        "operator": "+",
+                        "right": {
+                            "type": "Literal",
+                            "value": " ",
+                            "constant": true
+                        },
+                        "constant": false
+                    },
+                    "consequent": {
+                        "type": "Literal",
+                        "value": "",
+                        "constant": true
+                    },
+                    "constant": false
+                }
+            },
+            {
+                "type": "Content",
+                "expr": "c",
+                "exprAst": {
+                    "type": "Identifier",
+                    "name": "c",
+                    "constant": false
+                },
+            }
+        ])
     });
 })

@@ -16,8 +16,8 @@ exports.parseTemplate = function(template, bIncludeExpressions = true)
     template = template.replace(_blockFieldRE, `{$1}`);
     let templateSplit = template.split(_fieldRE);
     if (templateSplit.length < 2) {  // no fields
-        templateCache[template] = template;
-        return template;
+        templateCache[template] = [template];
+        return templateCache[template];
     }
     return base.parseContentArray(templateSplit, bIncludeExpressions);
 }

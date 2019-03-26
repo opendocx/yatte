@@ -326,7 +326,7 @@ const serializeAstNode = function(astNode) {
             return serializeAstNode(astNode.key) + ':' + serializeAstNode(astNode.value);
         case 'BinaryExpression':
         case 'LogicalExpression':
-            return astNode.left + astNode.operator + astNode.right;
+            return serializeAstNode(astNode.left) + astNode.operator + serializeAstNode(astNode.right);
         case 'UnaryExpression':
             return astNode.prefix ? (astNode.operator + serializeAstNode(astNode.argument)) : (serializeAstNode(astNode.argument) + astNode.operator);
         case 'ConditionalExpression':
