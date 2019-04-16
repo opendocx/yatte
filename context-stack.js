@@ -91,7 +91,13 @@ function createListFrame (name, iterable, parentFrame) {
 
 function createListItemFrame (name, index, listFrame) {
     var itemBaseContext = listFrame.array[index];
-    var itemContext = (typeof itemBaseContext == "object") ? Object.create(itemBaseContext) : wrapPrimitive(itemBaseContext);
+    var itemContext;
+    if (typeof itemBaseContext === 'object') {
+        Object.setPrototypeOf(itemBaseContext, listFrame.parentFrame.context);
+        itemContext = Object.create(itemBaseContext);
+    } else {
+        itemContext = wrapPrimitive(itemBaseContext);
+    }
     Object.defineProperties(itemContext, {
         _index0: { value: index },
         _index: { value: index + 1 },

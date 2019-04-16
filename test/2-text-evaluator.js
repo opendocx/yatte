@@ -85,6 +85,16 @@ describe('Assembling text templates', function() {
         const result = (new TextEvaluator(data)).assemble(compiled);
         assert.equal(result, "Continents containing u:\n\n * Europe\n * South America\n * Australia/Oceania\n");
     });
+    it('should assemble a document with a primitive list, _index and _parent', function() {
+        const template = "Continents:\n\n{[list Continents]}\n * {[.]} (#{[_index]} on {[_parent.Planet]})\n{[endlist]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Planet":"Earth",
+            "Continents":["Africa","Asia","Europe","North America","South America","Antarctica","Australia/Oceania"],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "Continents:\n\n * Africa (#1 on Earth)\n * Asia (#2 on Earth)\n * Europe (#3 on Earth)\n * North America (#4 on Earth)\n * South America (#5 on Earth)\n * Antarctica (#6 on Earth)\n * Australia/Oceania (#7 on Earth)\n");
+    });
     it('should assemble a (simple) full name template', function() {
         const template = '{[ClientFirstName]} {[ClientMiddleName?ClientMiddleName + " ":""]}{[ClientLastName]}';
         const compiled = templater.parseTemplate(template);

@@ -21,6 +21,22 @@ describe('Assembly of text template via exported API', function() {
         const result = evaluator(data);
         assert.equal(result, "Oceans are:\n\n * Pacific (Average depth 3970 m)\n * Atlantic (Average depth 3646 m)\n * Indian (Average depth 3741 m)\n * Southern (Average depth 3270 m)\n * Arctic (Average depth 1205 m)\n");
     });
+    it('should assemble a template with a list containing a non-repeated field', function() {
+        const template = "{[Planet]}'s oceans are:\n\n{[list Oceans]}\n{[Planet]} > {[Name]}\n{[endlist]}";
+        const evaluator = yatte.compileText(template);
+        const data = {
+            "Planet":"Earth",
+            "Oceans":[
+                {"Name":"Pacific","AverageDepth":3970},
+                {"Name":"Atlantic","AverageDepth":3646},
+                {"Name":"Indian","AverageDepth":3741},
+                {"Name":"Southern","AverageDepth":3270},
+                {"Name":"Arctic","AverageDepth":1205}
+            ]
+        };
+        const result = evaluator(data);
+        assert.equal(result, "Earth's oceans are:\n\nEarth > Pacific\nEarth > Atlantic\nEarth > Indian\nEarth > Southern\nEarth > Arctic\n");
+    });
     it('should assemble the (simple) full name template, then another template which uses that one', function() {
         const fullName = '{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}';
         const evaluator = yatte.compileText(fullName);
