@@ -41,7 +41,7 @@ An _if_ field contains an expression that is evaluated for purposes of determini
 
 _If_ fields can also include alternatives ("_else_") or chains of alternatives ("_elseif_").
 
-#### _list_ fields cause text to be repeated as many times as is dictated by the data provided by the caller. Lists can also be nested as deeply as necessary.
+#### _list_ fields cause text to be repeated as many times as is dictated by the data provided by the caller. Lists can also be nested as deeply as necessary. 
 ```
 My beneficiaries are:
 {[list beneficiaries]}
