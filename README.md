@@ -85,9 +85,9 @@ const assert = require('assert');
 const template = "Hello {[World]}!";
 const evaluator = yatte.compileText(template);
 // ... later ...
-const data = { Planet: "Earth" };
+const data = { World: "Earth" };
 const result = evaluator(data);
-assert.equal(result, "Hello World!");
+assert.equal(result, "Hello Earth!");
 ```
 
 Prior Art
