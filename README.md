@@ -69,7 +69,7 @@ const assert = require('assert');
 const template = "Hello {[World]}!";
 const data = { World: "Earth" };
 const result = yatte.assembleText(template, data);
-assert.equal(result, "Hello World!");
+assert.equal(result, "Hello Earth!");
 ```
 
 #### compileText
@@ -94,7 +94,7 @@ Prior Art
 ---------
 
 Yatte's approach to compiling and assembling text was inspired by the pure functional transformations in
-* [Open-Xml-Power-Tools](https://github.com/EricWhiteDev/Open-Xml-PowerTools), maintained by Eric White.
+* [Open-Xml-Power-Tools](https://github.com/EricWhiteDev/Open-Xml-PowerTools), maintained by Eric White. Open-Xml-Power-Tools is also more closely related to [OpenDocx](https://github.com/opendocx/opendocx), Yatte's companion project that allows assembly of DOCX files using the identical syntax and features as Yatte.
 
 Yatte's creator also drew inspiration from these fantastic text templating engines:
 * [Dust.js](https://www.dustjs.com/)
