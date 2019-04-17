@@ -25,14 +25,14 @@ Template markup is accomplished using "fields" to describe how the content shoul
 
 Yatte currently supports three types of fields: Content, If, and List. More samples (and possibly additional types of fields!) are coming soon.
 
-**Content** fields cause additional text to be added (merged) into the template text.
+#### _Content_ fields cause additional text to be added (merged) into the template text.
 ```
 {[First]} {[Last]}
 ```
 
 Content fields can contain either simple identfiers or expressions. Expressions use a subset of standard JavaScript syntax, and identifiers in those expressions can refer to any type of JavaScript construct: variables, objects, functions, etc..
 
-**If** fields cause a portion of the template text to be included or excluded based on logical conditions.
+#### _if_ fields cause a portion of the template text to be included or excluded based on logical conditions.
 ```
 {[First]} {[if Middle]}{[Middle]} {[endif]}{[Last]}
 ```
@@ -41,7 +41,7 @@ An _if_ field contains an expression that is evaluated for purposes of determini
 
 _If_ fields can also include alternatives ("_else_") or chains of alternatives ("_elseif_").
 
-**List** fields cause text to be repeated as many times as is dictated by the data provided by the caller. Lists can also be nested as deeply as necessary.
+#### _list_ fields cause text to be repeated as many times as is dictated by the data provided by the caller. Lists can also be nested as deeply as necessary.
 ```
 My beneficiaries are:
 {[list beneficiaries]}
@@ -67,7 +67,7 @@ const yatte = require("yatte");
 const assert = require('assert');
 
 const template = "Hello {[World]}!";
-const data = { Planet: "Earth" };
+const data = { World: "Earth" };
 const result = yatte.assembleText(template, data);
 assert.equal(result, "Hello World!");
 ```
