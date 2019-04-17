@@ -42,9 +42,23 @@ const buildLogicTree = function(astBody) {
 }
 exports.buildLogicTree = buildLogicTree;
 
+const compiledExprCache = {}
+
 const compileExpr = function(expr) {
     if (expr == ".") expr = "this";
-    return expressions.compile(expr);
+    const cacheKey = expr;
+    let result = compiledExprCache[cacheKey];
+    if (!result) {
+        result = expressions.compile(expr);
+        // hack: re-process expressions containing list filters (sort, filter, map, group)
+        // to replace their parameters with strings containing normalized expressions.
+        if (doctorListFilters(result.ast)) {
+            let newExpr = serializeAstNode(result.ast.body[0].expression);
+            result = expressions.compile(newExpr)
+        }
+        compiledExprCache[cacheKey] = result;
+    }
+    return result;
 }
 exports.compileExpr = compileExpr;
 
@@ -87,7 +101,6 @@ const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
         node = createNode(OD.List, match[1], fieldId);
         if (bIncludeExpressions) {
             parseFieldExpr(node);
-            node.exprAst.expectarray = true;
         } 
         node.contentArray = parseContentUntil(contentArray, idx + 1, OD.EndList, bIncludeExpressions);
     }
@@ -114,11 +127,15 @@ const parseFieldExpr = function(fieldObj) {
     // fieldObj is an object with two properties:
     //   type (string): the field type
     //   expr (string): the expression within the field that wants to be parsed
+    const expectarray = (fieldObj.type == OD.List);
     let error = null;
     let compiledExpr;
     try {
         compiledExpr = compileExpr(fieldObj.expr);
         fieldObj.exprAst = reduceAstNode(compiledExpr.ast.body[0].expression);
+        if (expectarray) {
+            fieldObj.exprAst.expectarray = expectarray;
+        }
         fieldObj.expr = serializeAstNode(fieldObj.exprAst); // normalize all expressions
     } catch (err) {
         error = err;
@@ -258,7 +275,7 @@ const simplifyNode2 = function(astNode) {
 
 const reduceAstNode = function(astNode) {
     // prune endlessly recursive property
-    const {toWatch, ...simplified} = astNode; 
+    const {toWatch, watchId, ...simplified} = astNode; 
     for (let prop in simplified) {
         switch (prop) {
             case 'object':
@@ -337,5 +354,55 @@ const serializeAstNode = function(astNode) {
             return 'this';
         default:
             throw 'Unsupported expression type';
+    }
+}
+
+const doctorListFilters = function(astNode) {
+    switch(astNode.type) {
+        case 'Program':
+            return doctorListFilters(astNode.body[0]);
+        case 'ExpressionStatement':
+            return doctorListFilters(astNode.expression);
+        case 'Literal':
+        case 'Identifier':
+        case 'ThisExpression':
+            return false;
+        case 'MemberExpression':
+            return doctorListFilters(astNode.object) | doctorListFilters(astNode.property);
+        case 'CallExpression':
+            if (!astNode.filter) {
+                return doctorListFilters(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= doctorListFilters(argObj), false);
+            } // else astNode.filter == true
+            switch (astNode.callee.name) {
+                case 'sort':
+                case 'filter':
+                case 'map':
+                case 'group':
+                    let changed = false
+                    for (let i = 1; i < astNode.arguments.length; i++) {
+                        if (astNode.arguments[i].type != 'Literal') {
+                            astNode.arguments[i] = {type: 'Literal', constant: true, value: serializeAstNode(astNode.arguments[i])}
+                            changed = true;
+                        }
+                    }
+                    return changed;
+                default:
+                    return doctorListFilters(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= doctorListFilters(argObj), false);
+            }
+        case 'ArrayExpression':
+            return astNode.elements.reduce((accumulator, elem) => accumulator |= doctorListFilters(elem), false);
+        case 'ObjectExpression':
+            return astNode.properties.reduce((accumulator, prop) => accumulator |= doctorListFilters(prop), false);
+        case 'Property':
+            return doctorListFilters(astNode.key) | doctorListFilters(astNode.value);
+        case 'BinaryExpression':
+        case 'LogicalExpression':
+            return doctorListFilters(astNode.left) | doctorListFilters(astNode.right);
+        case 'UnaryExpression':
+            return doctorListFilters(astNode.argument);
+        case 'ConditionalExpression':
+            return doctorListFilters(astNode.test) | doctorListFilters(astNode.alternate) | (astNode.consequent ? doctorListFilters(astNode.consequent) : false);
+        default:
+            return false;
     }
 }

@@ -69,3 +69,40 @@ expressions.filters.else = function(input, unansweredFmt) {
     if (input === null || typeof input === 'undefined') return unansweredFmt
     return input;
 }
+
+// list filtering
+expressions.filters.sort = function(input) {
+    if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) return input;
+    let reverse1 = false
+    let sort1 = arguments[1]
+    if (sort1[0] === '-' || sort1[0] === '+') {
+        reverse1 = (sort1[0] === '-')
+        sort1 = sort1.substr(1)
+    }
+    const criteria1 = expressions.compile(sort1)
+    return input.slice().sort((a,b) => {
+        const item1 = criteria1(a)
+        const item2 = criteria1(b)
+        if (item1 < item2)
+            return reverse1 ? 1 : -1
+        if (item1 > item2)
+            return reverse1 ? -1 : 1
+        // else
+        return 0
+    })
+}
+expressions.filters.filter = function(input, predicateStr) {
+    if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) return input;
+    const evaluator = expressions.compile(predicateStr);
+    return input.filter(item => evaluator(item));
+}
+expressions.filters.map = function(input, mappedStr) {
+    if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) return input;
+    const evaluator = expressions.compile(mappedStr);
+    return input.map(item => evaluator(item));
+}
+// expressions.filters.group = function(input) {
+//     if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) return input;
+//     // not implemented yet
+//     debugger;
+// }

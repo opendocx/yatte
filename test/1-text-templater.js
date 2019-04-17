@@ -360,6 +360,64 @@ describe('Parsing nested conditionals and lists', function() {
     });
 })
 
+describe('Parsing and normalization of list filters', function() {
+    it('should parse a filtered list template', function() {
+        const template = "{[list Oceans | filter: AverageDepth > 3500]}\n * {[Name]}\n{[endlist]}";
+        const compiled = textTemplater.parseTemplate(template);
+        assert.deepStrictEqual(compiled, [
+            {
+                type: 'List',
+                expr: 'Oceans|filter:"AverageDepth>3500"',
+                exprAst: {
+                    type: "CallExpression",
+                    filter: true,
+                    callee: {
+                        name: "filter",
+                        type: "Identifier"
+                    },
+                    arguments: [
+                        {
+                            name: "Oceans",
+                            type: "Identifier",
+                            constant: false
+                        },
+                        {
+                            type: "Literal",
+                            value: "AverageDepth>3500",
+                            constant: true
+                        },
+                    ],
+                    constant: false,
+                    expectarray: true
+                },
+                contentArray: [
+                    " * ",
+                    {
+                        type: "Content",
+                        expr: "Name",
+                        exprAst: {
+                            constant: false,
+                            name: "Name",
+                            type: "Identifier",
+                        }
+                    },
+                    "\n",
+                    {type: "EndList"}
+                ]
+            }
+        ])
+        // const data = {
+        //     "Oceans":[
+        //         {"Name":"Pacific","AverageDepth":3970},
+        //         {"Name":"Atlantic","AverageDepth":3646},
+        //         {"Name":"Indian","AverageDepth":3741},
+        //         {"Name":"Southern","AverageDepth":3270},
+        //         {"Name":"Arctic","AverageDepth":1205}
+        //     ],
+        // };
+    });
+})
+
 describe('Parsing and normalization of expressions', function() {
     it('should parse and cache an expression with no fields', function() {
         const template = "static text";

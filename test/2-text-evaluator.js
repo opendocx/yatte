@@ -85,6 +85,51 @@ describe('Assembling text templates', function() {
         const result = (new TextEvaluator(data)).assemble(compiled);
         assert.equal(result, "Continents containing u:\n\n * Europe\n * South America\n * Australia/Oceania\n");
     });
+    it('should assemble a dynamically filtered list', function() {
+        const template = "{[list Oceans | filter: AverageDepth < 3500]}\n * {[Name]}\n{[endlist]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Oceans":[
+                {"Name":"Pacific","AverageDepth":3970},
+                {"Name":"Atlantic","AverageDepth":3646},
+                {"Name":"Indian","AverageDepth":3741},
+                {"Name":"Southern","AverageDepth":3270},
+                {"Name":"Arctic","AverageDepth":1205}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, " * Southern\n * Arctic\n");
+    });
+    it('should assemble a dynamically sorted list (ascending by name)', function() {
+        const template = "{[list Oceans | sort: Name]}\n*{[Name]}\n{[endlist]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Oceans":[
+                {"Name":"Pacific","AverageDepth":3970},
+                {"Name":"Atlantic","AverageDepth":3646},
+                {"Name":"Indian","AverageDepth":3741},
+                {"Name":"Southern","AverageDepth":3270},
+                {"Name":"Arctic","AverageDepth":1205}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "*Arctic\n*Atlantic\n*Indian\n*Pacific\n*Southern\n");
+    });
+    it('should assemble a dynamically sorted list (descending by AverageDepth)', function() {
+        const template = "{[list Oceans | sort: -AverageDepth]}\n*{[Name]}\n{[endlist]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Oceans":[
+                {"Name":"Pacific","AverageDepth":3970},
+                {"Name":"Atlantic","AverageDepth":3646},
+                {"Name":"Indian","AverageDepth":3741},
+                {"Name":"Southern","AverageDepth":3270},
+                {"Name":"Arctic","AverageDepth":1205}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "*Pacific\n*Indian\n*Atlantic\n*Southern\n*Arctic\n");
+    });
     it('should assemble a document with a primitive list, _index and _parent', function() {
         const template = "Continents:\n\n{[list Continents]}\n * {[.]} (#{[_index]} on {[_parent.Planet]})\n{[endlist]}";
         const compiled = templater.parseTemplate(template);
