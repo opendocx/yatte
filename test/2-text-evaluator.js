@@ -116,7 +116,7 @@ describe('Assembling text templates', function() {
         assert.equal(result, "*Arctic\n*Atlantic\n*Indian\n*Pacific\n*Southern\n");
     });
     it('should assemble a dynamically sorted list (descending by AverageDepth)', function() {
-        const template = "{[list Oceans | sort: -AverageDepth]}\n*{[Name]}\n{[endlist]}";
+        const template = "{[list Oceans | sort: -AverageDepth]}\n{[Name]}\n{[endlist]}";
         const compiled = templater.parseTemplate(template);
         const data = {
             "Oceans":[
@@ -128,7 +128,58 @@ describe('Assembling text templates', function() {
             ],
         };
         const result = (new TextEvaluator(data)).assemble(compiled);
-        assert.equal(result, "*Pacific\n*Indian\n*Atlantic\n*Southern\n*Arctic\n");
+        assert.equal(result, "Pacific\nIndian\nAtlantic\nSouthern\nArctic\n");
+    });
+    it('should assemble a dynamically sorted list (descending by birth date, then ascending by name)', function() {
+        const template = "{[list Children | sort:-Birth:+Name]}\n{[Name]}\n{[endlist]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5)},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5)},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24)},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24)},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24)},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1)},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1)}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "Eric\nMark\nTed\nBeth\nYolanda\nAlice\nJohn\n");
+    });
+    it('should assemble a dynamically sorted THEN filtered list', function() {
+        const template = "{[list Children | sort:-Birth:+Name | filter:Group=='A']}\n*{[Name]}\n{[endlist]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1),Group: "A"},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1),Group: "A"}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "*Beth\n*Yolanda\n*Alice\n*John\n");
+    });
+    it('should assemble a dynamically filtered THEN sorted list', function() {
+        const template = "{[list Children | filter:Group=='A' | sort:-Birth:+Name]}\n*{[Name]}\n{[endlist]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1),Group: "A"},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1),Group: "A"}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "*Beth\n*Yolanda\n*Alice\n*John\n");
     });
     it('should assemble a document with a primitive list, _index and _parent', function() {
         const template = "Continents:\n\n{[list Continents]}\n * {[.]} (#{[_index]} on {[_parent.Planet]})\n{[endlist]}";

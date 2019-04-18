@@ -310,6 +310,10 @@ const reduceAstNode = function(astNode) {
     return simplified;
 }
 
+const escapeQuotes = function(str) {
+    return str.replace(/"/g,'&quot;')
+}
+
 const serializeAstNode = function(astNode) {
     switch(astNode.type) {
         case 'Program':
@@ -379,9 +383,13 @@ const doctorListFilters = function(astNode) {
                 case 'map':
                 case 'group':
                     let changed = false
-                    for (let i = 1; i < astNode.arguments.length; i++) {
-                        if (astNode.arguments[i].type != 'Literal') {
-                            astNode.arguments[i] = {type: 'Literal', constant: true, value: serializeAstNode(astNode.arguments[i])}
+                    for (let i = 0; i < astNode.arguments.length; i++) {
+                        let argument = astNode.arguments[i];
+                        if (argument.type == 'CallExpression' && argument.filter) {
+                            changed |= doctorListFilters(argument);
+                        }
+                        else if (i > 0 && argument.type != 'Literal') {
+                            astNode.arguments[i] = {type: 'Literal', constant: true, value: escapeQuotes(serializeAstNode(argument))}
                             changed = true;
                         }
                     }

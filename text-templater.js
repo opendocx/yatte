@@ -12,8 +12,9 @@ exports.parseTemplate = function(template, bIncludeExpressions = true)
 {
     if (templateCache.hasOwnProperty(template))
         return templateCache[template];
-    // if any fields are on a lines by themselves, remove the CR/LF following those fields
-    template = template.replace(_blockFieldRE, `{$1}`);
+    // if any block-level paired fields are on a lines by themselves, remove the CR/LF following those fields
+    // (but leave block-level content fields alone)
+    template = template.replace(_blockFieldRE, _blockFieldReplacer);
     let templateSplit = template.split(_fieldRE);
     if (templateSplit.length < 2) {  // no fields
         templateCache[template] = [template];
@@ -21,8 +22,14 @@ exports.parseTemplate = function(template, bIncludeExpressions = true)
     }
     return base.parseContentArray(templateSplit, bIncludeExpressions);
 }
-
-const _blockFieldRE = /(?<=\n|\r|^)\{\s*(\[[^{}]*?\])\s*\}(?:\r\n|\n|\r)/g;
+const _blockFieldReplacer = function(match, fieldText, eol, offset, string) {
+    var cleaned = `{[${fieldText}]}`;
+    if (!fieldText.match(/^if|\?|else|\:|list|\#|end|\//)) {
+        cleaned += eol; 
+    }
+    return cleaned;
+}
+const _blockFieldRE = /(?<=\n|\r|^)\{\s*\[([^{}]*?)\]\s*\}(\r\n|\n|\r)/g;
 const _fieldRE   = /\{\s*(\[.*?\])\s*\}/;
 
 const extractFields = function (contentArray) {
