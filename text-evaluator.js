@@ -11,33 +11,33 @@ class TextEvaluator {
     }
 
     assemble(contentArray) {
-        this.contextStack.pushObject('_top', this.context);
-        let contextFrame = this.contextStack.peek();
-        const text = contentArray.map(contentItem => ContentReplacementTransform(contentItem, contextFrame, this.contextStack)).join("");
-        this.contextStack.popObject();
-        if (!this.contextStack.empty())
-            throw "Error: context stack not empty after text assembly"
+        this.contextStack.pushGlobal(this.context);
+        const text = contentArray.map(contentItem => ContentReplacementTransform(contentItem, this.contextStack)).join("");
+        this.contextStack.popGlobal();
         return text;
     }
 }
 module.exports = TextEvaluator;
 
-function ContentReplacementTransform(contentItem, contextFrame, contextStack)
+function ContentReplacementTransform(contentItem, contextStack)
 {
     if (!contentItem)
         return "";
-    if (typeof contentItem == "string")
+    if (typeof contentItem === "string")
         return contentItem;
-    if (typeof contentItem != "object")
+    if (typeof contentItem !== "object")
         throw `Unexpected content '${contentItem}'`;
     const frame = contextStack.peek();
-    if (frame.type != contextFrame.type || frame.parentFrame != contextFrame.parentFrame)
-        throw `Internal error: unexpected context for recursive transform (sanity check failed)`;
     switch (contentItem.type) {
         case OD.Content:
             try {
                 const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
-                let value = evaluator(contextFrame.context); // we need to make sure this is memoized to avoid unnecessary re-evaluation
+                let value
+                if (contentItem.expr !== 'this') { // generally
+                    value = evaluator(frame.global, frame.local); // we need to make sure this is memoized to avoid unnecessary re-evaluation
+                } else { // special case: when evaluating 'this', there are no locals, so pass value in as global scope object
+                    value = evaluator(frame.local);
+                }
                 if (value === null || typeof value === 'undefined') {
                     value = '[' + contentItem.expr + ']'; // missing value placeholder
                 }
@@ -50,14 +50,14 @@ function ContentReplacementTransform(contentItem, contextFrame, contextStack)
             let iterable;
             try {
                 const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
-                iterable = evaluator(contextFrame.context); // we need to make sure this is memoized to avoid unnecessary re-evaluation
+                iterable = evaluator(frame.global, frame.local); // we need to make sure this is memoized to avoid unnecessary re-evaluation
             } catch (err) {
                 return CreateContextErrorMessage("EvaluationException: " + err);
             }
             const indices = contextStack.pushList(contentItem.expr, iterable);
             const allContent = indices.map(index => {
                 contextStack.pushObject('o' + index, index);
-                const listItemContent = contentItem.contentArray.map(listContentItem => ContentReplacementTransform(listContentItem, contextStack.peek(), contextStack));
+                const listItemContent = contentItem.contentArray.map(listContentItem => ContentReplacementTransform(listContentItem, contextStack));
                 contextStack.popObject();
                 return listItemContent.join("");
             });
@@ -72,7 +72,7 @@ function ContentReplacementTransform(contentItem, contextFrame, contextStack)
                     throw `Internal error: cannot define a condition directly in a ${frame.type} context`;
                 }
                 const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
-                const value = evaluator(frame.context); // we need to make sure this is memoized to avoid unnecessary re-evaluation
+                const value = evaluator(frame.global, frame.local); // we need to make sure this is memoized to avoid unnecessary re-evaluation
                 bValue = ContextStack.IsTruthy(value);
             } catch (err) {
                 return CreateContextErrorMessage("EvaluationException: " + err);
@@ -81,16 +81,16 @@ function ContentReplacementTransform(contentItem, contextFrame, contextStack)
             {
                 const content = contentItem.contentArray
                     .filter(item => (typeof item != "object") || (item == null) || (item.type != OD.ElseIf && item.type != OD.Else))
-                    .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, frame, contextStack));
+                    .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, contextStack));
                 return content.join("");
             }
             let elseCond = contentItem.contentArray.find(item => (typeof item == "object" && item != null && (item.type == OD.ElseIf || item.type == OD.Else)));
             if (elseCond) {
                 if (elseCond.type == OD.ElseIf)
-                    return ContentReplacementTransform(elseCond, frame, contextStack);
+                    return ContentReplacementTransform(elseCond, contextStack);
                 // else
                 const content = elseCond.contentArray
-                    .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, frame, contextStack));
+                    .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, contextStack));
                 return content.join("");
             }
             return "";

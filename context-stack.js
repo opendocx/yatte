@@ -8,11 +8,23 @@ class ContextStack {
     empty () {
         return this.stack.length == 0;
     }
+    pushGlobal (contextObj) {
+        if (!this.empty())
+            throw 'Internal error: execution stack is not empty at beginning of assembly'
+        this.push(createGlobalFrame(contextObj))
+    }
+    popGlobal() {
+        const result = this.popObject()
+        if (!this.empty())
+            throw 'Internal error: execution stack is not empty at end of assembly'
+        return result
+    }
     pushObject (name, contextObj) {
         let currentFrame = this.peek();
         if (currentFrame && currentFrame.type == "List") {
             this.push(createListItemFrame(name, contextObj, currentFrame));
         } else {
+            throw 'Unexpected: pushing non-list stack frames not fully tested'
             this.push(createObjectFrame(name, contextObj, currentFrame));
         }
     }
@@ -76,34 +88,46 @@ module.exports = ContextStack;
 
 const indices = (length) => new Array(length).fill(undefined).map((value, index) => index)
 
+function createGlobalFrame (contextObj) {
+    return { type: 'Object', name: '_top', local: null, global: contextObj, parentFrame: null };
+}
+
 function createObjectFrame (name, contextObj, parentFrame) {
-    var context = Object.create(contextObj);
-    Object.defineProperties(context, {
-        _parent: { value: parentFrame ? parentFrame.context : null },
-    });
-    return { type: 'Object', name: name, context: context, parentFrame: parentFrame };
+    if (typeof contextObj !== 'object') throw 'Cannot create object stack frame for literal value'
+    let proto = Object.getPrototypeOf(contextObj)
+    if (parentFrame.local) {
+        // make a copy of the prototype object for the object, but redirect its prototype chain to point to the parent context
+        proto = shallowClone(proto, parentFrame.local)
+        Object.defineProperty(proto, '_parent', { value: parentFrame.local });
+    }
+    return { type: 'Object', name, local: shallowClone(contextObj, proto), global: parentFrame.global, parentFrame };
 }
 
 function createListFrame (name, iterable, parentFrame) {
     const array = iterable ? Array.from(iterable) : [];
-    return { type: 'List', name: name, array: array, parentFrame: parentFrame };
+    let proto = (array.length > 0 && typeof array[0] === 'object') ? Object.getPrototypeOf(array[0]) : null
+    if (proto !== null && parentFrame.local) {
+        // make a copy of the prototype object for list items, but redirect its prototype chain to point to the parent list item context
+        proto = shallowClone(proto, parentFrame.local)
+        Object.defineProperty(proto, '_parent', { value: parentFrame.local });
+    }
+    return { type: 'List', name, array, global: parentFrame.global, itemProto: proto, parentFrame };
 }
 
 function createListItemFrame (name, index, listFrame) {
-    var itemBaseContext = listFrame.array[index];
-    var itemContext;
-    if (typeof itemBaseContext === 'object') {
-        Object.setPrototypeOf(itemBaseContext, listFrame.parentFrame.context);
-        itemContext = Object.create(itemBaseContext);
+    const item = listFrame.array[index];
+    let local;
+    if (typeof item === 'object') { // listFrame.itemProto was set in createListFrame
+        local = shallowClone(item, listFrame.itemProto)
     } else {
-        itemContext = wrapPrimitive(itemBaseContext);
+        local = wrapPrimitive(item);
+        Object.defineProperty(local, '_parent', { value: listFrame.parentFrame.local })
     }
-    Object.defineProperties(itemContext, {
+    Object.defineProperties(local, {
         _index0: { value: index },
         _index: { value: index + 1 },
-        _parent: { value: listFrame.parentFrame.context },
     });
-    return { type: 'Object', name: name, context: itemContext, listFrame: listFrame };
+    return { type: 'Object', name, local, global: listFrame.global, parentFrame: listFrame };
 }
 
 function wrapPrimitive(value) {
@@ -115,4 +139,23 @@ function wrapPrimitive(value) {
         default: throw 'unexpected value type';
     }
     return val;
+}
+
+function isPrimitiveWrapper(obj) {
+    return obj.constructor && ['String', 'Number', 'Boolean'].includes(obj.constructor.name)
+}
+
+function shallowClone(obj, newProto) {
+    let clone
+    if (newProto && isPrimitiveWrapper(newProto)) {
+        const val = newProto.valueOf()
+        newProto = { _value: val }
+    }
+    if (obj === Object.prototype) {
+        clone = Object.create(newProto ? newProto : obj)
+    } else {
+        clone = Object.create(newProto ? newProto : Object.getPrototypeOf(obj))
+        Object.getOwnPropertyNames(obj).forEach(key => Object.defineProperty(clone, key, Object.getOwnPropertyDescriptor(obj, key)))
+    }
+    return clone
 }

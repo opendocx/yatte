@@ -181,8 +181,8 @@ describe('Assembling text templates', function() {
         const result = (new TextEvaluator(data)).assemble(compiled);
         assert.equal(result, "*Beth\n*Yolanda\n*Alice\n*John\n");
     });
-    it('should assemble a document with a primitive list, _index and _parent', function() {
-        const template = "Continents:\n\n{[list Continents]}\n * {[.]} (#{[_index]} on {[_parent.Planet]})\n{[endlist]}";
+    it('should assemble a document with a primitive list, _index', function() {
+        const template = "Continents:\n\n{[list Continents]}\n * {[.]} (#{[_index]} on {[Planet]})\n{[endlist]}";
         const compiled = templater.parseTemplate(template);
         const data = {
             "Planet":"Earth",
@@ -190,6 +190,40 @@ describe('Assembling text templates', function() {
         };
         const result = (new TextEvaluator(data)).assemble(compiled);
         assert.equal(result, "Continents:\n\n * Africa (#1 on Earth)\n * Asia (#2 on Earth)\n * Europe (#3 on Earth)\n * North America (#4 on Earth)\n * South America (#5 on Earth)\n * Antarctica (#6 on Earth)\n * Australia/Oceania (#7 on Earth)\n");
+    });
+    it('should assemble a document with a primitive list and a nested (unrelated) list, and then vice versa', function() {
+        const originalObjectPrototype = Object.prototype;
+        const originalStringPrototype = String.prototype;
+        const template = 'Continents:\n{[list Continents|filter:!this.startsWith("A")]}\n * {[.]} ({[list Oceans|filter:Name.startsWith("A")]}{[_index]}. {[Name]} in {[_parent]}, {[endlist]})\n{[endlist]}';
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Planet":"Earth",
+            "Continents":["Africa","Asia","Europe","North America","South America","Antarctica","Australia/Oceania"],
+            "Oceans":[
+                {"Name":"Pacific","AverageDepth":3970},
+                {"Name":"Atlantic","AverageDepth":3646},
+                {"Name":"Indian","AverageDepth":3741},
+                {"Name":"Southern","AverageDepth":3270},
+                {"Name":"Arctic","AverageDepth":1205}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "Continents:\n * Europe (1. Atlantic in Europe, 2. Arctic in Europe, )\n * North America (1. Atlantic in North America, 2. Arctic in North America, )\n * South America (1. Atlantic in South America, 2. Arctic in South America, )\n");
+        // ensure data context prototypes have not been messed with!
+        // assert.strictEqual(String.prototype, originalStringPrototype, 'String.prototype has changed') // I doubt this works anyway
+        // assert.strictEqual(data.Continents[0].prototype, String.prototype, 'primitive\'s prototype has beem modified in the data context')
+        // assert.strictEqual(Object.prototype, originalObjectPrototype, 'String.prototype has changed') // I doubt this works anyway
+        // assert.strictEqual(data.Oceans[0].prototype, Object.prototype, 'object\'s prototype has beem modified in the data context')
+
+        const template2 = 'Oceans:\n{[list Oceans|filter:Name.startsWith("A")]}\n * {[Name]} ({[list Continents|filter:!this.startsWith("A")]}{[_index]}. {[.]} in {[_parent.Name]}, {[endlist]})\n{[endlist]}';
+        const compiled2 = templater.parseTemplate(template2);
+        const result2 = (new TextEvaluator(data)).assemble(compiled2);
+        assert.equal(result2, "Oceans:\n * Atlantic (1. Europe in Atlantic, 2. North America in Atlantic, 3. South America in Atlantic, )\n * Arctic (1. Europe in Arctic, 2. North America in Arctic, 3. South America in Arctic, )\n");
+        // ensure data context prototypes have not been messed with!
+        // assert.strictEqual(String.prototype, originalStringPrototype, 'String.prototype has changed (#2)') // I doubt this works anyway
+        // assert.strictEqual(data.Continents[0].prototype, String.prototype, 'primitive\'s prototype has beem modified in the data context (#2)')
+        // assert.strictEqual(Object.prototype, originalObjectPrototype, 'String.prototype has changed (#2)') // I doubt this works anyway
+        // assert.strictEqual(data.Oceans[0].prototype, Object.prototype, 'object\'s prototype has beem modified in the data context (#2)')
     });
     it('should assemble a (simple) full name template', function() {
         const template = '{[ClientFirstName]} {[ClientMiddleName?ClientMiddleName + " ":""]}{[ClientLastName]}';
