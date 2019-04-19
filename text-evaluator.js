@@ -31,13 +31,8 @@ function ContentReplacementTransform(contentItem, contextStack)
     switch (contentItem.type) {
         case OD.Content:
             try {
-                const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
-                let value
-                if (contentItem.expr !== 'this') { // generally
-                    value = evaluator(frame.global, frame.local); // we need to make sure this is memoized to avoid unnecessary re-evaluation
-                } else { // special case: when evaluating 'this', there are no locals, so pass value in as global scope object
-                    value = evaluator(frame.local);
-                }
+                const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
+                let value = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
                 if (value === null || typeof value === 'undefined') {
                     value = '[' + contentItem.expr + ']'; // missing value placeholder
                 }
@@ -49,8 +44,8 @@ function ContentReplacementTransform(contentItem, contextStack)
         case OD.List:
             let iterable;
             try {
-                const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
-                iterable = evaluator(frame.global, frame.local); // we need to make sure this is memoized to avoid unnecessary re-evaluation
+                const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
+                iterable = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
             } catch (err) {
                 return CreateContextErrorMessage("EvaluationException: " + err);
             }
@@ -71,9 +66,9 @@ function ContentReplacementTransform(contentItem, contextStack)
                 if (frame.type != 'Object') {
                     throw `Internal error: cannot define a condition directly in a ${frame.type} context`;
                 }
-                const evaluator = base.compileExpr(contentItem.expr); // these are cached so this should be fast
-                const value = evaluator(frame.global, frame.local); // we need to make sure this is memoized to avoid unnecessary re-evaluation
-                bValue = ContextStack.IsTruthy(value);
+                const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
+                const value = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
+                bValue = ContextStack.IsTruthy(value)
             } catch (err) {
                 return CreateContextErrorMessage("EvaluationException: " + err);
             }

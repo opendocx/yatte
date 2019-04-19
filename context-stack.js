@@ -37,7 +37,7 @@ class ContextStack {
     pushList (name, iterable) {
         let newFrame = createListFrame(name, iterable, this.peek());
         this.push(newFrame);
-        return indices(newFrame.array.length);
+        return indices(newFrame.local.length);
     }
     popList() {
         const poppedFrame = this.pop();
@@ -88,8 +88,27 @@ module.exports = ContextStack;
 
 const indices = (length) => new Array(length).fill(undefined).map((value, index) => index)
 
-function createGlobalFrame (contextObj) {
-    return { type: 'Object', name: '_top', local: null, global: contextObj, parentFrame: null };
+class StackFrame {
+    constructor (type, name, local, parent, global = parent.global) {
+        this.type = type;
+        this.name = name;
+        this.local = local ? local : null;
+        this.parentFrame = parent;
+        this.global = global;
+    }
+
+    evaluate(compiledExpr) {
+        if (compiledExpr.ast.body[0].expression.type === 'ThisExpression') {
+            // special case: when evaluating 'this', there are no locals, so pass value in as global scope object
+            return compiledExpr(this.local)
+        }
+        // general case
+        return compiledExpr(this.global, this.local)
+    }
+}
+
+function createGlobalFrame (contextObj, name = '_odx') {
+    return new StackFrame('Object', name, null, null, contextObj);
 }
 
 function createObjectFrame (name, contextObj, parentFrame) {
@@ -100,22 +119,24 @@ function createObjectFrame (name, contextObj, parentFrame) {
         proto = shallowClone(proto, parentFrame.local)
         Object.defineProperty(proto, '_parent', { value: parentFrame.local });
     }
-    return { type: 'Object', name, local: shallowClone(contextObj, proto), global: parentFrame.global, parentFrame };
+    return new StackFrame('Object', name, shallowClone(contextObj, proto), parentFrame)
 }
 
 function createListFrame (name, iterable, parentFrame) {
-    const array = iterable ? Array.from(iterable) : [];
+    const array = iterable ? Array.from(iterable) : []
     let proto = (array.length > 0 && typeof array[0] === 'object') ? Object.getPrototypeOf(array[0]) : null
     if (proto !== null && parentFrame.local) {
         // make a copy of the prototype object for list items, but redirect its prototype chain to point to the parent list item context
         proto = shallowClone(proto, parentFrame.local)
-        Object.defineProperty(proto, '_parent', { value: parentFrame.local });
+        Object.defineProperty(proto, '_parent', { value: parentFrame.local })
     }
-    return { type: 'List', name, array, global: parentFrame.global, itemProto: proto, parentFrame };
+    const frame = new StackFrame('List', name, array, parentFrame)
+    frame.itemProto = proto
+    return frame
 }
 
 function createListItemFrame (name, index, listFrame) {
-    const item = listFrame.array[index];
+    const item = listFrame.local[index];
     let local;
     if (typeof item === 'object') { // listFrame.itemProto was set in createListFrame
         local = shallowClone(item, listFrame.itemProto)
@@ -127,7 +148,7 @@ function createListItemFrame (name, index, listFrame) {
         _index0: { value: index },
         _index: { value: index + 1 },
     });
-    return { type: 'Object', name, local, global: listFrame.global, parentFrame: listFrame };
+    return new StackFrame('Object', name, local, listFrame)
 }
 
 function wrapPrimitive(value) {
