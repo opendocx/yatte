@@ -23,4 +23,3 @@ exports.assembleText = function (template, context) {
 exports.FieldTypes = require('./fieldtypes');
 exports.ContextStack = require('./context-stack');
 exports.Table = require('./table');
-exports.TestHelperTypes = require('./test/types-test');
