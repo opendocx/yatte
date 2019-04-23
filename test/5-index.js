@@ -37,6 +37,46 @@ describe('Assembly of text template via exported API', function() {
         const result = evaluator(data);
         assert.equal(result, "Earth's oceans are:\n\nEarth > Pacific\nEarth > Atlantic\nEarth > Indian\nEarth > Southern\nEarth > Arctic\n");
     });
+    it('should assemble a punctuated list template', function() {
+        const template = 'The oceans are {[list Oceans|punc:", ":" and "]}{[Name]}{[endlist]}.'
+        const evaluator = yatte.compileText(template);
+        const data = {
+            "Oceans":[
+                {"Name":"Pacific","AverageDepth":3970},
+                {"Name":"Atlantic","AverageDepth":3646},
+                {"Name":"Indian","AverageDepth":3741},
+                {"Name":"Southern","AverageDepth":3270},
+                {"Name":"Arctic","AverageDepth":1205}
+            ]
+        };
+        const result = evaluator(data);
+        assert.equal(result, "The oceans are Pacific, Atlantic, Indian, Southern and Arctic.");
+    });
+    it('should assemble a punctuated list template with oxford comma', function() {
+        const template = 'My favorite colors are {[list Colors|punc:", ":", and ":" and "]}{[Name]}{[endlist]}.'
+        const evaluator = yatte.compileText(template);
+        const data = {
+            "Colors":[
+                {"Name":"Red"},
+                {"Name":"Blue"},
+                {"Name":"Green"}
+            ]
+        };
+        const result = evaluator(data);
+        assert.equal(result, "My favorite colors are Red, Blue, and Green.");
+    });
+    it('should assemble a punctuated list template with only two items', function() {
+        const template = 'My favorite colors are {[list Colors|punc:", ":", and ":" and "]}{[Name]}{[endlist]}.'
+        const evaluator = yatte.compileText(template);
+        const data = {
+            "Colors":[
+                {"Name":"Red"},
+                {"Name":"Blue"}
+            ]
+        };
+        const result = evaluator(data);
+        assert.equal(result, "My favorite colors are Red and Blue.");
+    });
     it('should assemble the (simple) full name template, then another template which uses that one', function() {
         const fullName = '{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}';
         const evaluator = yatte.compileText(fullName);

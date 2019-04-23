@@ -57,6 +57,25 @@ function ContentReplacementTransform(contentItem, contextStack)
                 return listItemContent.join("");
             });
             contextStack.popList();
+            // add punctuation (if specified)
+            if (iterable.punc && iterable.punc.between && allContent.length > 1) {
+                let punc = iterable.punc.between
+                for (let i = 0; i < (allContent.length - 1); i++) {
+                    if (i == allContent.length - 2) { // second-to-last item
+                        punc = (i == 0) ? iterable.punc.only2 : iterable.punc.last2
+                    }
+                    let index = allContent[i].length - 1
+                    let bInsert = false;
+                    while (index > 0 && '\r\n'.includes(allContent[i][index])) {
+                        bInsert = true
+                        index--
+                    }
+                    if (bInsert)
+                        allContent[i] = allContent[i].slice(0, index + 1) + punc + allContent[i].slice(index + 1)
+                    else
+                        allContent[i] += punc
+                }
+            }
             return allContent.join("");
         break;
         case OD.If:
