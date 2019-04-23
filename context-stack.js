@@ -132,7 +132,7 @@ function createListFrame (name, iterable, parentFrame) {
     }
     const frame = new StackFrame('List', name, array, parentFrame)
     frame.itemProto = proto
-    frame.punctuation = iterable.punc
+    frame.punctuation = iterable ? iterable.punc : null
     return frame
 }
 

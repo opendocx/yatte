@@ -156,11 +156,11 @@ const parseContentUntilMatch = function(contentArray, startIdx, node, bIncludeEx
         const isObj = (typeof parsedContent == "object" && parsedContent !== null);
         idx++;
         if (isObj && parsedContent.type == targetType) {
-            if (targetType == OD.EndList) {
+            if (parsedContent.type == OD.EndList) {
                 // synthesize list punctuation node
-                const puncNode = createNode(OD.Content, '_punc', node.fieldId ? node.fieldId + '1' : node.fieldId);
+                const puncNode = createNode(OD.Content, '_punc', void 0); // id==undefined because there is not (yet) a corresponding field in the template
                 if (bIncludeExpressions) parseFieldExpr(puncNode);
-                if (node.fieldId) { // Word template...the content field itself will be added in Templater.cs 
+                if (typeof node.id !== 'undefined') { // Word template...the content field itself will be added in Templater.cs 
                     parentContent.push(puncNode);
                 } else { // Text template
                     let i = parentContent.length - 1
