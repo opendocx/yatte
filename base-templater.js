@@ -84,7 +84,7 @@ const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
     if ((match = _ifRE.exec(content)) !== null) {
         node = createNode(OD.If, match[1], fieldId);
         if (bIncludeExpressions) parseFieldExpr(node);
-        node.contentArray = parseContentUntil(contentArray, idx + 1, OD.EndIf, bIncludeExpressions);
+        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, node, bIncludeExpressions);
     }
     else if ((match = _elseifRE.exec(content)) !== null) {
         node = createNode(OD.ElseIf, match[1], fieldId);
@@ -102,7 +102,7 @@ const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
         if (bIncludeExpressions) {
             parseFieldExpr(node);
         } 
-        node.contentArray = parseContentUntil(contentArray, idx + 1, OD.EndList, bIncludeExpressions);
+        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, node, bIncludeExpressions);
     }
     else if (_endlistRE.test(content)) {
         node = createNode(OD.EndList, void 0, fieldId);
@@ -144,7 +144,9 @@ const parseFieldExpr = function(fieldObj) {
     return compiledExpr;
 };
 
-const parseContentUntil = function(contentArray, startIdx, targetType, bIncludeExpressions) {
+const parseContentUntilMatch = function(contentArray, startIdx, node, bIncludeExpressions) {
+    let targetType = (node.type == OD.If ? OD.EndIf : (node.type == OD.List ? OD.EndList : ''))
+    if (!targetType) throw `Cannot parse to match a ${node.type} field`
     let idx = startIdx;
     let result = [];
     let parentContent = result;
@@ -153,10 +155,50 @@ const parseContentUntil = function(contentArray, startIdx, targetType, bIncludeE
         const parsedContent = parseField(contentArray, idx, bIncludeExpressions);
         const isObj = (typeof parsedContent == "object" && parsedContent !== null);
         idx++;
+        if (isObj && parsedContent.type == targetType) {
+            if (targetType == OD.EndList) {
+                // synthesize list punctuation node
+                const puncNode = createNode(OD.Content, '_punc', node.fieldId ? node.fieldId + '1' : node.fieldId);
+                if (bIncludeExpressions) parseFieldExpr(puncNode);
+                if (node.fieldId) { // Word template...the content field itself will be added in Templater.cs 
+                    parentContent.push(puncNode);
+                } else { // Text template
+                    let i = parentContent.length - 1
+                    while (i >= 0 && (parentContent[i] === '' || parentContent[i] === null)) {
+                        i--;
+                    }
+                    let priorNode = parentContent[i]
+                    if (typeof priorNode === 'string') {
+                        let ix = priorNode.length - 1
+                        let bInsert = false;
+                        while (ix >= 0 && '\r\n'.includes(priorNode[ix])) {
+                            bInsert = true
+                            ix--
+                        }
+                        if (bInsert) { // split text node and insert Content node
+                            let before = priorNode.slice(0, ix + 1)
+                            let after = priorNode.slice(ix + 1)
+                            if (before.length > 0) {
+                                parentContent[i] = before
+                                parentContent.splice(i + 1, 0, puncNode, after)
+                            } else {
+                                parentContent.splice(i, 1, puncNode, after)
+                            }
+                        }
+                        else {
+                            parentContent.push(puncNode)
+                        }  
+                    }
+                    else {
+                        parentContent.push(puncNode)
+                    }
+                }
+            }
+            parentContent.push(parsedContent);
+            break;
+        }
         if (parsedContent)
             parentContent.push(parsedContent);
-        if (isObj && parsedContent.type == targetType)
-            break;
         if (isObj && (parsedContent.type == OD.ElseIf || parsedContent.type == OD.Else))
         {
             if (targetType == OD.EndIf) {

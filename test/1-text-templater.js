@@ -193,7 +193,9 @@ describe('Field parsing of lists and nested lists', function() {
         const result = textTemplater.parseTemplate(template, false);
         assert.deepEqual(result, [
             {type: "List", expr: "[]", contentArray: [
-                {type: "Content", expr: "."}, {type: "EndList"}
+                {type: "Content", expr: "."},
+                {type: "Content", expr: "_punc"},
+                {type: "EndList"}
             ]}
         ]);
     });
@@ -205,8 +207,10 @@ describe('Field parsing of lists and nested lists', function() {
                 "A: ",
                 {type: "List", expr: "inner", contentArray: [
                     {type: "Content", expr: "."},
+                    {type: "Content", expr: "_punc"},
                     {type: "EndList"}
                 ]},
+                {type: "Content", expr: "_punc"},
                 {type: "EndList"}
             ]}
         ]);
@@ -263,6 +267,7 @@ describe('Parsing nested conditionals and lists', function() {
                     ]}
                 ]},
                 ", ",
+                {type: "Content", expr: "_punc"},
                 {type: "EndList"}
             ]}
         ]);
@@ -274,20 +279,30 @@ describe('Parsing nested conditionals and lists', function() {
             {type: "If", expr: "false", contentArray: [
                 {type: "List", expr: "[]", contentArray: [
                     {type: "Content", expr: "test"},
+                    {type: "Content", expr: "_punc"},
                     {type: "EndList"}
                 ]},
                 {type: "ElseIf", expr: "false", contentArray: [
                     "A",
                     {type: "List", expr: "outer", contentArray: [
                         "B",
-                        {type: "List", expr: "inner", contentArray: ["C", {type: "EndList"}]},
+                        {type: "List", expr: "inner", contentArray: [
+                            "C",
+                            {type: "Content", expr: "_punc"},
+                            {type: "EndList"}
+                        ]},
                         "D",
+                        {type: "Content", expr: "_punc"},
                         {type: "EndList"}
                     ]},
                     "E",
                     {type: "Else", contentArray: [
                         "F",
-                        {type: "List", expr: "another", contentArray: ["G", {type: "EndList"}]},
+                        {type: "List", expr: "another", contentArray: [
+                            "G",
+                            {type: "Content", expr: "_punc"},
+                            {type: "EndList"}
+                        ]},
                         "H",
                         {type: "EndIf"}
                     ]}
@@ -398,6 +413,15 @@ describe('Parsing and normalization of list filters', function() {
                         exprAst: {
                             constant: false,
                             name: "Name",
+                            type: "Identifier",
+                        }
+                    },
+                    {
+                        type: "Content",
+                        expr: "_punc",
+                        exprAst: {
+                            constant: false,
+                            name: "_punc",
                             type: "Identifier",
                         }
                     },

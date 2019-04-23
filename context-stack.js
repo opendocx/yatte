@@ -132,6 +132,7 @@ function createListFrame (name, iterable, parentFrame) {
     }
     const frame = new StackFrame('List', name, array, parentFrame)
     frame.itemProto = proto
+    frame.punctuation = iterable.punc
     return frame
 }
 
@@ -147,6 +148,24 @@ function createListItemFrame (name, index, listFrame) {
     Object.defineProperties(local, {
         _index0: { value: index },
         _index: { value: index + 1 },
+        _punc: { value: (
+            listFrame.punctuation
+                ? (
+                    (index == listFrame.local.length - 1)
+                        ? listFrame.punctuation.suffix
+                        : (
+                            (index == listFrame.local.length - 2)
+                                ? (
+                                    index == 0
+                                        ? listFrame.punctuation.only2
+                                        : listFrame.punctuation.last2
+                                )
+                                : listFrame.punctuation.between
+                        )
+                )
+                : ''
+            )
+        }
     });
     return new StackFrame('Object', name, local, listFrame)
 }

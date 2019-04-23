@@ -70,9 +70,9 @@ expressions.filters.else = function(input, unansweredFmt) {
     return input;
 }
 
-expressions.filters.punc = function(inputList, between = ', ', last2 = arguments[1], only2 = arguments[2]) {
+expressions.filters.punc = function(inputList, between = ', ', last2 = arguments[1], only2 = arguments[2], suffix = '') {
     if(!inputList || !Array.isArray(inputList) || !inputList.length) return inputList;
-    inputList['punc'] = { between, last2, only2 } // the context stack has ensured this array is a shallow copy, so we modify it in-place
+    inputList['punc'] = { between, last2, only2, suffix } // the context stack has ensured this array is a shallow copy, so we modify it in-place
     return inputList
 }
 

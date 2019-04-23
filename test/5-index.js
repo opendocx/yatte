@@ -77,6 +77,19 @@ describe('Assembly of text template via exported API', function() {
         const result = evaluator(data);
         assert.equal(result, "My favorite colors are Red and Blue.");
     });
+    it('should assemble a punctuated list template with three items and a suffix', function() {
+        const template = 'My favorite colors are\n{[list Colors|punc:";":"; and":"; and":"."]}\n - {[Name]}\n{[endlist]}\nThat is all.'
+        const evaluator = yatte.compileText(template);
+        const data = {
+            "Colors":[
+                {"Name":"Red"},
+                {"Name":"Yellow"},
+                {"Name":"Blue"}
+            ]
+        };
+        const result = evaluator(data);
+        assert.equal(result, "My favorite colors are\n - Red;\n - Yellow; and\n - Blue.\nThat is all.");
+    });
     it('should assemble the (simple) full name template, then another template which uses that one', function() {
         const fullName = '{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}';
         const evaluator = yatte.compileText(fullName);
@@ -274,6 +287,15 @@ const redundant_if_logic_tree = [
                                 constant: false
                             },
                         },
+                        {
+                            type: "Content",
+                            expr: "_punc",
+                            exprAst: {
+                                type: "Identifier",
+                                name: "_punc",
+                                constant: false
+                            },
+                        },
                     ]
                 },
                 {
@@ -347,6 +369,15 @@ const redundant_if_logic_tree = [
                                                 constant: false
                                             },
                                         },
+                                        {
+                                            type: "Content",
+                                            expr: "_punc",
+                                            exprAst: {
+                                                type: "Identifier",
+                                                name: "_punc",
+                                                constant: false
+                                            },
+                                        },
                                     ]
                                 },
                                 {
@@ -355,6 +386,15 @@ const redundant_if_logic_tree = [
                                     exprAst: {
                                         type: "Identifier",
                                         name: "D",
+                                        constant: false
+                                    },
+                                },
+                                {
+                                    type: "Content",
+                                    expr: "_punc",
+                                    exprAst: {
+                                        type: "Identifier",
+                                        name: "_punc",
                                         constant: false
                                     },
                                 },
@@ -397,6 +437,15 @@ const redundant_if_logic_tree = [
                                             exprAst: {
                                                 type: "Identifier",
                                                 name: "G",
+                                                constant: false
+                                            },
+                                        },
+                                        {
+                                            type: "Content",
+                                            expr: "_punc",
+                                            exprAst: {
+                                                type: "Identifier",
+                                                name: "_punc",
                                                 constant: false
                                             },
                                         },
