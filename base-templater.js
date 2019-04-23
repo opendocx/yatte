@@ -84,7 +84,7 @@ const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
     if ((match = _ifRE.exec(content)) !== null) {
         node = createNode(OD.If, match[1], fieldId);
         if (bIncludeExpressions) parseFieldExpr(node);
-        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, node, bIncludeExpressions);
+        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndIf, bIncludeExpressions);
     }
     else if ((match = _elseifRE.exec(content)) !== null) {
         node = createNode(OD.ElseIf, match[1], fieldId);
@@ -102,7 +102,7 @@ const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
         if (bIncludeExpressions) {
             parseFieldExpr(node);
         } 
-        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, node, bIncludeExpressions);
+        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndList, bIncludeExpressions);
     }
     else if (_endlistRE.test(content)) {
         node = createNode(OD.EndList, void 0, fieldId);
@@ -144,9 +144,7 @@ const parseFieldExpr = function(fieldObj) {
     return compiledExpr;
 };
 
-const parseContentUntilMatch = function(contentArray, startIdx, node, bIncludeExpressions) {
-    let targetType = (node.type == OD.If ? OD.EndIf : (node.type == OD.List ? OD.EndList : ''))
-    if (!targetType) throw `Cannot parse to match a ${node.type} field`
+const parseContentUntilMatch = function(contentArray, startIdx, targetType, bIncludeExpressions) {
     let idx = startIdx;
     let result = [];
     let parentContent = result;
@@ -157,42 +155,7 @@ const parseContentUntilMatch = function(contentArray, startIdx, node, bIncludeEx
         idx++;
         if (isObj && parsedContent.type == targetType) {
             if (parsedContent.type == OD.EndList) {
-                // synthesize list punctuation node
-                const puncNode = createNode(OD.Content, '_punc', void 0); // id==undefined because there is not (yet) a corresponding field in the template
-                if (bIncludeExpressions) parseFieldExpr(puncNode);
-                if (typeof node.id !== 'undefined') { // Word template...the content field itself will be added in Templater.cs 
-                    parentContent.push(puncNode);
-                } else { // Text template
-                    let i = parentContent.length - 1
-                    while (i >= 0 && (parentContent[i] === '' || parentContent[i] === null)) {
-                        i--;
-                    }
-                    let priorNode = parentContent[i]
-                    if (typeof priorNode === 'string') {
-                        let ix = priorNode.length - 1
-                        let bInsert = false;
-                        while (ix >= 0 && '\r\n'.includes(priorNode[ix])) {
-                            bInsert = true
-                            ix--
-                        }
-                        if (bInsert) { // split text node and insert Content node
-                            let before = priorNode.slice(0, ix + 1)
-                            let after = priorNode.slice(ix + 1)
-                            if (before.length > 0) {
-                                parentContent[i] = before
-                                parentContent.splice(i + 1, 0, puncNode, after)
-                            } else {
-                                parentContent.splice(i, 1, puncNode, after)
-                            }
-                        }
-                        else {
-                            parentContent.push(puncNode)
-                        }  
-                    }
-                    else {
-                        parentContent.push(puncNode)
-                    }
-                }
+                injectListPunctuationNode(parentContent, bIncludeExpressions)
             }
             parentContent.push(parsedContent);
             break;
@@ -222,6 +185,43 @@ const parseContentUntilMatch = function(contentArray, startIdx, node, bIncludeEx
     // remove (consume) all parsed items from the contentArray before returning
     contentArray.splice(startIdx, idx - startIdx);
     return result;
+}
+
+const injectListPunctuationNode = function(contentArray, bIncludeExpressions) {
+    // synthesize list punctuation node
+    const puncNode = createNode(OD.Content, '_punc', void 0); // id==undefined because there is not (yet) a corresponding field in the template
+    if (bIncludeExpressions) parseFieldExpr(puncNode);
+    // find last non-empty node in the list
+    let i = contentArray.length - 1
+    while (i >= 0 && (contentArray[i] === '' || contentArray[i] === null)) {
+        i--;
+    }
+    let priorNode = (i >= 0) ? contentArray[i] : null
+    // if it's a text node, place the list punctuation node at its end but PRIOR to any line breaks; otherwise just place the list punctuation at the end
+    if (typeof priorNode === 'string') {
+        let ix = priorNode.length - 1
+        let bInsert = false;
+        while (ix >= 0 && '\r\n'.includes(priorNode[ix])) {
+            bInsert = true
+            ix--
+        }
+        if (bInsert) { // split text node and insert Content node
+            let before = priorNode.slice(0, ix + 1)
+            let after = priorNode.slice(ix + 1)
+            if (before.length > 0) {
+                contentArray[i] = before
+                contentArray.splice(i + 1, 0, puncNode, after)
+            } else {
+                contentArray.splice(i, 1, puncNode, after)
+            }
+        }
+        else {
+            contentArray.push(puncNode)
+        }  
+    }
+    else {
+        contentArray.push(puncNode)
+    }
 }
 
 const _ifRE      = /^(?:if\b|\?)\s*(.*)$/;
