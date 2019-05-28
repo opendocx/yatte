@@ -1,10 +1,11 @@
 {
   "name": "yatte",
-  "version": "1.3.0-alpha",
+  "version": "1.3.1-alpha",
   "description": "Yet Another Text Templating Engine",
   "files": [
     "/base-templater.js",
     "/context-stack.js",
+    "/eval-result.js",
     "/fieldtypes.js",
     "/filters.js",
     "/index.js",
