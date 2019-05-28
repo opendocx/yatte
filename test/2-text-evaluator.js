@@ -236,4 +236,26 @@ describe('Assembling text templates', function() {
         const result = (new TextEvaluator(data)).assemble(compiled);
         assert.equal(result, "John Jacob Smith");
     })
+    it('should assemble a simple template with local and global scopes', function() {
+        const template = '{[First]} {[Middle ? Middle + " " : ""]}{[Last]}';
+        const compiled = templater.parseTemplate(template);
+        const localData = {
+            "First":"John"
+        };
+        const globalData = {
+            "Last":"Smith"
+        };
+        const result = (new TextEvaluator(globalData, localData)).assemble(compiled);
+        assert.equal(result, "John Smith");
+    })
+    it('should assemble a simple template with local scope but no global', function() {
+        const template = '{[First]} {[Middle ? Middle + " " : ""]}{[Last]}';
+        const compiled = templater.parseTemplate(template);
+        const localData = {
+            "First":"John",
+            "Last":"Smith"
+        };
+        const result = (new TextEvaluator(null, localData)).assemble(compiled);
+        assert.equal(result, "John Smith");
+    })
 })

@@ -75,7 +75,7 @@ describe('Field parsing of simple conditionals', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "ElseIf cannot follow an Else");
+            assert.equal(err.message, "ElseIf cannot follow an Else");
         }
     });
     it('should reject the if/else/else/endif template', function() {
@@ -84,7 +84,7 @@ describe('Field parsing of simple conditionals', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Else cannot follow an Else");
+            assert.equal(err.message, "Else cannot follow an Else");
         }
     });
     it('should reject the if template (no endif)', function() {
@@ -93,7 +93,7 @@ describe('Field parsing of simple conditionals', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "EndIf not found");
+            assert.equal(err.message, "EndIf not found");
         }
     });
     it('should reject the if/else template (no endif)', function() {
@@ -102,7 +102,7 @@ describe('Field parsing of simple conditionals', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "EndIf not found");
+            assert.equal(err.message, "EndIf not found");
         }
     });
     it('should reject the if/endif/endif template', function() {
@@ -111,7 +111,7 @@ describe('Field parsing of simple conditionals', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched EndIf");
+            assert.equal(err.message, "Unmatched EndIf");
         }
     });
     it('should reject the if/endif/else template', function() {
@@ -120,7 +120,7 @@ describe('Field parsing of simple conditionals', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched Else");
+            assert.equal(err.message, "Unmatched Else");
         }
     });
     it('should reject the if/endif/elseif template', function() {
@@ -129,7 +129,7 @@ describe('Field parsing of simple conditionals', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched ElseIf");
+            assert.equal(err.message, "Unmatched ElseIf");
         }
     });
 })
@@ -221,7 +221,7 @@ describe('Field parsing of lists and nested lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "EndList not found");
+            assert.equal(err.message, "EndList not found");
         }
     });
     it('should reject the endlist template (missing list)', function() {
@@ -230,7 +230,7 @@ describe('Field parsing of lists and nested lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched EndList");
+            assert.equal(err.message, "Unmatched EndList");
         }
     });
     it('should reject the list/list/endlist template (missing endlist)', function() {
@@ -239,7 +239,7 @@ describe('Field parsing of lists and nested lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "EndList not found");
+            assert.equal(err.message, "EndList not found");
         }
     });
     it('should (for now) reject the list/else/endlist template', function() {
@@ -248,7 +248,7 @@ describe('Field parsing of lists and nested lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Else cannot be in a List");
+            assert.equal(err.message, "Else cannot be in a List");
         }
     });
 })
@@ -316,7 +316,7 @@ describe('Parsing nested conditionals and lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched EndIf");
+            assert.equal(err.message, "Unmatched EndIf");
         }
     });
     it('should reject the list/endif template', function() {
@@ -325,7 +325,7 @@ describe('Parsing nested conditionals and lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched EndIf");
+            assert.equal(err.message, "Unmatched EndIf");
         }
     });
     it('should reject the list/endif/endlist template', function() {
@@ -334,7 +334,7 @@ describe('Parsing nested conditionals and lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched EndIf");
+            assert.equal(err.message, "Unmatched EndIf");
         }
     });
     it('should reject the list/elseif/endlist template', function() {
@@ -343,7 +343,7 @@ describe('Parsing nested conditionals and lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "ElseIf cannot be in a List");
+            assert.equal(err.message, "ElseIf cannot be in a List");
         }
     });
     it('should reject the if/list/endif/endlist template', function() {
@@ -352,7 +352,7 @@ describe('Parsing nested conditionals and lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched EndIf");
+            assert.equal(err.message, "Unmatched EndIf");
         }
     });
     it('should reject the list/if/else/endlist/endif template', function() {
@@ -361,7 +361,7 @@ describe('Parsing nested conditionals and lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Unmatched EndList");
+            assert.equal(err.message, "Unmatched EndList");
         }
     });
     it('should (for now) reject the if/list/endlist/elseif/list/else/endlist/endif template', function() {
@@ -370,7 +370,7 @@ describe('Parsing nested conditionals and lists', function() {
             const result = textTemplater.parseTemplate(template, false);
             assert.fail("expected error not thrown");
         } catch(err) {
-            assert.equal(err, "Else cannot be in a List");
+            assert.equal(err.message, "Else cannot be in a List");
         }
     });
 })
@@ -382,7 +382,7 @@ describe('Parsing and normalization of list filters', function() {
         assert.deepStrictEqual(compiled, [
             {
                 type: 'List',
-                expr: 'Oceans|filter:"AverageDepth>3500"',
+                expr: 'Oceans|filter:"(AverageDepth>3500)"',
                 exprAst: {
                     type: "CallExpression",
                     filter: true,
@@ -398,7 +398,7 @@ describe('Parsing and normalization of list filters', function() {
                         },
                         {
                             type: "Literal",
-                            value: "AverageDepth>3500",
+                            value: "(AverageDepth>3500)",
                             constant: true
                         },
                     ],
@@ -467,7 +467,7 @@ describe('Parsing and normalization of expressions', function() {
             " ",
             {
                 "type": "Content",
-                "expr": 'b?b+" ":""',
+                "expr": 'b?(b+" "):""',
                 "exprAst": {
                     "type": "ConditionalExpression",
                     "test": {

@@ -8,15 +8,15 @@ class ContextStack {
     empty () {
         return this.stack.length == 0;
     }
-    pushGlobal (contextObj) {
+    pushGlobal (contextObj, localsObj = null) {
         if (!this.empty())
-            throw 'Internal error: execution stack is not empty at beginning of assembly'
-        this.push(createGlobalFrame(contextObj))
+            throw new Error('Internal error: execution stack is not empty at beginning of assembly')
+        this.push(createGlobalFrame(contextObj, localsObj))
     }
     popGlobal() {
         const result = this.popObject()
         if (!this.empty())
-            throw 'Internal error: execution stack is not empty at end of assembly'
+            throw new Error('Internal error: execution stack is not empty at end of assembly')
         return result
     }
     pushObject (name, contextObj) {
@@ -24,25 +24,25 @@ class ContextStack {
         if (currentFrame && currentFrame.type == "List") {
             this.push(createListItemFrame(name, contextObj, currentFrame));
         } else {
-            throw 'Unexpected: pushing non-list stack frames not fully tested'
+            throw new Error('Unexpected: pushing non-list stack frames not fully tested')
             this.push(createObjectFrame(name, contextObj, currentFrame));
         }
     }
     popObject () {
         const poppedFrame = this.pop();
         if (poppedFrame.type != 'Object')
-            throw `Internal error: expected Object stack frame, got ${poppedFrame.type} instead`;
+            throw new Error(`Internal error: expected Object stack frame, got ${poppedFrame.type} instead`)
         return poppedFrame;
     }
     pushList (name, iterable) {
         let newFrame = createListFrame(name, iterable, this.peek());
         this.push(newFrame);
-        return indices(newFrame.local.length);
+        return indices(newFrame.localScope.length);
     }
     popList() {
         const poppedFrame = this.pop();
         if (poppedFrame.type != 'List')
-            throw `Internal error: expected List stack frame, got ${poppedFrame.type} instead`;
+            throw new Error(`Internal error: expected List stack frame, got ${poppedFrame.type} instead`)
         return poppedFrame;
     }
     push (frame) {
@@ -89,61 +89,72 @@ module.exports = ContextStack;
 const indices = (length) => new Array(length).fill(undefined).map((value, index) => index)
 
 class StackFrame {
-    constructor (type, name, local, parent, global = parent.global) {
+    constructor (type, name, localScope, parentFrame, parentScope = parentFrame.parentScope) {
         this.type = type;
         this.name = name;
-        this.local = local ? local : null;
-        this.parentFrame = parent;
-        this.global = global;
+        this.localScope = localScope ? localScope : null;
+        this.parentFrame = parentFrame;
+        this.parentScope = parentScope;
     }
 
     evaluate(compiledExpr) {
         if (compiledExpr.ast.body[0].expression.type === 'ThisExpression') {
             // special case: when evaluating 'this', there are no locals, so pass value in as global scope object
-            return compiledExpr(this.local)
+            return compiledExpr(this.localScope)
         }
         // general case
-        return compiledExpr(this.global, this.local)
+        return compiledExpr(this.parentScope, this.localScope)
     }
 }
 
-function createGlobalFrame (contextObj, name = '_odx') {
-    return new StackFrame('Object', name, null, null, contextObj);
+function createGlobalFrame (contextObj, localsObj, name = '_odx') {
+    return new StackFrame('Object', name, localsObj, null, contextObj);
 }
 
 function createObjectFrame (name, contextObj, parentFrame) {
-    if (typeof contextObj !== 'object') throw 'Cannot create object stack frame for literal value'
-    let proto = Object.getPrototypeOf(contextObj)
-    if (parentFrame.local) {
-        // make a copy of the prototype object for the object, but redirect its prototype chain to point to the parent context
-        proto = shallowClone(proto, parentFrame.local)
-        Object.defineProperty(proto, '_parent', { value: parentFrame.local });
+    // like createListFrame, but not a list of objects, just a single object
+    // not exercised currently: would be exercised if templates provided a way to "push/pop" object contexts
+    if (typeof contextObj !== 'object') throw new Error('Cannot create object stack frame for literal value')
+    return new StackFrame('Object', name, contextObj, parentFrame, MergeParentScopes(parentFrame.localScope, parentFrame.parentScope))
+}
+
+function MergeParentScopes(parentLocal, parentParent) {
+    let merged
+    if (parentLocal) {
+        if (isPrimitiveWrapper(parentLocal)) {
+            merged = Object.create(parentParent)
+            Object.defineProperty(merged, '_parent', { value: parentLocal })
+        } else {
+            // make a copy of the prototype object for the object, but redirect its prototype chain to point to the parent context
+            let proto = shallowClone(Object.getPrototypeOf(parentLocal), parentParent)
+            merged = shallowClone(parentLocal, proto)
+            Object.defineProperty(merged, '_parent', { value: merged });
+        }
+    } else {
+        merged = parentParent
     }
-    return new StackFrame('Object', name, shallowClone(contextObj, proto), parentFrame)
+    return merged
 }
 
 function createListFrame (name, iterable, parentFrame) {
     const array = iterable ? Array.from(iterable) : []
-    let proto = (array.length > 0 && typeof array[0] === 'object') ? Object.getPrototypeOf(array[0]) : null
-    if (proto !== null && parentFrame.local) {
-        // make a copy of the prototype object for list items, but redirect its prototype chain to point to the parent list item context
-        proto = shallowClone(proto, parentFrame.local)
-        Object.defineProperty(proto, '_parent', { value: parentFrame.local })
-    }
-    const frame = new StackFrame('List', name, array, parentFrame)
-    frame.itemProto = proto
+    const frame = new StackFrame('List', name, array, parentFrame, MergeParentScopes(parentFrame.localScope, parentFrame.parentScope))
     frame.punctuation = iterable ? iterable.punc : null
     return frame
 }
 
 function createListItemFrame (name, index, listFrame) {
-    const item = listFrame.local[index];
+    const item = listFrame.localScope[index];
     let local;
-    if (typeof item === 'object') { // listFrame.itemProto was set in createListFrame
-        local = shallowClone(item, listFrame.itemProto)
+    if (typeof item === 'object') {
+        if (isPrimitiveWrapper(item)) {
+            local = wrapPrimitive(item.valueOf())
+        } else {
+            local = shallowClone(item, Object.getPrototypeOf(item))
+        }
     } else {
         local = wrapPrimitive(item);
-        Object.defineProperty(local, '_parent', { value: listFrame.parentFrame.local })
+        //Object.defineProperty(local, '_parent', { value: listFrame.parentScope })
     }
     Object.defineProperties(local, {
         _index0: { value: index },
@@ -151,10 +162,10 @@ function createListItemFrame (name, index, listFrame) {
         _punc: { value: (
             listFrame.punctuation
                 ? (
-                    (index == listFrame.local.length - 1)
+                    (index == listFrame.localScope.length - 1)
                         ? listFrame.punctuation.suffix
                         : (
-                            (index == listFrame.local.length - 2)
+                            (index == listFrame.localScope.length - 2)
                                 ? (
                                     index == 0
                                         ? listFrame.punctuation.only2
@@ -167,7 +178,7 @@ function createListItemFrame (name, index, listFrame) {
             )
         }
     });
-    return new StackFrame('Object', name, local, listFrame)
+    return new StackFrame('Object', name, local, listFrame, listFrame.parentScope)
 }
 
 function wrapPrimitive(value) {
@@ -176,11 +187,18 @@ function wrapPrimitive(value) {
         case 'string': val = new String(value); break;
         case 'number': val = new Number(value); break;
         case 'boolean': val = new Boolean(value); break;
-        default: throw 'unexpected value type';
+        default: throw new Error('unexpected value type')
     }
     return val;
 }
 
+function wrapPrimitiveAlt(value) {
+    return {
+        _value: value,
+        valueOf: () => this._value
+    }
+}
+  
 function isPrimitiveWrapper(obj) {
     return obj.constructor && ['String', 'Number', 'Boolean'].includes(obj.constructor.name)
 }

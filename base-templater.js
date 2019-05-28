@@ -18,7 +18,7 @@ const parseContentArray = function(contentArray, bIncludeExpressions = true) {
                     )
                 )
             {
-                throw "Unmatched " + parsedContent.type;
+                throw new Error("Unmatched " + parsedContent.type)
             }
             astBody.push(parsedContent);
         }
@@ -77,7 +77,7 @@ const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
     }
 
     if (content === null)
-        throw `Unrecognized field text: '${contentArrayItem}'`
+        throw new Error(`Unrecognized field text: '${contentArrayItem}'`)
     
     // parse the field
     let match, node;
@@ -128,20 +128,18 @@ const parseFieldExpr = function(fieldObj) {
     //   type (string): the field type
     //   expr (string): the expression within the field that wants to be parsed
     const expectarray = (fieldObj.type == OD.List);
-    let error = null;
-    let compiledExpr;
     try {
-        compiledExpr = compileExpr(fieldObj.expr);
+        let compiledExpr = compileExpr(fieldObj.expr);
         fieldObj.exprAst = reduceAstNode(compiledExpr.ast.body[0].expression);
         if (expectarray) {
             fieldObj.exprAst.expectarray = expectarray;
         }
         fieldObj.expr = serializeAstNode(fieldObj.exprAst); // normalize all expressions
+        return compiledExpr
     } catch (err) {
-        error = err;
+        // do something here maybe?
+        throw err;
     }
-    if (error) throw error;
-    return compiledExpr;
 };
 
 const parseContentUntilMatch = function(contentArray, startIdx, targetType, bIncludeExpressions) {
@@ -166,21 +164,21 @@ const parseContentUntilMatch = function(contentArray, startIdx, targetType, bInc
         {
             if (targetType == OD.EndIf) {
                 if (elseEncountered)
-                    throw parsedContent.type + " cannot follow an Else";
+                    throw new Error(parsedContent.type + " cannot follow an Else")
                 if (parsedContent.type == OD.Else)
                     elseEncountered = true;
                 parentContent = parsedContent.contentArray;
             }
             else if (targetType == OD.EndList) {
-                throw parsedContent.type + " cannot be in a List";
+                throw new Error(parsedContent.type + " cannot be in a List")
             }
         }
         if (isObj && (parsedContent.type == OD.EndIf || parsedContent.type == OD.EndList))
         {
-            throw "Unmatched " + parsedContent.type;
+            throw new Error("Unmatched " + parsedContent.type)
         }
         if (idx >= contentArray.length)
-            throw (targetType + " not found");
+            throw new Error(targetType + " not found")
     };
     // remove (consume) all parsed items from the contentArray before returning
     contentArray.splice(startIdx, idx - startIdx);
@@ -389,7 +387,7 @@ const serializeAstNode = function(astNode) {
             return serializeAstNode(astNode.key) + ':' + serializeAstNode(astNode.value);
         case 'BinaryExpression':
         case 'LogicalExpression':
-            return serializeAstNode(astNode.left) + astNode.operator + serializeAstNode(astNode.right);
+            return '(' + serializeAstNode(astNode.left) + astNode.operator + serializeAstNode(astNode.right) + ')';
         case 'UnaryExpression':
             return astNode.prefix ? (astNode.operator + serializeAstNode(astNode.argument)) : (serializeAstNode(astNode.argument) + astNode.operator);
         case 'ConditionalExpression':
@@ -399,7 +397,7 @@ const serializeAstNode = function(astNode) {
         case 'ThisExpression':
             return 'this';
         default:
-            throw 'Unsupported expression type';
+            throw new Error('Unsupported expression type')
     }
 }
 

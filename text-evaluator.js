@@ -5,13 +5,14 @@ const OD = require('./fieldtypes');
 const base = require('./base-templater');
 
 class TextEvaluator {
-    constructor (context) {
+    constructor (context, locals = null) {
         this.context = context;
+        this.locals = locals;
         this.contextStack = new ContextStack();
     }
 
     assemble(contentArray) {
-        this.contextStack.pushGlobal(this.context);
+        this.contextStack.pushGlobal(this.context, this.locals);
         const text = contentArray.map(contentItem => ContentReplacementTransform(contentItem, this.contextStack)).join("");
         this.contextStack.popGlobal();
         return text;
@@ -26,7 +27,7 @@ function ContentReplacementTransform(contentItem, contextStack)
     if (typeof contentItem === "string")
         return contentItem;
     if (typeof contentItem !== "object")
-        throw `Unexpected content '${contentItem}'`;
+        throw new Error(`Unexpected content '${contentItem}'`)
     const frame = contextStack.peek();
     switch (contentItem.type) {
         case OD.Content:
@@ -38,7 +39,7 @@ function ContentReplacementTransform(contentItem, contextStack)
                 }
                 return value;
             } catch (err) {
-                return CreateContextErrorMessage("EvaluationException: " + err);
+                return CreateContextErrorMessage("EvaluationException: " + err.message);
             }
         break;
         case OD.List:
@@ -47,7 +48,7 @@ function ContentReplacementTransform(contentItem, contextStack)
                 const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
                 iterable = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
             } catch (err) {
-                return CreateContextErrorMessage("EvaluationException: " + err);
+                return CreateContextErrorMessage("EvaluationException: " + err.message);
             }
             const indices = contextStack.pushList(contentItem.expr, iterable);
             const allContent = indices.map(index => {
@@ -64,13 +65,13 @@ function ContentReplacementTransform(contentItem, contextStack)
             let bValue;
             try {
                 if (frame.type != 'Object') {
-                    throw `Internal error: cannot define a condition directly in a ${frame.type} context`;
+                    throw new Error(`Internal error: cannot define a condition directly in a ${frame.type} context`)
                 }
                 const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
                 const value = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
                 bValue = ContextStack.IsTruthy(value)
             } catch (err) {
-                return CreateContextErrorMessage("EvaluationException: " + err);
+                return CreateContextErrorMessage("EvaluationException: " + err.message);
             }
             if (bValue)
             {

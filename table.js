@@ -9,7 +9,7 @@ exports.createTable = function (objArray, keyPropName) {
             case "string": val = new String(key); break;
             case "number": val = new Number(key); break;
             case "boolean": val = new Boolean(key); break;
-            default: throw "unexpected key type";
+            default: throw new Error("unexpected key type")
         }
         for (const [k, v] of Object.entries(obj)) {
             //todo: figure out what to do about different types of value here? dates? functions? what do we expect?

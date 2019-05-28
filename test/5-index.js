@@ -107,6 +107,25 @@ describe('Assembly of text template via exported API', function() {
         const result = yatte.assembleText(template2, data);
         assert.equal(result, "Who is John Jacob Smith?");
     })
+    it('should assemble a template using local AND global contexts', function() {
+        const fullName = '{[First]} {[Middle ? Middle + " ":""]}{[Last]}';
+        const evaluator = yatte.compileText(fullName);
+        const data = {
+            "Last":"Smith",
+            "First": "Gerald"
+        };
+        const localData = {
+            "First":"John",
+        };
+        Object.defineProperty(data, 'FullName', {
+            get () {
+                return evaluator(data, localData)
+            }
+        })
+        const template2 = "Who is {[FullName]}?"
+        const result = yatte.assembleText(template2, data, localData);
+        assert.equal(result, "Who is John Smith?");
+    })
 
 })
 
