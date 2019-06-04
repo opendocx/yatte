@@ -109,17 +109,44 @@ expressions.filters.sort = function(input) {
     return input.slice().sort(compare);
 }
 expressions.filters.filter = function(input, predicateStr) {
-    if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) return input;
-    const evaluator = expressions.compile(unEscapeQuotes(predicateStr));
-    return input.filter(item => evaluator(item));
+    return callArrayFunc(Array.prototype.filter, input, predicateStr)
+}
+expressions.filters.find = function(input, predicateStr) {
+    return callArrayFunc(Array.prototype.find, input, predicateStr)
+}
+expressions.filters.some = function(input, predicateStr) {
+    return callArrayFunc(Array.prototype.some, input, predicateStr)
+}
+expressions.filters.every = function(input, predicateStr) {
+    return callArrayFunc(Array.prototype.every, input, predicateStr)
 }
 expressions.filters.map = function(input, mappedStr) {
-    if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) return input;
-    const evaluator = expressions.compile(unEscapeQuotes(mappedStr));
-    return input.map(item => evaluator(item));
+    return callArrayFunc(Array.prototype.map, input, mappedStr)
 }
-// expressions.filters.group = function(input) {
-//     if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) return input;
-//     // not implemented yet
-//     debugger;
-// }
+expressions.filters.group = function(input, groupStr) {
+    if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) {
+        return input
+    }
+    const evaluator = expressions.compile(unEscapeQuotes(groupStr))
+    return input.reduce(
+        (result, item) => {
+            let key = evaluator(item)
+            let bucket = result.find(b => b._key === key)
+            if (!bucket) {
+                bucket = {_key: key, _values: []}
+                result.push(bucket)
+            }
+            bucket._values.push(item)
+            return result
+        },
+        []
+    )
+}
+
+function callArrayFunc(func, array, predicateStr) {
+    if (!array || !Array.isArray(array) || !array.length || arguments.length < 2) {
+        return array
+    }
+    const evaluator = expressions.compile(unEscapeQuotes(predicateStr))
+    return func.call(array, item => evaluator(item))
+}

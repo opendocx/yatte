@@ -181,6 +181,108 @@ describe('Assembling text templates', function() {
         const result = (new TextEvaluator(data)).assemble(compiled);
         assert.equal(result, "*Beth\n*Yolanda\n*Alice\n*John\n");
     });
+    it('check if an item is in a list', function() {
+        const template = "{[if Children|some:Name == 'Yolanda']}We found Yolanda!{[else]}No luck.{[endif]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1),Group: "A"},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1),Group: "A"}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "We found Yolanda!");
+    });
+    it('check if all items in a list meet a criteria', function() {
+        const template = "{[if Children|every:Group == 'A' || Group == 'B']}Either A or B{[endif]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1),Group: "A"},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1),Group: "A"}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "Either A or B");
+    });
+    it('recognize that NOT all items in a list meet a criteria', function() {
+        const template = "{[if Children|every:Group == 'A']}All A{[else]}Not all A{[endif]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1),Group: "A"},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1),Group: "A"}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "Not all A");
+    });
+    it('should find a specific item in a list', function() {
+        const template = 'First child with a d in their name is {[(Children|find:Name.includes("d")).Name]}';
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1),Group: "A"},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1),Group: "A"}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "First child with a d in their name is Ted");
+    });
+    it('should use grouping to find unique items in a list', function() {
+        const template = 'Children were born in the years {[list Children|group:Birth.getFullYear()|sort:_key|punc:\', \':\' and \']}{[_key]}{[endlist]}.';
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1),Group: "A"},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1),Group: "A"}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "Children were born in the years 1970, 2000 and 2007.");
+    });
+    it('should use grouping to create nested lists from a flat list', function() {
+        const template = 'Children were born in the years {[list Children|group:Birth.getFullYear()|sort:_key|punc:"; ":"; and ":" and "]}{[_key]} ({[list _values|sort:Name|punc:", ":" and "]}{[Name]}{[endlist]}){[endlist]}.';
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            "Children":[
+                {"Name":"John","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Alice","Birth":new Date(1970, 8, 5),Group: "A"},
+                {"Name":"Eric","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Ted","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Mark","Birth":new Date(2007, 9, 24),Group: "B"},
+                {"Name":"Yolanda","Birth":new Date(2000, 1, 1),Group: "A"},
+                {"Name":"Beth","Birth":new Date(2000, 1, 1),Group: "A"}
+            ],
+        };
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "Children were born in the years 1970 (Alice and John); 2000 (Beth and Yolanda); and 2007 (Eric, Mark and Ted).");
+    });
     it('should assemble a document with a primitive list, _index', function() {
         const template = "Continents:\n\n{[list Continents]}\n * {[.]} (#{[_index]} on {[Planet]})\n{[endlist]}";
         const compiled = templater.parseTemplate(template);

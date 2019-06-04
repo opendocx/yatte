@@ -371,10 +371,11 @@ const serializeAstNode = function(astNode) {
         case 'CallExpression':
             let str;
             if (astNode.filter) {
-                str = serializeAstNode(astNode.arguments[0]) + '|' + serializeAstNode(astNode.callee);
+                str = '(' + serializeAstNode(astNode.arguments[0]) + '|' + serializeAstNode(astNode.callee);
                 for (let i = 1; i < astNode.arguments.length; i++) {
                     str += ':' + serializeAstNode(astNode.arguments[i]);
                 }
+                str += ')'
             } else {
                 str = serializeAstNode(astNode.callee) + '(' + astNode.arguments.map(argObj => serializeAstNode(argObj)).join(',') + ')';
             }
@@ -421,11 +422,14 @@ const doctorListFilters = function(astNode) {
                 case 'sort':
                 case 'filter':
                 case 'map':
+                case 'some':
+                case 'every':
+                case 'find':
                 case 'group':
                     let changed = false
                     for (let i = 0; i < astNode.arguments.length; i++) {
                         let argument = astNode.arguments[i];
-                        if (argument.type == 'CallExpression' && argument.filter) {
+                        if (argument.type == 'CallExpression' && argument.filter) { // chained filter
                             changed |= doctorListFilters(argument);
                         }
                         else if (i > 0 && argument.type != 'Literal') {
