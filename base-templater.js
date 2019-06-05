@@ -45,6 +45,9 @@ exports.buildLogicTree = buildLogicTree;
 const compiledExprCache = {}
 
 const compileExpr = function(expr) {
+    if (!expr) {
+        throw new Error('Cannot compile invalid (empty or null) expression')
+    }
     if (expr == ".") expr = "this";
     const cacheKey = expr;
     let result = compiledExprCache[cacheKey];
