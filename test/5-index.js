@@ -38,7 +38,7 @@ describe('Assembly of text template via exported API', function() {
         assert.equal(result, "Earth's oceans are:\n\nEarth > Pacific\nEarth > Atlantic\nEarth > Indian\nEarth > Southern\nEarth > Arctic\n");
     });
     it('should assemble a punctuated list template', function() {
-        const template = 'The oceans are {[list Oceans|punc:", ":" and "]}{[Name]}{[endlist]}.'
+        const template = 'The oceans are {[list Oceans|punc:"1, 2 and 3."]}{[Name]}{[endlist]}'
         const evaluator = yatte.compileText(template);
         const data = {
             "Oceans":[
@@ -53,7 +53,7 @@ describe('Assembly of text template via exported API', function() {
         assert.equal(result, "The oceans are Pacific, Atlantic, Indian, Southern and Arctic.");
     });
     it('should assemble a punctuated list template with oxford comma', function() {
-        const template = 'My favorite colors are {[list Colors|punc:", ":", and ":" and "]}{[Name]}{[endlist]}.'
+        const template = 'My favorite colors are {[list Colors|punc:"1, 2, and 3"]}{[Name]}{[endlist]}.'
         const evaluator = yatte.compileText(template);
         const data = {
             "Colors":[
@@ -66,7 +66,7 @@ describe('Assembly of text template via exported API', function() {
         assert.equal(result, "My favorite colors are Red, Blue, and Green.");
     });
     it('should assemble a punctuated list template with only two items', function() {
-        const template = 'My favorite colors are {[list Colors|punc:", ":", and ":" and "]}{[Name]}{[endlist]}.'
+        const template = 'My favorite colors are {[list Colors|punc:"1, 2, and 3"]}{[Name]}{[endlist]}.'
         const evaluator = yatte.compileText(template);
         const data = {
             "Colors":[
@@ -78,7 +78,7 @@ describe('Assembly of text template via exported API', function() {
         assert.equal(result, "My favorite colors are Red and Blue.");
     });
     it('should assemble a punctuated list template with three items and a suffix', function() {
-        const template = 'My favorite colors are\n{[list Colors|punc:";":"; and":"; and":"."]}\n - {[Name]}\n{[endlist]}\nThat is all.'
+        const template = 'My favorite colors are\n{[list Colors|punc:"1;2; and3."]}\n - {[Name]}\n{[endlist]}\nThat is all.'
         const evaluator = yatte.compileText(template);
         const data = {
             "Colors":[

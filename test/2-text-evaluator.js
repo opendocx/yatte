@@ -250,7 +250,7 @@ describe('Assembling text templates', function() {
         assert.equal(result, "First child with a d in their name is Ted");
     });
     it('should use grouping to find unique items in a list', function() {
-        const template = 'Children were born in the years {[list Children|group:Birth.getFullYear()|sort:_key|punc:\', \':\' and \']}{[_key]}{[endlist]}.';
+        const template = 'Children were born in the years {[list Children|group:Birth.getFullYear()|sort:_key|punc:\'1, 2 and 3\']}{[_key]}{[endlist]}.';
         const compiled = templater.parseTemplate(template);
         const data = {
             "Children":[
@@ -267,7 +267,7 @@ describe('Assembling text templates', function() {
         assert.equal(result, "Children were born in the years 1970, 2000 and 2007.");
     });
     it('should use grouping to create nested lists from a flat list', function() {
-        const template = 'Children were born in the years {[list Children|group:Birth.getFullYear()|sort:_key|punc:"; ":"; and ":" and "]}{[_key]} ({[list _values|sort:Name|punc:", ":" and "]}{[Name]}{[endlist]}){[endlist]}.';
+        const template = 'Children were born in the years {[list Children|group:Birth.getFullYear()|sort:_key|punc:"1; 2; and 3"]}{[_key]} ({[list _values|sort:Name|punc:"1, 2 and 3"]}{[Name]}{[endlist]}){[endlist]}.';
         const compiled = templater.parseTemplate(template);
         const data = {
             "Children":[

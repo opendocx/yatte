@@ -70,9 +70,27 @@ expressions.filters.else = function(input, unansweredFmt) {
     return input;
 }
 
-expressions.filters.punc = function(inputList, between = ', ', last2 = arguments[1], only2 = arguments[2], suffix = '') {
+expressions.filters.punc = function(inputList, example = '1, 2 and 3') {
     if(!inputList || !Array.isArray(inputList) || !inputList.length) return inputList;
-    inputList['punc'] = { between, last2, only2, suffix } // the context stack has ensured this array is a shallow copy, so we modify it in-place
+    let p1 = example.indexOf('1')
+    let p2 = example.indexOf('2')
+    let p3 = example.indexOf('3')
+    if (p1 >= 0 && p2 > p1) {
+        let between = example.slice(p1 + 1, p2)
+        if (p3 > p2) {
+            let last2 = example.slice(p2 + 1, p3)
+            let only2
+             if (last2 !== between && last2.startsWith(between)) // as with an oxford comma: "1, 2, and 3"
+                only2 = last2.slice(between.trimRight().length)
+            else
+                only2 = last2
+            let suffix = example.slice(p3 + 1)
+            inputList['punc'] = { between, last2, only2, suffix } // the context stack has ensured this array is a shallow copy, so we modify it in-place
+        } else if (p3 < 0) {
+            let suffix = example.slice(p2 + 1)
+            inputList['punc'] = { between, last2: between, only2: between, suffix }
+        }
+    }
     return inputList
 }
 
