@@ -394,12 +394,12 @@ const EXPRESSIONS_PRECEDENCE = {
     BinaryExpression: 14,
     LogicalExpression: 13,
     ConditionalExpression: 4,
-    FilterCallExpression: 1,
+    AngularFilterCallExpression: 1,
 }
 
 function getExpressionPrecedence(node) {
     if (node.type === 'CallExpression' && node.filter) {
-        return EXPRESSIONS_PRECEDENCE.FilterCallExpression
+        return EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression
     } // else
     return EXPRESSIONS_PRECEDENCE[node.type]
 }
@@ -465,10 +465,10 @@ const serializeAstNode = function(astNode) {
         case 'CallExpression':
             let str;
             if (astNode.filter) {
-                str = serializeOptionallyWrapped(astNode.arguments[0], EXPRESSIONS_PRECEDENCE.FilterCallExpression, true)
+                str = serializeOptionallyWrapped(astNode.arguments[0], EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression, true)
                         + '|' + serializeAstNode(astNode.callee);
                 for (let i = 1; i < astNode.arguments.length; i++) {
-                    str += ':' + serializeOptionallyWrapped(astNode.arguments[i], EXPRESSIONS_PRECEDENCE.FilterCallExpression, true)
+                    str += ':' + serializeOptionallyWrapped(astNode.arguments[i], EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression, true)
                 }
             } else {
                 str = serializeAstNode(astNode.callee) + '(' + astNode.arguments.map(argObj => serializeAstNode(argObj)).join(',') + ')';
