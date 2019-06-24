@@ -293,6 +293,44 @@ describe('Assembling text templates', function() {
         const result = (new TextEvaluator(data)).assemble(compiled);
         assert.equal(result, "Continents:\n\n * Africa (#1 on Earth)\n * Asia (#2 on Earth)\n * Europe (#3 on Earth)\n * North America (#4 on Earth)\n * South America (#5 on Earth)\n * Antarctica (#6 on Earth)\n * Australia/Oceania (#7 on Earth)\n");
     });
+    it('should assemble a document with a list of wrapped primitives', function() {
+        const template = "{[list Continents|sort:-SurfaceArea]}\n{[.]}\n{[endlist]}";
+        const compiled = templater.parseTemplate(template);
+        const data = {
+            ContinentData:[ {
+                    Name: "Africa",
+                    SurfaceArea: 30370000
+                }, {
+                    Name: "Asia",
+                    SurfaceArea: 44579000
+                }, {
+                    Name: "Europe",
+                    SurfaceArea: 10180000
+                }, {
+                    Name: "North America",
+                    SurfaceArea: 24709000
+                }, {
+                    Name: "South America",
+                    SurfaceArea: 17840000
+                }, {
+                    Name: "Antarctica",
+                    SurfaceArea: 14000000
+                }, {
+                    Name: "Australia/Oceania",
+                    SurfaceArea: 8600000
+                }
+            ]
+        };
+        data.Continents = data.ContinentData.map(obj => {
+            let newObj = new String(obj.Name)
+            newObj.Name = obj.Name
+            newObj.SurfaceArea = obj.SurfaceArea
+            return newObj
+        })
+
+        const result = (new TextEvaluator(data)).assemble(compiled);
+        assert.equal(result, "Asia\nAfrica\nNorth America\nSouth America\nAntarctica\nEurope\nAustralia/Oceania\n");
+    });
     it('should assemble a document with a primitive list and a nested (unrelated) list, and then vice versa', function() {
         const originalObjectPrototype = Object.prototype;
         const originalStringPrototype = String.prototype;
