@@ -1,6 +1,8 @@
 const expressions= require('angular-expressions');
 require('./filters'); // ensure filters are loaded into (shared) expressions object
 const OD = require('./fieldtypes');
+const { serializeAstNode } = require('./serialize')
+exports.serializeAST = serializeAstNode;
 
 const parseContentArray = function(contentArray, bIncludeExpressions = true) {
     // contentArray can be either an array of strings (as from a text template split via regex)
@@ -35,14 +37,13 @@ const buildLogicTree = function(astBody) {
     // remove Content nodes that are already defined in the same logical/list scope
     // always process down all if branches & lists
     // strip field ID metadata (for docx templates) since it no longer applies
-    // future: compare logical & list scopes of each item, and eliminate logical branches and list iterations that are redundant
     const copy = reduceContentArray(astBody);
     simplifyContentArray2(copy);
     return copy;
 }
 exports.buildLogicTree = buildLogicTree;
 
-const compiledExprCache = {}
+const compiledExprCache = {} // this doesn't seem to do anything... it's always empty? I'm missing something obvious.
 
 const compileExpr = function(expr) {
     if (!expr) {
@@ -53,13 +54,35 @@ const compileExpr = function(expr) {
     let result = compiledExprCache[cacheKey];
     if (!result) {
         result = expressions.compile(expr);
-        // hack: re-process expressions containing list filters (sort, filter, map, group)
-        // to replace their parameters with strings containing normalized expressions.
-        if (doctorListFilters(result.ast)) {
-            let newExpr = serializeAstNode(result.ast.body[0].expression);
-            result = expressions.compile(newExpr)
+        // check if angular-expressions gave us back a cached copy that is already fixed up!
+        if (result.ast.body) {
+            let normalizedExpr
+            // Yatte adds to the regular "filters" supported by angular-expressions, a new concept: the "list filter".
+            // List filters accept as an argument, an expression that will be executed once for each item in the list.
+            // To facilitate this, if the compiled expression contains any list filters, we go back in and fix them up
+            // to replace the expression-type argument with a normalized string version of the same expression.
+            // This allows the evaluation of that expression to be delayed until the list filter itself is executing,
+            // rather than having that expression evaluated only one time BEFORE execution reaches the list filter
+            // (which is what would happen if we did not make the next call).
+            if (doctorListFilters(result.ast)) {
+                // list filters had to be fixed up, meaning, we need to REcompile the expression so it will work the new way
+                normalizedExpr = serializeAstNode(result.ast)
+                result = expressions.compile(normalizedExpr)
+            } else {
+                normalizedExpr = serializeAstNode(result.ast)
+            }
+            // strip out the angular 'toWatch' array, etc., from the AST,
+            // since I'm not entirely sure how to do anything useful with that stuff outside of Angular itself
+            result.ast = reduceAstNode(result.ast.body[0].expression);
+            // fix problem with Angular AST -- reversal of terms 'consequent' and 'alternate' in conditionals
+            fixConditionalExpressions(result.ast);
+            // save the normalized expression as a property of the compiled expression
+            result.normalized = normalizedExpr
         }
+        // cache the compiled expression under the original string
         compiledExprCache[cacheKey] = result;
+        // does it make any sense to also cache the compiled expression under the normalized string?
+        // Maybe not, since you have to compile the expression in order to GET a normalized string...
     }
     return result;
 }
@@ -133,11 +156,11 @@ const parseFieldExpr = function(fieldObj) {
     const expectarray = (fieldObj.type == OD.List);
     try {
         let compiledExpr = compileExpr(fieldObj.expr);
-        fieldObj.exprAst = reduceAstNode(compiledExpr.ast.body[0].expression);
+        fieldObj.exprAst = compiledExpr.ast;
         if (expectarray) {
             fieldObj.exprAst.expectarray = expectarray;
         }
-        fieldObj.expr = serializeAstNode(fieldObj.exprAst); // normalize all expressions
+        fieldObj.expr = compiledExpr.normalized; // normalize all expressions
         return compiledExpr
     } catch (err) {
         // do something here maybe?
@@ -156,6 +179,12 @@ const parseContentUntilMatch = function(contentArray, startIdx, targetType, bInc
         idx++;
         if (isObj && parsedContent.type == targetType) {
             if (parsedContent.type == OD.EndList) {
+                // future: possibly inject this only if we're in a list on which the "punc" filter was used
+                // (because without the "punc" filter specifying list punctuation, this node will be a no-op)
+                // However, that is a little more complicated than it might seem, because this
+                // code operates in parallel with OpenDocx, which does the same thing (always inserting
+                // a punctuation placeholder at the tail-end of every list) for DOCX templates.
+                // See "puncElem" in OpenDocx.Templater\Templater.cs
                 injectListPunctuationNode(parentContent, bIncludeExpressions)
             }
             parentContent.push(parsedContent);
@@ -260,7 +289,7 @@ const reduceContentArray = function(astBody, newBody = null, scope = null, paren
 }
 
 const reduceContentNode = function(astNode, scope, parentScope = null) {
-    if (typeof astNode == 'string') return null; // plain text node -- non-dynamic content in a text template
+    if (typeof astNode == 'string') return null; // plain text node -- boilerplate content in a text template (does not occur in other template types)
     if (astNode.type == OD.EndList || astNode.type == OD.EndIf) return null;
 
     if (astNode.type == OD.Content) {
@@ -278,25 +307,22 @@ const reduceContentNode = function(astNode, scope, parentScope = null) {
             const {id, contentArray, ...copy} = astNode;
             copy.scope = {}; // fresh new wholly separate scope for lists
             copy.contentArray = reduceContentArray(contentArray, null, copy.scope);
-            scope[astNode.expr] = copy;
+            scope[astNode.expr] = copy; // set BEFORE recursion for consistent results?  (or after?)
             return copy;
         }
     }
     if (astNode.type == OD.If || astNode.type == OD.ElseIf || astNode.type == OD.Else) {
-            // if's are logical and therefore are always evaluated (until we do the work
-            // to detect their redundancy and then safely optimize them out)
-            // but we still need to check whether the expr is in the scope already (or not)
-            // so we can place a hint in the node (which will be needed down the line when transforming data)
+            // if's are always left in at this point (a lot more work would be required to accurately optimize them out)
+            // Note: we don't check whether astNode.expr is in the parent scope, or add it to the parent scope by virtue of it having been referenced in a condition.
+            // We always keep the conditions, and since it means something different for the same expression to be evaluated in a Content node vs. an If/ElseIf node,
+            // using an expression in a condition should not affect whether that same expression is emitted later in a content node.
             const {id, contentArray, ...copy} = astNode;
+            // this 'parentScope' thing is a bit tricky.  The parentScope argument is only supplied when we're inside an If/ElseIf/Else block within the current scope.
+            // If supplied, it INDIRECTLY refers to the actual scope -- basically, successive layers of "if" blocks
+            // that each establish a new "mini" scope, that has the parent scope as its prototype.
+            // This means, a reference to an identifier in a parent scope, will prevent that identifier from appearing (redundantly) in a child;
+            // but a reference to an identifier in a child scope, will NOT prevent that identifier from appearing in a parent scope.
             const ps = (parentScope != null) ? parentScope : scope;
-            if (copy.type == OD.If || copy.type == OD.ElseIf) {
-                if (astNode.expr in ps) {
-                    copy.new = false;
-                } else {
-                    ps[astNode.expr] = true;
-                    copy.new = true;
-                }
-            }
             const childContext = Object.create(ps);
             copy.contentArray = reduceContentArray(contentArray, null, childContext, ps);
             return copy;
@@ -355,154 +381,23 @@ const reduceAstNode = function(astNode) {
     return simplified;
 }
 
-// serialization logic adapted from AString
-// https://github.com/davidbonnet/astring/blob/master/src/astring.js
-const OPERATOR_PRECEDENCE = {
-    '||': 3,
-    '&&': 4,
-    '==': 8,
-    '!=': 8,
-    '===': 8,
-    '!==': 8,
-    '<': 9,
-    '>': 9,
-    '<=': 9,
-    '>=': 9,
-    '+': 11,
-    '-': 11,
-    '*': 12,
-    '%': 12,
-    '/': 12,
-}
-  
-// Enables parenthesis regardless of precedence
-const NEEDS_PARENTHESES = 17
-  
-const EXPRESSIONS_PRECEDENCE = {
-    // Definitions
-    ArrayExpression: 20,
-    ThisExpression: 20,
-    Identifier: 20,
-    Literal: 18,
-    // Operations
-    MemberExpression: 19,
-    CallExpression: 19,
-    // Other definitions
-    ObjectExpression: NEEDS_PARENTHESES,
-    // Other operations
-    UnaryExpression: 15,
-    BinaryExpression: 14,
-    LogicalExpression: 13,
-    ConditionalExpression: 4,
-    AngularFilterCallExpression: 1,
-}
-
-function getExpressionPrecedence(node) {
-    if (node.type === 'CallExpression' && node.filter) {
-        return EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression
-    } // else
-    return EXPRESSIONS_PRECEDENCE[node.type]
-}
-
-function expressionNeedsParentheses(node, parentNode, isRightHand) {
-    const nodePrecedence = getExpressionPrecedence(node)
-    if (nodePrecedence === NEEDS_PARENTHESES) {
-      return true
-    }
-    const parentNodePrecedence = getExpressionPrecedence(parentNode)
-    if (nodePrecedence !== parentNodePrecedence) {
-      // Different node types
-      return nodePrecedence < parentNodePrecedence
-    }
-    if (nodePrecedence !== 13 && nodePrecedence !== 14) {
-      // Not a `LogicalExpression` or `BinaryExpression`
-      return false
-    }
-    if (isRightHand) {
-      // Parenthesis are used if both operators have the same precedence
-      return ( OPERATOR_PRECEDENCE[node.operator] <= OPERATOR_PRECEDENCE[parentNode.operator] )
-    }
-    return ( OPERATOR_PRECEDENCE[node.operator] < OPERATOR_PRECEDENCE[parentNode.operator] )
-}
-
-function serializeOptionallyWrapped(node, maxPrecedence, orEqual = false) {
-    const wrap = orEqual ? (getExpressionPrecedence(node) <= maxPrecedence) : (getExpressionPrecedence(node) < maxPrecedence)
-    return wrap ? ('(' + serializeAstNode(node) + ')') : serializeAstNode(node)
-}
-
-function serializeBinaryExpressionPart(node, parentNode, isRightHand) {
-    /*
-    serializes a left-hand or right-hand expression `node`
-    from a binary expression applying the provided `operator`.
-    The `isRightHand` parameter should be `true` if the `node` is a right-hand argument.
-    */
-    if (expressionNeedsParentheses(node, parentNode, isRightHand)) {
-        return '(' + serializeAstNode(node) + ')'
-    } else {
-        return serializeAstNode(node)
-    }
-}
-
-const escapeQuotes = function(str) {
-    return str.replace(/"/g,'&quot;')
-}
-
-const serializeAstNode = function(astNode) {
+/**
+ * Recursively processes the given AST node to determine if it contains any "list filters", and if it does,
+ * changes the filter's argument from an expression into a string literal.
+ *
+ * Yatte adds to the regular "filters" supported by angular-expressions, a new concept: the "list filter".
+ * List filters accept (as an argument) an expression that will be executed once FOR EACH item in the list.
+ * 
+ * This function facilitate this delayed evaluation of the expression.  See implementation of the filters
+ * sort, filter, map, some, every, find, and group (in filters.js) for how this string is used.
+ * 
+ * @param {object} astNode 
+ * @returns {boolean}
+ */
+const doctorListFilters = function (astNode) {
     switch(astNode.type) {
         case 'Program':
-            return serializeAstNode(astNode.body[0]);
-        case 'ExpressionStatement':
-            return serializeAstNode(astNode.expression);
-        case 'Literal':
-            if (typeof astNode.value == 'string')
-                return '"' + astNode.value + '"';
-            return astNode.value.toString();
-        case 'Identifier':
-            return astNode.name;
-        case 'MemberExpression':
-            return serializeOptionallyWrapped(astNode.object, EXPRESSIONS_PRECEDENCE.MemberExpression)
-                + (astNode.computed ? ('[' + serializeAstNode(astNode.property) + ']') : ('.' + serializeAstNode(astNode.property)));
-        case 'CallExpression':
-            let str;
-            if (astNode.filter) {
-                str = serializeOptionallyWrapped(astNode.arguments[0], EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression, true)
-                        + '|' + serializeAstNode(astNode.callee);
-                for (let i = 1; i < astNode.arguments.length; i++) {
-                    str += ':' + serializeOptionallyWrapped(astNode.arguments[i], EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression, true)
-                }
-            } else {
-                str = serializeAstNode(astNode.callee) + '(' + astNode.arguments.map(argObj => serializeAstNode(argObj)).join(',') + ')';
-            }
-            return str;
-        case 'ArrayExpression':
-            return '[' + astNode.elements.map(elem => serializeAstNode(elem)).join(',') + ']';
-        case 'ObjectExpression':
-            return '{' + astNode.properties.map(prop => serializeAstNode(prop)).join(',') + '}';
-        case 'Property':
-            return (astNode.computed ? '[' : '') + serializeAstNode(astNode.key) + (astNode.computed ? ']' : '') + ':' + serializeAstNode(astNode.value);
-        case 'BinaryExpression':
-        case 'LogicalExpression':
-            return serializeBinaryExpressionPart(astNode.left, astNode, false) + astNode.operator + serializeBinaryExpressionPart(astNode.right, astNode, true);
-        case 'UnaryExpression':
-            return astNode.prefix
-                    ? astNode.operator + serializeOptionallyWrapped(astNode.argument, EXPRESSIONS_PRECEDENCE.UnaryExpression)
-                    : serializeAstNode(astNode.argument) + astNode.operator;
-        case 'ConditionalExpression':
-            return serializeOptionallyWrapped(astNode.test, EXPRESSIONS_PRECEDENCE.ConditionalExpression, true)
-                    + '?' + serializeOptionallyWrapped(astNode.alternate, EXPRESSIONS_PRECEDENCE.ConditionalExpression)
-                    + ':' + serializeAstNode(astNode.consequent); // looks like angular-expressions has alternate and consequent reversed from their standard meanings!
-        case 'ThisExpression':
-            return 'this';
-        default:
-            throw new Error('Unsupported expression type')
-    }
-}
-exports.serializeAST = serializeAstNode;
-
-const doctorListFilters = function(astNode) {
-    switch(astNode.type) {
-        case 'Program':
-            return doctorListFilters(astNode.body[0]);
+            return astNode.body.reduce((accumulator, statementObj) => accumulator |= doctorListFilters(statementObj), false);
         case 'ExpressionStatement':
             return doctorListFilters(astNode.expression);
         case 'Literal':
@@ -551,6 +446,71 @@ const doctorListFilters = function(astNode) {
             return doctorListFilters(astNode.argument);
         case 'ConditionalExpression':
             return doctorListFilters(astNode.test) | doctorListFilters(astNode.alternate) | (astNode.consequent ? doctorListFilters(astNode.consequent) : false);
+        default:
+            return false;
+    }
+}
+
+const escapeQuotes = function (str) {
+    return str.replace(/"/g,'&quot;')
+}
+
+/**
+ * Recursively processes the given AST node to determine if it contains any conditional expressions, and if it does,
+ * it reverses the "alternate" and "consequent" properties to conform to the generally-understood meanings of those terms,
+ * for consistency and compatibility with other AST node types (IfStatements in particular).
+ * See:
+ *      https://github.com/estree/estree/blob/master/es5.md#conditionalexpression
+ *          ... which does not say what is what, but gives the wrong idea by its ordering of the properties, and
+ *      https://github.com/estree/estree/blob/master/es5.md#ifstatement
+ *          ... which makes it clear that "consequent" is the "then", while "alternate" is the "else" (by virtue of it being optional)
+ 
+ * and all kinds of sources that make the intended meanings of "consequent" clear:
+ *      https://www.gnu.org/software/mit-scheme/documentation/mit-scheme-ref/Conditionals.html
+ *      https://en.wikipedia.org/wiki/Conditional_(computer_programming)
+ *
+ * When Angular parses conditional expressions, although it generally follows a subset of the ESTree spec,
+ * it places the portion following '?' in "alternate" and the portion following ':' in "consequent",
+ * which is backwards and causes problems if you intend to use the AST for any other purpose.
+ * 
+ * @param {object} astNode 
+ * @returns {boolean}
+ */
+const fixConditionalExpressions = function (astNode) {
+    let swap
+    switch(astNode.type) {
+        case 'Program':
+            return astNode.body.reduce((accumulator, statementObj) => accumulator |= fixConditionalExpressions(statementObj), false);
+        case 'ExpressionStatement':
+            return fixConditionalExpressions(astNode.expression);
+        case 'Literal':
+        case 'Identifier':
+        case 'ThisExpression':
+            return false;
+        case 'MemberExpression':
+            return fixConditionalExpressions(astNode.object) | fixConditionalExpressions(astNode.property);
+        case 'CallExpression':
+            return fixConditionalExpressions(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= fixConditionalExpressions(argObj), false);
+        case 'ArrayExpression':
+            return astNode.elements.reduce((accumulator, elem) => accumulator |= fixConditionalExpressions(elem), false);
+        case 'ObjectExpression':
+            return astNode.properties.reduce((accumulator, prop) => accumulator |= fixConditionalExpressions(prop), false);
+        case 'Property':
+            return fixConditionalExpressions(astNode.key) | fixConditionalExpressions(astNode.value);
+        case 'BinaryExpression':
+        case 'LogicalExpression':
+            return fixConditionalExpressions(astNode.left) | fixConditionalExpressions(astNode.right);
+        case 'UnaryExpression':
+            return fixConditionalExpressions(astNode.argument);
+        case 'ConditionalExpression':
+            let childFixed = fixConditionalExpressions(astNode.test) | fixConditionalExpressions(astNode.alternate) | fixConditionalExpressions(astNode.consequent);
+            if (!astNode.fixed) {
+                swap = astNode.alternate;
+                astNode.alternate = astNode.consequent;
+                astNode.consequent = swap;
+                astNode.fixed = true;
+            }
+            return childFixed || astNode.fixed;
         default:
             return false;
     }

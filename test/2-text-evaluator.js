@@ -1,7 +1,6 @@
 const assert = require('assert');
 const templater = require('../text-templater');
 const TextEvaluator = require('../text-evaluator');
-//const types = require('./types-test');
 
 describe('Assembling text templates', function() {
     it('should assemble a simple template', function() {

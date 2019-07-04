@@ -98,7 +98,7 @@ class StackFrame {
     }
 
     evaluate(compiledExpr) {
-        if (compiledExpr.ast.body[0].expression.type === 'ThisExpression') {
+        if (compiledExpr.ast.type === 'ThisExpression') {
             // special case: when evaluating 'this', there are no locals, so pass value in as global scope object
             return compiledExpr(this.localScope)
         }

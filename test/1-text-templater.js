@@ -475,7 +475,8 @@ describe('Parsing and normalization of expressions', function() {
                         "name": "b",
                         "constant": false
                     },
-                    "alternate": {
+                    "fixed": true,
+                    "consequent": {
                         "type": "BinaryExpression",
                         "left": {
                             "type": "Identifier",
@@ -490,7 +491,7 @@ describe('Parsing and normalization of expressions', function() {
                         },
                         "constant": false
                     },
-                    "consequent": {
+                    "alternate": {
                         "type": "Literal",
                         "value": "",
                         "constant": true

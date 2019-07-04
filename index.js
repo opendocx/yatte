@@ -30,4 +30,3 @@ exports.assembleText = function (template, context, locals) {
 
 exports.FieldTypes = require('./fieldtypes');
 exports.ContextStack = require('./context-stack');
-exports.Table = require('./table');

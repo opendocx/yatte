@@ -1,6 +1,6 @@
 {
   "name": "yatte",
-  "version": "1.4.1-alpha.0",
+  "version": "1.4.9-alpha.0",
   "description": "Yet Another Text Templating Engine",
   "files": [
     "/base-templater.js",
@@ -10,7 +10,7 @@
     "/filters.js",
     "/index.js",
     "/LICENSE",
-    "/table.js",
+    "/serialize.js",
     "/text-evaluator.js",
     "/text-templater.js"
   ],
