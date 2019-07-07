@@ -108,6 +108,10 @@ class StackFrame {
 }
 
 function createGlobalFrame (contextObj, localsObj, name = '_odx') {
+    // always add an '_' identifier in the top stack frame, that refers to the top-level object itself,
+    // so templates have a way to explicitly request the top-most frame of data
+    let topMostScope = contextObj || localsObj
+    topMostScope['_'] = localsObj || contextObj
     return new StackFrame('Object', name, localsObj, null, contextObj);
 }
 
