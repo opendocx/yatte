@@ -14,13 +14,13 @@ exports.parseTemplate = function(template, bIncludeExpressions = true)
         return templateCache[template];
     // if any block-level paired fields are on a lines by themselves, remove the CR/LF following those fields
     // (but leave block-level content fields alone)
-    template = template.replace(_blockFieldRE, _blockFieldReplacer);
-    let templateSplit = template.split(_fieldRE);
+    let tweaked = template.replace(_blockFieldRE, _blockFieldReplacer);
+    let templateSplit = tweaked.split(_fieldRE); // TODO: improve this approach with something that captures & retains each field offset
     if (templateSplit.length < 2) {  // no fields
         templateCache[template] = [template];
         return templateCache[template];
     }
-    return base.parseContentArray(templateSplit, bIncludeExpressions);
+    return templateCache[template] = base.parseContentArray(templateSplit, bIncludeExpressions);
 }
 const _blockFieldReplacer = function(match, fieldText, eol, offset, string) {
     var cleaned = `{[${fieldText}]}`;

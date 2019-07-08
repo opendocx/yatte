@@ -3,6 +3,12 @@ const assert = require('assert');
 
 describe('Compiling expressions via exported API', function() {
 
+    it('should reuse a compiled expression rather than re-compiling it', function() {
+        const evaluator = yatte.Engine.compileExpr('A + B')
+        const evaluator2 = yatte.Engine.compileExpr('A + B')
+        assert.strictEqual(evaluator, evaluator2)
+    })
+
     it('should correctly categorize the outcomes of a conditional expression', function() {
         const evaluator = yatte.Engine.compileExpr('test ? consequent : alternative')
         const data = { test: true, consequent: 'consequent', alternative: 'alternative'}
@@ -28,6 +34,16 @@ describe('Compiling expressions via exported API', function() {
             },
             constant: false,
         })
+    })
+
+})
+
+describe('Compiling text templates via exported API', function() {
+
+    it('should reuse a compiled text template rather than re-compiling it', function() {
+        const evaluator = yatte.compileText('{[FirstName]} {[LastName]}')
+        const evaluator2 = yatte.compileText('{[FirstName]} {[LastName]}')
+        assert.strictEqual(evaluator, evaluator2)
     })
 
 })
