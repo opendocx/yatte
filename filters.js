@@ -1,29 +1,35 @@
 const expressions= require('angular-expressions')
 const format = require('date-fns/format')
+const dateparse = require('date-fns/parse')
 const numeral = require('numeral')
 const numWords = require('number-to-words')
 
 // define built-in filters (todo: more needed)
 expressions.filters.upper = function(input) {
     if(!input) return input
+    if (typeof input !== 'string') input = input.toString()
     return input.toUpperCase()
 }
 expressions.filters.lower = function(input) {
     if(!input) return input
+    if (typeof input !== 'string') input = input.toString()
     return input.toLowerCase()
 }
 expressions.filters.initcap = function(input, forceLower = false) {
     if(!input) return input
+    if (typeof input !== 'string') input = input.toString()
     if (forceLower) input = input.toLowerCase()
     return input.charAt(0).toUpperCase() + input.slice(1)
 }
 expressions.filters.titlecaps = function(input, forceLower = false) {
     if(!input) return input
+    if (typeof input !== 'string') input = input.toString()
     if (forceLower) input = input.toLowerCase()
     return input.replace(/(^| )(\w)/g, s => s.toUpperCase())
 }
 expressions.filters.date = function(input, fmtStr) {
     if(!input) return input
+    if (!(input instanceof Date)) input = dateparse(input)
     return format(input, fmtStr)
 }
 expressions.filters.number = function(input, positiveFmt, negativeFmt, zeroFmt) {
@@ -47,7 +53,8 @@ expressions.filters.number = function(input, positiveFmt, negativeFmt, zeroFmt) 
     return n.format(fmtStr)
 }
 expressions.filters.ordsuffix = function(input) {
-    if (!input) return input
+    if (input === null || typeof input === 'undefined') return input
+    if (typeof input !== 'number') input = Number(input)
     switch (input % 10) {
         case 1: return "st"
         case 2: return "nd"
