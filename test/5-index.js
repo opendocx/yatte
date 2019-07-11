@@ -238,6 +238,7 @@ describe('Extracting logic from text templates', function() {
         {
             type: "If",
             expr: "x",
+            firstRef: true,
             exprAst: {
                 type: "Identifier",
                 name: "x",
@@ -277,6 +278,7 @@ describe('Extracting logic from text templates', function() {
                 {
                     type: "ElseIf",
                     expr: "y",
+                    firstRef: true,
                     exprAst: {
                         type: "Identifier",
                         name: "y",
@@ -458,6 +460,7 @@ The logic tree should include the if twice, but should call for the data only on
         {
             "type": "If",
             "expr": "x",
+            "firstRef": true,
             "exprAst": {
                 "type": "Identifier",
                 "name": "x",
@@ -487,6 +490,7 @@ The logic tree should include the if twice, but should call for the data only on
         }, {
             "type": "If",
             "expr": "x",
+            "firstRef": false,
             "exprAst": {
                 "type": "Identifier",
                 "name": "x",
@@ -507,6 +511,7 @@ The logic tree should include the if twice, but should call for the data only on
             {
                 "type": "If",
                 "expr": "x",
+                "firstRef": true,
                 "exprAst": {
                     "type": "Identifier",
                     "name": "x",
@@ -532,6 +537,7 @@ The logic tree should include the if twice, but should call for the data only on
             {
                 "type": "If",
                 "expr": "a",
+                "firstRef": true,
                 "exprAst": {
                     "type": "Identifier",
                     "name": "a",
@@ -541,6 +547,7 @@ The logic tree should include the if twice, but should call for the data only on
                     {
                         "type": "If",
                         "expr": "b",
+                        "firstRef": true,
                         "exprAst": {
                             "type": "Identifier",
                             "name": "b",
@@ -595,6 +602,7 @@ The logic tree should include the if twice, but should call for the data only on
             },{
                 "type": "If",
                 "expr": "a",
+                "firstRef": true,
                 "exprAst": {
                     "type": "Identifier",
                     "name": "a",
@@ -620,6 +628,7 @@ The logic tree should include the if twice, but should call for the data only on
             },{
                 "type": "If",
                 "expr": "x",
+                "firstRef": false,
                 "exprAst": {
                     "type": "Identifier",
                     "name": "x",
@@ -648,6 +657,7 @@ The logic tree should include the if twice, but should call for the data only on
         {
             "type": "If",
             "expr": "x",
+            "firstRef": true,
             "exprAst": {
                 "type": "Identifier",
                 "name": "x",
@@ -664,6 +674,7 @@ The logic tree should include the if twice, but should call for the data only on
                 }, {
                     "type": "ElseIf",
                     "expr": "y",
+                    "firstRef": true,
                     "exprAst": {
                         "type": "Identifier",
                         "name": "y",
@@ -695,6 +706,37 @@ The logic tree should include the if twice, but should call for the data only on
         }
     ];
     
+})
+
+describe('Emitting appropriate data hints for OpenDocx', function() {
+    it('should emit firstRef hints so opendocx-node can assemble proper XML', function() {
+        const template = "{[if x]}{[endif]}{[if x]}{[endif]}";
+        let logic = yatte.extractLogic(template);
+        assert.deepStrictEqual(logic, [
+            {
+                "type": "If",
+                "expr": "x",
+                "firstRef": true,
+                "exprAst": {
+                    "type": "Identifier",
+                    "name": "x",
+                    "constant": false
+                },
+                "contentArray": []
+            }, {
+                "type": "If",
+                "expr": "x",
+                "firstRef": false,
+                "exprAst": {
+                    "type": "Identifier",
+                    "name": "x",
+                    "constant": false
+                },
+                "contentArray": []
+            }
+        ]);
+
+    })
 })
 
 /*

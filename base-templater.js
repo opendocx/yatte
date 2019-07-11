@@ -36,7 +36,7 @@ const buildLogicTree = function(astBody) {
     // remove EndIf and EndList nodes
     // remove Content nodes that are already defined in the same logical/list scope
     // always process down all if branches & lists
-    // strip field ID metadata (for docx templates) since it no longer applies
+    // ~~~strip field ID metadata (for docx templates) since it no longer applies~~~ revised: leave it in so we know more about error location
     const copy = reduceContentArray(astBody);
     simplifyContentArray2(copy);
     return copy;
@@ -293,36 +293,49 @@ const reduceContentNode = function(astNode, scope, parentScope = null) {
     if (astNode.type == OD.EndList || astNode.type == OD.EndIf) return null;
 
     if (astNode.type == OD.Content) {
-        if (astNode.expr in scope) return null; // expression already defined in this scope
-        const {id, ...copy} = astNode; // strip field id if it's there
+        if (scope[astNode.expr]) return null; // expression already defined in this scope
+        const {id, ...copy} = astNode; // strip field id if it's there // TODO: stop stripping the id!
         scope[astNode.expr] = copy;
         return copy;
     }
     if (astNode.type == OD.List) {
-        if (astNode.expr in scope) { // this list has already been added to the parent scope; revisit it to add more content members if necessary
-            const existingListNode = scope[astNode.expr];
+        let existingListNode
+        if (existingListNode = scope[astNode.expr]) { // this list has already been added to the parent scope; revisit it to add more content members if necessary
             reduceContentArray(astNode.contentArray, existingListNode.contentArray, existingListNode.scope);
             return null;
         } else {
-            const {id, contentArray, ...copy} = astNode;
+            const {id, contentArray, ...copy} = astNode; // TODO: stop stripping the id!
             copy.scope = {}; // fresh new wholly separate scope for lists
             copy.contentArray = reduceContentArray(contentArray, null, copy.scope);
-            scope[astNode.expr] = copy; // set BEFORE recursion for consistent results?  (or after?)
+            scope[astNode.expr] = copy; // set BEFORE recursion for consistent results?  (or is it intentionally after?)
             return copy;
         }
     }
     if (astNode.type == OD.If || astNode.type == OD.ElseIf || astNode.type == OD.Else) {
-            // if's are always left in at this point (a lot more work would be required to accurately optimize them out)
-            // Note: we don't check whether astNode.expr is in the parent scope, or add it to the parent scope by virtue of it having been referenced in a condition.
-            // We always keep the conditions, and since it means something different for the same expression to be evaluated in a Content node vs. an If/ElseIf node,
-            // using an expression in a condition should not affect whether that same expression is emitted later in a content node.
-            const {id, contentArray, ...copy} = astNode;
+            // if's are always left in at this point (because of their importance to the logic;
+            // a lot more work would be required to accurately optimize them out.)
+            // But we still need to check whether the if expr is in the scope already (or not)
+            // so we can place a "firstRef" hint in the node, which is used by opendocx to decide whether
+            // this expression should be included in the data as its being transformed into XML (UGLY! improvement planned ASAP!)
+            // HOWEVER, we can't add the expr to the parent scope by virtue of it having been referenced in a condition,
+            // because it means something different for the same expression to be evaluated in a Content node vs. an If/ElseIf node,
+            // and therefore an expression emitted/evaluated as part of a condition still needs to be emitted/evaluated as part of a merge/content node.
+
+            const {id, contentArray, ...copy} = astNode; // TODO: stop stripping the id!
             // this 'parentScope' thing is a bit tricky.  The parentScope argument is only supplied when we're inside an If/ElseIf/Else block within the current scope.
             // If supplied, it INDIRECTLY refers to the actual scope -- basically, successive layers of "if" blocks
             // that each establish a new "mini" scope, that has the parent scope as its prototype.
             // This means, a reference to an identifier in a parent scope, will prevent that identifier from appearing (redundantly) in a child;
             // but a reference to an identifier in a child scope, will NOT prevent that identifier from appearing in a parent scope.
             const ps = (parentScope != null) ? parentScope : scope;
+            if (copy.type == OD.If || copy.type == OD.ElseIf) {
+                if (astNode.expr in ps) {
+                    copy.firstRef = false; // firstRef = false means opendocx, when it's deciding which expressions to evaluate and place in output XML, will skip this one
+                } else {
+                    ps[astNode.expr] = false; // we put this expression "in" the scope, but set it to false -- so the checks above in Content and List (that check for truthiness) will not see it, but the checks here (that check for "in") WILL see it.
+                    copy.firstRef = true; // firstRef = true means the firs time this IF expression has been encountered in this scope, so opendocx will output this expression in the data XML
+                }
+            }            
             const childContext = Object.create(ps);
             copy.contentArray = reduceContentArray(contentArray, null, childContext, ps);
             return copy;
