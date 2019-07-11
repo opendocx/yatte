@@ -530,7 +530,68 @@ The logic tree should include the if twice, but should call for the data only on
         ]);
     });
 
-    it('should not filter out less-conditional (or unconditional) usage following more-conditional usage', function() {
+    // it('should not filter out less-conditional (or unconditional) usage following more-conditional usage', function() {
+    //     const template = "{[if a]}{[if b]}{[x]}{[endif]}{[x]}{[endif]}{[x]}";
+    //     let logic = yatte.extractLogic(template);
+    //     assert.deepStrictEqual(logic, [
+    //         {
+    //             "type": "If",
+    //             "expr": "a",
+    //             "firstRef": true,
+    //             "exprAst": {
+    //                 "type": "Identifier",
+    //                 "name": "a",
+    //                 "constant": false
+    //             },
+    //             "contentArray": [
+    //                 {
+    //                     "type": "If",
+    //                     "expr": "b",
+    //                     "firstRef": true,
+    //                     "exprAst": {
+    //                         "type": "Identifier",
+    //                         "name": "b",
+    //                         "constant": false
+    //                     },
+    //                     "contentArray": [
+    //                         {
+    //                             "type": "Content",
+    //                             "expr": "x",
+    //                             "exprAst": {
+    //                                 "type": "Identifier",
+    //                                 "name": "x",
+    //                                 "constant": false
+    //                             }
+    //                         }
+    //                     ]
+    //                 },{
+    //                     "type": "Content",
+    //                     "expr": "x",
+    //                     "exprAst": {
+    //                         "type": "Identifier",
+    //                         "name": "x",
+    //                         "constant": false
+    //                     }
+    //                 }
+    //             ]
+    //         },
+    //         {
+    //             "type": "Content",
+    //             "expr": "x",
+    //             "exprAst": {
+    //                 "type": "Identifier",
+    //                 "name": "x",
+    //                 "constant": false
+    //             }
+    //         }            
+    //     ]);
+    // });
+
+    it('SHOULD filter out more-conditional usage that PRECEDES less-conditional (or unconditional) usage', function() {
+        // either we need to do this (A), or we need to (B) change OpenDocx so it ignores the more-conditional usages as its outputting XML,
+        // or we need to (C) change OpenDocx so the XPath query it sends to OXPT specifies to only take the first node that comes back ([1]).
+        // Note: it's not possible, under the current approach (A), to completely optimize out redundant fields.  We will address this in a
+        // rewrite.  In the meantime, we have a partial approach for A (that this case illustrates) and we are also doing (C).
         const template = "{[if a]}{[if b]}{[x]}{[endif]}{[x]}{[endif]}{[x]}";
         let logic = yatte.extractLogic(template);
         assert.deepStrictEqual(logic, [
@@ -553,25 +614,7 @@ The logic tree should include the if twice, but should call for the data only on
                             "name": "b",
                             "constant": false
                         },
-                        "contentArray": [
-                            {
-                                "type": "Content",
-                                "expr": "x",
-                                "exprAst": {
-                                    "type": "Identifier",
-                                    "name": "x",
-                                    "constant": false
-                                }
-                            }
-                        ]
-                    },{
-                        "type": "Content",
-                        "expr": "x",
-                        "exprAst": {
-                            "type": "Identifier",
-                            "name": "x",
-                            "constant": false
-                        }
+                        "contentArray": []
                     }
                 ]
             },
@@ -586,6 +629,7 @@ The logic tree should include the if twice, but should call for the data only on
             }            
         ]);
     });
+
 
     it('should filter out conditional usage that follows unconditional usage', function() {
         const template = "{[x]}{[if a]}{[x]}{[endif]}";

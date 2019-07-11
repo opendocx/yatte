@@ -39,6 +39,7 @@ const buildLogicTree = function(astBody) {
     // ~~~strip field ID metadata (for docx templates) since it no longer applies~~~ revised: leave it in so we know more about error location
     const copy = reduceContentArray(astBody);
     simplifyContentArray2(copy);
+    simplifyContentArray3(copy);
     return copy;
 }
 exports.buildLogicTree = buildLogicTree;
@@ -355,6 +356,40 @@ const simplifyNode2 = function(astNode) {
         delete astNode.scope;
     if (Array.isArray(astNode.contentArray))
         simplifyContentArray2(astNode.contentArray);
+}
+
+const simplifyContentArray3 = function(body, scope = {}) {
+    // 3rd pass at simplifying scopes
+    // first go through content fields
+    let i = 0
+    while (i < body.length) {
+        let field = body[i]
+        let nodeRemoved = false
+        if (field.type === OD.Content) {
+            if (field.expr in scope) {
+                body.splice(i, 1)
+                nodeRemoved = true
+            } else {
+                scope[field.expr] = true
+            }
+        }
+        if (!nodeRemoved) {
+            i++
+        }
+    }
+    // then recurse into ifs and lists
+    for (const field of body) {
+        if (field.type === OD.List) {
+            if (!(field.expr in scope)) {
+                scope[field.expr] = true
+            }
+            simplifyContentArray3(field.contentArray, {}) // new scope for lists
+        } else if (field.type === OD.If || field.type === OD.ElseIf || field.type === OD.Else) {
+            simplifyContentArray3(field.contentArray, { ...scope }) // copy scope for ifs
+        }
+    }
+    // note: although this will eliminate some redundant fields, it will not eliminate all of them.
+    // A partial rewrite is planned to implement a new, more straight-forward approach.
 }
 
 const reduceAstNode = function(astNode) {
