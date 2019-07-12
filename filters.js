@@ -83,6 +83,9 @@ expressions.filters.punc = function(inputList, example = '1, 2 and 3') {
     let p2 = example.indexOf('2')
     let p3 = example.indexOf('3')
     if (p1 >= 0 && p2 > p1) {
+        // inputList may be the actual source array (the context stack has not yet been pushed!)
+        // so make a shallow copy before adding any custom properties onto the array
+        inputList = [...inputList]
         let between = example.slice(p1 + 1, p2)
         if (p3 > p2) {
             let last2 = example.slice(p2 + 1, p3)
@@ -92,7 +95,7 @@ expressions.filters.punc = function(inputList, example = '1, 2 and 3') {
             else
                 only2 = last2
             let suffix = example.slice(p3 + 1)
-            inputList['punc'] = { between, last2, only2, suffix } // the context stack has ensured this array is a shallow copy, so we modify it in-place
+            inputList['punc'] = { between, last2, only2, suffix }
         } else if (p3 < 0) {
             let suffix = example.slice(p2 + 1)
             inputList['punc'] = { between, last2: between, only2: between, suffix }
