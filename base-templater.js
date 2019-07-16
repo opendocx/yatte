@@ -1,8 +1,9 @@
 const expressions= require('angular-expressions');
 require('./filters'); // ensure filters are loaded into (shared) expressions object
 const OD = require('./fieldtypes');
-const { serializeAstNode } = require('./serialize')
-exports.serializeAST = serializeAstNode;
+const { AST } = require('./estree')
+exports.AST = AST;
+exports.serializeAST = AST.serialize // this export is redundant and deprecated, slated for removal in next version
 
 const parseContentArray = function(contentArray, bIncludeExpressions = true) {
     // contentArray can be either an array of strings (as from a text template split via regex)
@@ -67,10 +68,10 @@ const compileExpr = function(expr) {
             // (which is what would happen if we did not make the next call).
             if (doctorListFilters(result.ast)) {
                 // list filters had to be fixed up, meaning, we need to REcompile the expression so it will work the new way
-                normalizedExpr = serializeAstNode(result.ast)
+                normalizedExpr = AST.serialize(result.ast)
                 result = expressions.compile(normalizedExpr)
             } else {
-                normalizedExpr = serializeAstNode(result.ast)
+                normalizedExpr = AST.serialize(result.ast)
             }
             // strip out the angular 'toWatch' array, etc., from the AST,
             // since I'm not entirely sure how to do anything useful with that stuff outside of Angular itself
@@ -444,17 +445,17 @@ const reduceAstNode = function(astNode) {
  */
 const doctorListFilters = function (astNode) {
     switch(astNode.type) {
-        case 'Program':
+        case AST.Program:
             return astNode.body.reduce((accumulator, statementObj) => accumulator |= doctorListFilters(statementObj), false);
-        case 'ExpressionStatement':
+        case AST.ExpressionStatement:
             return doctorListFilters(astNode.expression);
-        case 'Literal':
-        case 'Identifier':
-        case 'ThisExpression':
+        case AST.Literal:
+        case AST.Identifier:
+        case AST.ThisExpression:
             return false;
-        case 'MemberExpression':
+        case AST.MemberExpression:
             return doctorListFilters(astNode.object) | doctorListFilters(astNode.property);
-        case 'CallExpression':
+        case AST.CallExpression:
             if (!astNode.filter) {
                 return doctorListFilters(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= doctorListFilters(argObj), false);
             } // else astNode.filter == true
@@ -469,11 +470,11 @@ const doctorListFilters = function (astNode) {
                     let changed = false
                     for (let i = 0; i < astNode.arguments.length; i++) {
                         let argument = astNode.arguments[i];
-                        if (argument.type == 'CallExpression' && argument.filter) { // chained filter
+                        if (argument.type == AST.CallExpression && argument.filter) { // chained filter
                             changed |= doctorListFilters(argument);
                         }
-                        else if (i > 0 && argument.type != 'Literal') {
-                            astNode.arguments[i] = {type: 'Literal', constant: true, value: escapeQuotes(serializeAstNode(argument))}
+                        else if (i > 0 && argument.type != AST.Literal) {
+                            astNode.arguments[i] = {type: AST.Literal, constant: true, value: escapeQuotes(AST.serialize(argument))}
                             changed = true;
                         }
                     }
@@ -481,18 +482,18 @@ const doctorListFilters = function (astNode) {
                 default:
                     return doctorListFilters(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= doctorListFilters(argObj), false);
             }
-        case 'ArrayExpression':
+        case AST.ArrayExpression:
             return astNode.elements.reduce((accumulator, elem) => accumulator |= doctorListFilters(elem), false);
-        case 'ObjectExpression':
+        case AST.ObjectExpression:
             return astNode.properties.reduce((accumulator, prop) => accumulator |= doctorListFilters(prop), false);
-        case 'Property':
+        case AST.Property:
             return doctorListFilters(astNode.key) | doctorListFilters(astNode.value);
-        case 'BinaryExpression':
-        case 'LogicalExpression':
+        case AST.BinaryExpression:
+        case AST.LogicalExpression:
             return doctorListFilters(astNode.left) | doctorListFilters(astNode.right);
-        case 'UnaryExpression':
+        case AST.UnaryExpression:
             return doctorListFilters(astNode.argument);
-        case 'ConditionalExpression':
+        case AST.ConditionalExpression:
             return doctorListFilters(astNode.test) | doctorListFilters(astNode.alternate) | (astNode.consequent ? doctorListFilters(astNode.consequent) : false);
         default:
             return false;
@@ -527,30 +528,30 @@ const escapeQuotes = function (str) {
 const fixConditionalExpressions = function (astNode) {
     let swap
     switch(astNode.type) {
-        case 'Program':
+        case AST.Program:
             return astNode.body.reduce((accumulator, statementObj) => accumulator |= fixConditionalExpressions(statementObj), false);
-        case 'ExpressionStatement':
+        case AST.ExpressionStatement:
             return fixConditionalExpressions(astNode.expression);
-        case 'Literal':
-        case 'Identifier':
-        case 'ThisExpression':
+        case AST.Literal:
+        case AST.Identifier:
+        case AST.ThisExpression:
             return false;
-        case 'MemberExpression':
+        case AST.MemberExpression:
             return fixConditionalExpressions(astNode.object) | fixConditionalExpressions(astNode.property);
-        case 'CallExpression':
+        case AST.CallExpression:
             return fixConditionalExpressions(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= fixConditionalExpressions(argObj), false);
-        case 'ArrayExpression':
+        case AST.ArrayExpression:
             return astNode.elements.reduce((accumulator, elem) => accumulator |= fixConditionalExpressions(elem), false);
-        case 'ObjectExpression':
+        case AST.ObjectExpression:
             return astNode.properties.reduce((accumulator, prop) => accumulator |= fixConditionalExpressions(prop), false);
-        case 'Property':
+        case AST.Property:
             return fixConditionalExpressions(astNode.key) | fixConditionalExpressions(astNode.value);
-        case 'BinaryExpression':
-        case 'LogicalExpression':
+        case AST.BinaryExpression:
+        case AST.LogicalExpression:
             return fixConditionalExpressions(astNode.left) | fixConditionalExpressions(astNode.right);
-        case 'UnaryExpression':
+        case AST.UnaryExpression:
             return fixConditionalExpressions(astNode.argument);
-        case 'ConditionalExpression':
+        case AST.ConditionalExpression:
             let childFixed = fixConditionalExpressions(astNode.test) | fixConditionalExpressions(astNode.alternate) | fixConditionalExpressions(astNode.consequent);
             if (!astNode.fixed) {
                 swap = astNode.alternate;

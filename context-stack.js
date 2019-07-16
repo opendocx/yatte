@@ -1,4 +1,5 @@
 "use strict";
+const { AST } = require('./estree')
 
 class ContextStack {
     constructor () {
@@ -98,7 +99,7 @@ class StackFrame {
     }
 
     evaluate(compiledExpr) {
-        if (compiledExpr.ast.type === 'ThisExpression') {
+        if (compiledExpr.ast.type === AST.ThisExpression) {
             // special case: when evaluating 'this', there are no locals, so pass value in as global scope object
             return compiledExpr(this.localScope)
         }

@@ -1,3 +1,30 @@
+// These node types are a subset of those defined in the ESTree specification.
+// For the meaning and specific properties of each type of node, see
+// https://github.com/estree/estree/blob/master/es5.md
+
+const AST = {
+    Identifier: 'Identifier',
+    Literal: 'Literal',
+    Program: 'Program',
+    ExpressionStatement: 'ExpressionStatement',
+    BlockStatement: 'BlockStatement',
+    EmptyStatement: 'EmptyStatement',
+    IfStatement: 'IfStatement',
+    ForOfStatement: 'ForOfStatement',
+    ThisExpression: 'ThisExpression',
+    ArrayExpression: 'ArrayExpression',
+    ObjectExpression: 'ObjectExpression',
+    Property: 'Property',
+    UnaryExpression: 'UnaryExpression',
+    BinaryExpression: 'BinaryExpression',
+    LogicalExpression: 'LogicalExpression',
+    MemberExpression: 'MemberExpression',
+    ConditionalExpression: 'ConditionalExpression',
+    CallExpression: 'CallExpression',
+    serialize: serializeAstNode
+}
+exports.AST = AST
+
 // Some serialization logic adapted from AString
 // https://github.com/davidbonnet/astring/blob/master/src/astring.js
 
@@ -24,25 +51,25 @@ const NEEDS_PARENTHESES = 17
   
 const EXPRESSIONS_PRECEDENCE = {
     // Definitions
-    ArrayExpression: 20,
-    ThisExpression: 20,
-    Identifier: 20,
-    Literal: 18,
+    [AST.ArrayExpression]: 20,
+    [AST.ThisExpression]: 20,
+    [AST.Identifier]: 20,
+    [AST.Literal]: 18,
     // Operations
-    MemberExpression: 19,
-    CallExpression: 19,
+    [AST.MemberExpression]: 19,
+    [AST.CallExpression]: 19,
     // Other definitions
-    ObjectExpression: NEEDS_PARENTHESES,
+    [AST.ObjectExpression]: NEEDS_PARENTHESES,
     // Other operations
-    UnaryExpression: 15,
-    BinaryExpression: 14,
-    LogicalExpression: 13,
-    ConditionalExpression: 4,
+    [AST.UnaryExpression]: 15,
+    [AST.BinaryExpression]: 14,
+    [AST.LogicalExpression]: 13,
+    [AST.ConditionalExpression]: 4,
     AngularFilterCallExpression: 1,
 }
 
 function getExpressionPrecedence(node) {
-    if (node.type === 'CallExpression' && node.filter) {
+    if (node.type === AST.CallExpression && node.filter) {
         return EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression
     } // else
     return EXPRESSIONS_PRECEDENCE[node.type]
@@ -87,22 +114,22 @@ function serializeBinaryExpressionPart(node, parentNode, isRightHand) {
     }
 }
 
-const serializeAstNode = function(astNode) {
+function serializeAstNode(astNode) {
     switch(astNode.type) {
-        case 'Program':
+        case AST.Program:
             return astNode.body.map(statement => serializeAstNode(statement)).join('\n');
-        case 'ExpressionStatement':
+        case AST.ExpressionStatement:
             return serializeAstNode(astNode.expression);
-        case 'Literal':
+        case AST.Literal:
             if (typeof astNode.value == 'string')
                 return '"' + astNode.value + '"';
             return astNode.value.toString();
-        case 'Identifier':
+        case AST.Identifier:
             return astNode.name;
-        case 'MemberExpression':
+        case AST.MemberExpression:
             return serializeOptionallyWrapped(astNode.object, EXPRESSIONS_PRECEDENCE.MemberExpression)
                 + (astNode.computed ? ('[' + serializeAstNode(astNode.property) + ']') : ('.' + serializeAstNode(astNode.property)));
-        case 'CallExpression':
+        case AST.CallExpression:
             let str;
             if (astNode.filter) {
                 str = serializeOptionallyWrapped(astNode.arguments[0], EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression, true)
@@ -114,29 +141,28 @@ const serializeAstNode = function(astNode) {
                 str = serializeAstNode(astNode.callee) + '(' + astNode.arguments.map(argObj => serializeAstNode(argObj)).join(',') + ')';
             }
             return str;
-        case 'ArrayExpression':
+        case AST.ArrayExpression:
             return '[' + astNode.elements.map(elem => serializeAstNode(elem)).join(',') + ']';
-        case 'ObjectExpression':
+        case AST.ObjectExpression:
             return '{' + astNode.properties.map(prop => serializeAstNode(prop)).join(',') + '}';
-        case 'Property':
+        case AST.Property:
             return (astNode.computed ? '[' : '') + serializeAstNode(astNode.key) + (astNode.computed ? ']' : '') + ':' + serializeAstNode(astNode.value);
-        case 'BinaryExpression':
-        case 'LogicalExpression':
+        case AST.BinaryExpression:
+        case AST.LogicalExpression:
             return serializeBinaryExpressionPart(astNode.left, astNode, false) + astNode.operator + serializeBinaryExpressionPart(astNode.right, astNode, true);
-        case 'UnaryExpression':
+        case AST.UnaryExpression:
             return astNode.prefix
                     ? astNode.operator + serializeOptionallyWrapped(astNode.argument, EXPRESSIONS_PRECEDENCE.UnaryExpression)
                     : serializeAstNode(astNode.argument) + astNode.operator;
-        case 'ConditionalExpression':
+        case AST.ConditionalExpression:
             // angular expression parsing has alternate and consequent reversed from their standard meanings!
             // so serialize according to whether it's been fixed or not
             return serializeOptionallyWrapped(astNode.test, EXPRESSIONS_PRECEDENCE.ConditionalExpression, true)
                     + '?' + serializeOptionallyWrapped(astNode.fixed ? astNode.consequent : astNode.alternate, EXPRESSIONS_PRECEDENCE.ConditionalExpression)
                     + ':' + serializeAstNode(astNode.fixed ? astNode.alternate : astNode.consequent);
-        case 'ThisExpression':
+        case AST.ThisExpression:
             return 'this';
         default:
             throw new Error('Unsupported expression type')
     }
 }
-exports.serializeAstNode = serializeAstNode;
