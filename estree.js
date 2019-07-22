@@ -21,6 +21,9 @@ const AST = {
     MemberExpression: 'MemberExpression',
     ConditionalExpression: 'ConditionalExpression',
     CallExpression: 'CallExpression',
+    // custom/proprietary:
+    AngularFilterExpression: 'AngularFilterExpression', // properties: input (node), filter (ident), arguments (node array)
+    ListFilterExpression: 'ListFilterExpression', // properties: input (node), filter (ident), arguments (node array), rtl (bool)
     serialize: serializeAstNode
 }
 exports.AST = AST
@@ -65,12 +68,50 @@ const EXPRESSIONS_PRECEDENCE = {
     [AST.BinaryExpression]: 14,
     [AST.LogicalExpression]: 13,
     [AST.ConditionalExpression]: 4,
-    AngularFilterCallExpression: 1,
+    [AST.AngularFilterExpression]: 1,
+    [AST.ListFilterExpression]: 1,
+}
+
+exports.astMutateInPlace = astMutateInPlace
+function astMutateInPlace(node, mutator) {
+    var nodeModified = mutator(node)
+    switch(node.type) {
+        case AST.Program:
+            return nodeModified | node.body.reduce((accumulator, statementObj) => accumulator |= astMutateInPlace(statementObj, mutator), false);
+        case AST.ExpressionStatement:
+            return nodeModified | astMutateInPlace(node.expression, mutator);
+        case AST.Literal:
+        case AST.Identifier:
+        case AST.ThisExpression:
+            return nodeModified;
+        case AST.MemberExpression:
+            return nodeModified | astMutateInPlace(node.object, mutator) | astMutateInPlace(node.property, mutator);
+        case AST.CallExpression:
+            return nodeModified | astMutateInPlace(node.callee, mutator) | node.arguments.reduce((accumulator, argObj) => accumulator |= astMutateInPlace(argObj, mutator), false);
+        case AST.AngularFilterExpression:
+        case AST.ListFilterExpression:
+            return nodeModified | astMutateInPlace(node.filter, mutator) | astMutateInPlace(node.input, mutator) | node.arguments.reduce((accumulator, argObj) => accumulator |= astMutateInPlace(argObj, mutator), false);
+        case AST.ArrayExpression:
+            return nodeModified | node.elements.reduce((accumulator, elem) => accumulator |= astMutateInPlace(elem, mutator), false);
+        case AST.ObjectExpression:
+            return nodeModified | node.properties.reduce((accumulator, prop) => accumulator |= astMutateInPlace(prop, mutator), false);
+        case AST.Property:
+            return nodeModified | astMutateInPlace(node.key, mutator) | astMutateInPlace(node.value, mutator);
+        case AST.BinaryExpression:
+        case AST.LogicalExpression:
+            return nodeModified | astMutateInPlace(node.left, mutator) | astMutateInPlace(node.right, mutator);
+        case AST.UnaryExpression:
+            return nodeModified | astMutateInPlace(node.argument, mutator);
+        case AST.ConditionalExpression:
+            return nodeModified | astMutateInPlace(node.test, mutator) | astMutateInPlace(node.consequent, mutator) | astMutateInPlace(node.alternate, mutator);
+        default:
+            return false;
+    }
 }
 
 function getExpressionPrecedence(node) {
     if (node.type === AST.CallExpression && node.filter) {
-        return EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression
+        return EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression]
     } // else
     return EXPRESSIONS_PRECEDENCE[node.type]
 }
@@ -123,6 +164,8 @@ function serializeAstNode(astNode) {
         case AST.Literal:
             if (typeof astNode.value == 'string')
                 return '"' + astNode.value + '"';
+            if (astNode.value === null)
+                return 'null';
             return astNode.value.toString();
         case AST.Identifier:
             return astNode.name;
@@ -132,15 +175,22 @@ function serializeAstNode(astNode) {
         case AST.CallExpression:
             let str;
             if (astNode.filter) {
-                str = serializeOptionallyWrapped(astNode.arguments[0], EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression, true)
+                str = serializeOptionallyWrapped(astNode.arguments[0], EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression], true)
                         + '|' + serializeAstNode(astNode.callee);
                 for (let i = 1; i < astNode.arguments.length; i++) {
-                    str += ':' + serializeOptionallyWrapped(astNode.arguments[i], EXPRESSIONS_PRECEDENCE.AngularFilterCallExpression, true)
+                    str += ':' + serializeOptionallyWrapped(astNode.arguments[i], EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression], true)
                 }
             } else {
                 str = serializeAstNode(astNode.callee) + '(' + astNode.arguments.map(argObj => serializeAstNode(argObj)).join(',') + ')';
             }
             return str;
+        case AST.AngularFilterExpression:
+            return serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.AngularFilterExpression) + '|' + serializeAstNode(astNode.filter)
+                + astNode.arguments.map(arg => ':' + serializeOptionallyWrapped(arg, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)).join('')
+        case AST.ListFilterExpression:
+            return serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.ListFilterExpression, astNode.rtl)
+                + '|' + serializeAstNode(astNode.filter) + ':this'
+                + astNode.arguments.map(arg => `:"${escapeQuotes(serializeAstNode(arg))}"`).join('')
         case AST.ArrayExpression:
             return '[' + astNode.elements.map(elem => serializeAstNode(elem)).join(',') + ']';
         case AST.ObjectExpression:
@@ -165,4 +215,14 @@ function serializeAstNode(astNode) {
         default:
             throw new Error('Unsupported expression type')
     }
+}
+
+exports.escapeQuotes = escapeQuotes
+function escapeQuotes(str) {
+    return str.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&apos;') // include ampersands so escaping is nestable AND reversable when nested
+}
+
+exports.unEscapeQuotes = unEscapeQuotes
+function unEscapeQuotes(str) {
+    return str.replace(/&apos;/g,"'").replace(/&quot;/g,'"').replace(/&amp;/g,'&')
 }

@@ -1,7 +1,7 @@
 const expressions= require('angular-expressions');
 require('./filters'); // ensure filters are loaded into (shared) expressions object
 const OD = require('./fieldtypes');
-const { AST } = require('./estree')
+const { AST, astMutateInPlace } = require('./estree')
 exports.AST = AST;
 exports.serializeAST = AST.serialize // this export is redundant and deprecated, slated for removal in next version
 
@@ -47,6 +47,32 @@ exports.buildLogicTree = buildLogicTree;
 
 const compiledExprCache = {} // this doesn't seem to do anything... it's always empty? I'm missing something obvious.
 
+/**
+ * The result of calling compileExpr() is an instance of EvaluateExpression.
+ * It is a curried function that (when called with a global and, optionally, local data context) will
+ * return the result of evaluating the expression against that data context.
+ *
+ * The function also has a custom property called 'ast' containing the Abstract Syntax Tree for the parsed expression.
+ *
+ * @callback EvaluateExpression
+ * @param {Object} scope - the (global) scope against which to evaluate the expression
+ * @param {Object} locals - the local scope against which to evaluate the expression
+ * @returns {*} - the value resulting from the evaluation
+ * 
+ * @property {Object} ast
+ */
+
+/**
+ * compileExpr takes an expression (as a string) and returns a compiled version of that expression.
+ * 
+ * This functionality is largely inherited from the angular-expressions package.  However, there are a couple
+ * problems with the ASTs produced by that package; also, yatte extends the angular-expressions idea of 'filters'
+ * with a new variation ('list filters'). These problems and enhancements are addressed here through modifying
+ * and extending the returned AST.
+ * 
+ * @param {string} expr
+ * @returns {EvaluateExpression}
+ */
 const compileExpr = function(expr) {
     if (!expr) {
         throw new Error('Cannot compile invalid (empty or null) expression')
@@ -56,30 +82,25 @@ const compileExpr = function(expr) {
     let result = compiledExprCache[cacheKey];
     if (!result) {
         result = expressions.compile(expr);
-        // check if angular-expressions gave us back a cached copy that is already fixed up!
-        if (result.ast.body) {
-            let normalizedExpr
-            // Yatte adds to the regular "filters" supported by angular-expressions, a new concept: the "list filter".
-            // List filters accept as an argument, an expression that will be executed once for each item in the list.
-            // To facilitate this, if the compiled expression contains any list filters, we go back in and fix them up
-            // to replace the expression-type argument with a normalized string version of the same expression.
-            // This allows the evaluation of that expression to be delayed until the list filter itself is executing,
-            // rather than having that expression evaluated only one time BEFORE execution reaches the list filter
-            // (which is what would happen if we did not make the next call).
-            if (doctorListFilters(result.ast)) {
-                // list filters had to be fixed up, meaning, we need to REcompile the expression so it will work the new way
-                normalizedExpr = AST.serialize(result.ast)
-                result = expressions.compile(normalizedExpr)
-            } else {
-                normalizedExpr = AST.serialize(result.ast)
-            }
+        // check if angular-expressions gave us back a cached copy that has already been fixed up!
+        if (result.ast.body) { // if the AST still has "body" property (which we remove below), it has not yet been fixed
             // strip out the angular 'toWatch' array, etc., from the AST,
             // since I'm not entirely sure how to do anything useful with that stuff outside of Angular itself
             result.ast = reduceAstNode(result.ast.body[0].expression);
-            // fix problem with Angular AST -- reversal of terms 'consequent' and 'alternate' in conditionals
-            fixConditionalExpressions(result.ast);
+            // extend AST with enhanced nodes for filters
+            let modified = fixFilters(result.ast)
+            // normalize the expression
+            let normalizedExpr = AST.serialize(result.ast)
+            // recompile the expression if filter fixes changed its functionality
+            if (modified) {
+                let existingAst = result.ast
+                result = expressions.compile(normalizedExpr)
+                result.ast = existingAst
+            }
             // save the normalized expression as a property of the compiled expression
             result.normalized = normalizedExpr
+            // fix problem with Angular AST -- reversal of terms 'consequent' and 'alternate' in conditionals
+            fixConditionalExpressions(result.ast) // (note: it serializes/normalizes the same whether this has been run or not)
         }
         // cache the compiled expression under the original string
         compiledExprCache[cacheKey] = result;
@@ -407,8 +428,8 @@ const reduceAstNode = function(astNode) {
             case 'right':
             case 'argument':
             case 'test':
-            case 'alternate':
             case 'consequent':
+            case 'alternate':
                 // recurse into nodes that can contain expressions of their own
                 simplified[prop] = reduceAstNode(simplified[prop]);
                 break;
@@ -431,80 +452,6 @@ const reduceAstNode = function(astNode) {
 }
 
 /**
- * Recursively processes the given AST node to determine if it contains any "list filters", and if it does,
- * changes the filter's argument from an expression into a string literal.
- *
- * Yatte adds to the regular "filters" supported by angular-expressions, a new concept: the "list filter".
- * List filters accept (as an argument) an expression that will be executed once FOR EACH item in the list.
- * 
- * This function facilitate this delayed evaluation of the expression.  See implementation of the filters
- * sort, filter, map, some, every, find, and group (in filters.js) for how this string is used.
- * 
- * @param {object} astNode 
- * @returns {boolean}
- */
-const doctorListFilters = function (astNode) {
-    switch(astNode.type) {
-        case AST.Program:
-            return astNode.body.reduce((accumulator, statementObj) => accumulator |= doctorListFilters(statementObj), false);
-        case AST.ExpressionStatement:
-            return doctorListFilters(astNode.expression);
-        case AST.Literal:
-        case AST.Identifier:
-        case AST.ThisExpression:
-            return false;
-        case AST.MemberExpression:
-            return doctorListFilters(astNode.object) | doctorListFilters(astNode.property);
-        case AST.CallExpression:
-            if (!astNode.filter) {
-                return doctorListFilters(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= doctorListFilters(argObj), false);
-            } // else astNode.filter == true
-            switch (astNode.callee.name) {
-                case 'sort':
-                case 'filter':
-                case 'map':
-                case 'some':
-                case 'every':
-                case 'find':
-                case 'group':
-                    let changed = false
-                    for (let i = 0; i < astNode.arguments.length; i++) {
-                        let argument = astNode.arguments[i];
-                        if (argument.type == AST.CallExpression && argument.filter) { // chained filter
-                            changed |= doctorListFilters(argument);
-                        }
-                        else if (i > 0 && argument.type != AST.Literal) {
-                            astNode.arguments[i] = {type: AST.Literal, constant: true, value: escapeQuotes(AST.serialize(argument))}
-                            changed = true;
-                        }
-                    }
-                    return changed;
-                default:
-                    return doctorListFilters(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= doctorListFilters(argObj), false);
-            }
-        case AST.ArrayExpression:
-            return astNode.elements.reduce((accumulator, elem) => accumulator |= doctorListFilters(elem), false);
-        case AST.ObjectExpression:
-            return astNode.properties.reduce((accumulator, prop) => accumulator |= doctorListFilters(prop), false);
-        case AST.Property:
-            return doctorListFilters(astNode.key) | doctorListFilters(astNode.value);
-        case AST.BinaryExpression:
-        case AST.LogicalExpression:
-            return doctorListFilters(astNode.left) | doctorListFilters(astNode.right);
-        case AST.UnaryExpression:
-            return doctorListFilters(astNode.argument);
-        case AST.ConditionalExpression:
-            return doctorListFilters(astNode.test) | doctorListFilters(astNode.alternate) | (astNode.consequent ? doctorListFilters(astNode.consequent) : false);
-        default:
-            return false;
-    }
-}
-
-const escapeQuotes = function (str) {
-    return str.replace(/"/g,'&quot;')
-}
-
-/**
  * Recursively processes the given AST node to determine if it contains any conditional expressions, and if it does,
  * it reverses the "alternate" and "consequent" properties to conform to the generally-understood meanings of those terms,
  * for consistency and compatibility with other AST node types (IfStatements in particular).
@@ -522,45 +469,97 @@ const escapeQuotes = function (str) {
  * it places the portion following '?' in "alternate" and the portion following ':' in "consequent",
  * which is backwards and causes problems if you intend to use the AST for any other purpose.
  * 
+ * Note: if this function makes changes, it modifies the given ast *in place*. The return value indicates whether
+ *       or not changes were made.
+ * 
  * @param {object} astNode 
  * @returns {boolean}
  */
 const fixConditionalExpressions = function (astNode) {
-    let swap
-    switch(astNode.type) {
-        case AST.Program:
-            return astNode.body.reduce((accumulator, statementObj) => accumulator |= fixConditionalExpressions(statementObj), false);
-        case AST.ExpressionStatement:
-            return fixConditionalExpressions(astNode.expression);
-        case AST.Literal:
-        case AST.Identifier:
-        case AST.ThisExpression:
-            return false;
-        case AST.MemberExpression:
-            return fixConditionalExpressions(astNode.object) | fixConditionalExpressions(astNode.property);
-        case AST.CallExpression:
-            return fixConditionalExpressions(astNode.callee) | astNode.arguments.reduce((accumulator, argObj) => accumulator |= fixConditionalExpressions(argObj), false);
-        case AST.ArrayExpression:
-            return astNode.elements.reduce((accumulator, elem) => accumulator |= fixConditionalExpressions(elem), false);
-        case AST.ObjectExpression:
-            return astNode.properties.reduce((accumulator, prop) => accumulator |= fixConditionalExpressions(prop), false);
-        case AST.Property:
-            return fixConditionalExpressions(astNode.key) | fixConditionalExpressions(astNode.value);
-        case AST.BinaryExpression:
-        case AST.LogicalExpression:
-            return fixConditionalExpressions(astNode.left) | fixConditionalExpressions(astNode.right);
-        case AST.UnaryExpression:
-            return fixConditionalExpressions(astNode.argument);
-        case AST.ConditionalExpression:
-            let childFixed = fixConditionalExpressions(astNode.test) | fixConditionalExpressions(astNode.alternate) | fixConditionalExpressions(astNode.consequent);
-            if (!astNode.fixed) {
-                swap = astNode.alternate;
-                astNode.alternate = astNode.consequent;
-                astNode.consequent = swap;
-                astNode.fixed = true;
+    return astMutateInPlace(astNode, node => {
+        if (node.type === AST.ConditionalExpression) {
+            if (!node.fixed) {
+                let swap = node.alternate;
+                node.alternate = node.consequent;
+                node.consequent = swap;
+                node.fixed = true;
+                return true; // made a change
             }
-            return childFixed || astNode.fixed;
-        default:
-            return false;
+        }
+        return false; // nothing changed
+    })
+}
+
+/**
+ * Recursively processes the given AST node to determine if it contains any "filters", either typical angular-type filters
+ * or yatte list filters. If it does, it modifies the AST to more explicitly and naturally represent these filters.
+ * 
+ * Note: if this function makes changes, it modifies the given ast *in place*. The return value indicates whether
+ *       or not changes were made.
+ * 
+ * @param {object} astNode 
+ * @returns {boolean}
+ */
+const fixFilters = function (astNode) {
+    return astMutateInPlace(astNode, node => {
+        if (node.type === AST.CallExpression && node.filter && (node.arguments.length < 2 || node.arguments[1].type !== AST.ThisExpression)) {
+            convertCallNodeToFilterNode(node)
+            if (node.rtl) {
+                let newNode = getRTLFilterChain(node)
+                if (newNode !== node) {
+                    node.input = newNode.input
+                    node.filter = newNode.filter
+                    node.arguments = newNode.arguments
+                }
+            }
+            return true;
+        }
+        return false;
+    })
+}
+
+/**
+ * Given a chain of one or more filter nodes that are supposed to have right-to-left associativity, but
+ * which have been parsed (as filter nodes are, initially, by angular-expressions) as left-to-right,
+ * reverse the order/structure of the nodes in the chain, and return the node at the beginning of the chain.
+ */
+const getRTLFilterChain = function(node, innerNode = undefined) {
+    // check if its input is also a filter, and if so, recurse / transform AST to reflect correct associativity
+    let inputNode = node.input
+    if (inputNode.type === AST.CallExpression && inputNode.filter) {
+        convertCallNodeToFilterNode(inputNode)
+        if (inputNode.rtl) {
+            let newInnerNode = {
+                type: AST.ListFilterExpression,
+                rtl: true,
+                input: inputNode.arguments[0],
+                filter: node.filter,
+                arguments: innerNode ? [ innerNode ] : node.arguments
+            }
+            return getRTLFilterChain(inputNode, newInnerNode)
+        }
+    }
+    // else
+    if (innerNode) {
+        node.arguments = [ innerNode ]
+    }
+    return node
+}
+
+const convertCallNodeToFilterNode = function (node) {
+    node.filter = node.callee
+    delete node.callee
+    node.input = node.arguments.shift()
+    if (['sort', 'filter', 'map', 'some', 'any', 'every', 'all', 'find', 'group'].includes(node.filter.name)) {
+        node.type = AST.ListFilterExpression
+        // resolve aliases
+        if (node.filter.name === 'some') { // alias for 'any'
+            node.filter.name = 'any'
+        } else if (node.filter.name === 'all') { // alias for 'every'
+            node.filter.name = 'every'
+        }
+        node.rtl = ['any', 'every'].includes(node.filter.name);
+    } else {
+        node.type = AST.AngularFilterExpression
     }
 }

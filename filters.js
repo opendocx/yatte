@@ -3,8 +3,9 @@ const format = require('date-fns/format')
 const dateparse = require('date-fns/parse')
 const numeral = require('numeral')
 const numWords = require('number-to-words')
+const { unEscapeQuotes } = require('./estree')
 
-// define built-in filters (todo: more needed)
+// define built-in filters
 expressions.filters.upper = function(input) {
     if(!input) return input
     if (typeof input !== 'string') input = input.toString()
@@ -104,15 +105,13 @@ expressions.filters.punc = function(inputList, example = '1, 2 and 3') {
     return inputList
 }
 
-const unEscapeQuotes = function(str) {
-    return str.replace(/&quot;/g,'"')
-}
+// runtime implementation of list filters:
 
-// list filtering
-expressions.filters.sort = function(input) {
-    if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) return input;
+expressions.filters.sort = function(input, scope) {
+    if(!input || !Array.isArray(input) || !input.length || arguments.length < 3) return input;
+    if (!scope) scope = {}
     const sortBy = [];
-    let i = 1;
+    let i = 2;
     while (i < arguments.length) {
         let argument = unEscapeQuotes(arguments[i++]);
         sortBy.push({
@@ -126,7 +125,7 @@ expressions.filters.sort = function(input) {
         }
         if (depth >= sortBy.length)
             return 0;
-        const valA = sortBy[depth].evaluator(a);
+        const valA = sortBy[depth].evaluator(a); // sort expressions must only  refer to stuff in the current list item
         const valB = sortBy[depth].evaluator(b);
         if (valA < valB)
             return sortBy[depth].descending ? 1 : -1;
@@ -136,29 +135,34 @@ expressions.filters.sort = function(input) {
     }
     return input.slice().sort(compare);
 }
-expressions.filters.filter = function(input, predicateStr) {
-    return callArrayFunc(Array.prototype.filter, input, predicateStr)
+expressions.filters.filter = function(input, scope, predicateStr) {
+    return callArrayFunc(Array.prototype.filter, input, scope, predicateStr)
 }
-expressions.filters.find = function(input, predicateStr) {
-    return callArrayFunc(Array.prototype.find, input, predicateStr)
+expressions.filters.find = function(input, scope, predicateStr) {
+    return callArrayFunc(Array.prototype.find, input, scope, predicateStr)
 }
-expressions.filters.some = function(input, predicateStr) {
-    return callArrayFunc(Array.prototype.some, input, predicateStr)
+expressions.filters.any = function(input, scope, predicateStr) {
+    return callArrayFunc(Array.prototype.some, input, scope, predicateStr)
 }
-expressions.filters.every = function(input, predicateStr) {
-    return callArrayFunc(Array.prototype.every, input, predicateStr)
+expressions.filters.some = expressions.filters.any // alias
+expressions.filters.every = function(input, scope, predicateStr) {
+    return callArrayFunc(Array.prototype.every, input, scope, predicateStr)
 }
-expressions.filters.map = function(input, mappedStr) {
-    return callArrayFunc(Array.prototype.map, input, mappedStr)
+expressions.filters.all = expressions.filters.every // alias
+expressions.filters.map = function(input, scope, mappedStr) {
+    return callArrayFunc(Array.prototype.map, input, scope, mappedStr)
 }
-expressions.filters.group = function(input, groupStr) {
+expressions.filters.group = function(input, scope, groupStr) {
     if(!input || !Array.isArray(input) || !input.length || arguments.length < 2) {
         return input
+    }
+    if (!scope) {
+        scope = {}
     }
     const evaluator = expressions.compile(unEscapeQuotes(groupStr))
     return input.reduce(
         (result, item) => {
-            let key = evaluator(item)
+            let key = ['string','number'].includes(typeof item) ? evaluator(item) : evaluator(scope, item)
             let bucket = result.find(b => b._key === key)
             if (!bucket) {
                 bucket = {_key: key, _values: []}
@@ -171,10 +175,16 @@ expressions.filters.group = function(input, groupStr) {
     )
 }
 
-function callArrayFunc(func, array, predicateStr) {
+function callArrayFunc(func, array, scope, predicateStr) {
     if (!array || !Array.isArray(array) || !array.length || arguments.length < 2) {
         return array
     }
+    if (!scope) {
+        scope = {}
+    }
     const evaluator = expressions.compile(unEscapeQuotes(predicateStr))
-    return func.call(array, item => evaluator(item))
+    // when it encounters "this" in an expression, angular always plugs in whatever is passed in "scope" below.
+    // so if the item in a list is a string or number, it must be passed as the "scope" because "this" is the only way
+    // that value could be accessed in the expression.
+    return func.call(array, item => ['string','number'].includes(typeof item) ? evaluator(item) : evaluator(scope, item))
 }

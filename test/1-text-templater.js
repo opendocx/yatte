@@ -382,26 +382,34 @@ describe('Parsing and normalization of list filters', function() {
         assert.deepStrictEqual(compiled, [
             {
                 type: 'List',
-                expr: 'Oceans|filter:"AverageDepth>3500"',
+                expr: 'Oceans|filter:this:"AverageDepth>3500"',
                 exprAst: {
-                    type: "CallExpression",
-                    filter: true,
-                    callee: {
+                    type: "ListFilterExpression",
+                    rtl: false,
+                    filter: {
                         name: "filter",
                         type: "Identifier"
                     },
-                    arguments: [
-                        {
-                            name: "Oceans",
+                    input: {
+                        name: "Oceans",
+                        type: "Identifier",
+                        constant: false
+                    },
+                    arguments: [{
+                        constant: false,
+                        left: {
+                            constant: false,
+                            name: "AverageDepth",
                             type: "Identifier",
-                            constant: false
                         },
-                        {
+                        operator: ">",
+                        right: {
+                            constant: true,
                             type: "Literal",
-                            value: "AverageDepth>3500",
-                            constant: true
+                            value: 3500,
                         },
-                    ],
+                        "type": "BinaryExpression"
+                    }],
                     constant: false,
                     expectarray: true
                 },
@@ -430,15 +438,6 @@ describe('Parsing and normalization of list filters', function() {
                 ]
             }
         ])
-        // const data = {
-        //     "Oceans":[
-        //         {"Name":"Pacific","AverageDepth":3970},
-        //         {"Name":"Atlantic","AverageDepth":3646},
-        //         {"Name":"Indian","AverageDepth":3741},
-        //         {"Name":"Southern","AverageDepth":3270},
-        //         {"Name":"Arctic","AverageDepth":1205}
-        //     ],
-        // };
     });
 })
 

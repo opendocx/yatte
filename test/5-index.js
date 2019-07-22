@@ -1,5 +1,6 @@
 const yatte = require("../index");
 const assert = require('assert');
+const { TV_Family_Data } = require('./test-data')
 
 describe('Compiling expressions via exported API', function() {
 
@@ -36,6 +37,120 @@ describe('Compiling expressions via exported API', function() {
         })
     })
 
+    it('re-compiling a normalized list filter expression produces the same normalization but does not go back to original AST', function() {
+        // note: we could make it so compiling a normalized list filter expression DID actually go back and produce the same AST as the original,
+        // but it would be a bit of work AND it would potentially slow things down, so I'm not sure if it's worth doing or not.
+        const evaluator = yatte.Engine.compileExpr(' Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"') // space at beginning is intentional, to avoid cached expression AST
+        let result = evaluator({ Date }, TV_Family_Data)
+        assert.strictEqual(result, true)
+        assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
+        assert.deepStrictEqual(evaluator.ast, {
+          type: "CallExpression",
+          callee: { type: "Identifier", name: "any" },
+          filter: true,
+          arguments: [
+            { type: "Identifier", name: "Families", constant: false },
+            { type: "ThisExpression", constant: false },
+            {
+              type: "Literal",
+              value: "Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;",
+              constant: true
+            }
+          ],
+          constant: false
+        });
+    })
+
+    it('allow chaining of "any" filter (and/or its "some" alias)', function() {
+        const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate.valueOf() > Date.now()')
+        let result = evaluator({ Date }, TV_Family_Data)
+        assert.strictEqual(result, true)
+        assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
+        assert.deepStrictEqual(evaluator.ast, {
+          type: "ListFilterExpression",
+          rtl: true,
+          input: {
+            type: "Identifier",
+            name: "Families",
+            constant: false
+          },
+          filter: { type: "Identifier", name: "any" },
+          arguments: [
+            {
+              type: "ListFilterExpression",
+              rtl: true,
+              input: {
+                type: "Identifier",
+                name: "Children",
+                constant: false
+              },
+              filter: { type: "Identifier", name: "any" },
+              arguments: [
+                {
+                  type: "BinaryExpression",
+                  operator: ">",
+                  left: {
+                    type: "CallExpression",
+                    callee: {
+                      type: "MemberExpression",
+                      object: { type: "Identifier", name: "Birthdate" },
+                      property: { type: "Identifier", name: "valueOf" },
+                      computed: false
+                    },
+                    arguments: [],
+                    constant: false
+                  },
+                  right: {
+                    type: "CallExpression",
+                    callee: {
+                      type: "MemberExpression",
+                      object: { type: "Identifier", name: "Date" },
+                      property: { type: "Identifier", name: "now" },
+                      computed: false
+                    },
+                    arguments: [],
+                    constant: false
+                  },
+                  constant: false
+                }
+              ]
+            }
+          ],
+          constant: false
+        });
+    });
+
+    it('allow chaining of the "any" filter with nested objects', function() {
+        const evaluator = yatte.Engine.compileExpr('obj1.list1|any:obj2.list2|any:prop3')
+        assert.deepStrictEqual(evaluator.normalized, 'obj1.list1|any:this:"obj2.list2|any:this:&quot;prop3&quot;"')
+        assert.deepStrictEqual(evaluator.ast, {
+            type: "ListFilterExpression",
+            rtl: true,
+            input: {
+                type: "MemberExpression",
+                object: { type: "Identifier", name: "obj1", constant: false },
+                property: { type: "Identifier", name: "list1" },
+                computed: false,
+                constant: false
+            },
+            filter: { type: "Identifier", name: "any" },
+            arguments: [{
+                type: "ListFilterExpression",
+                rtl: true,
+                input: {
+                    type: "MemberExpression",
+                    object: { type: "Identifier", name: "obj2", constant: false },
+                    property: { type: "Identifier", name: "list2" },
+                    computed: false,
+                    constant: false
+                },
+                filter: { type: "Identifier", name: "any" },
+                arguments: [{ type: "Identifier", name: "prop3", constant: false }]
+              }
+            ],
+            constant: false,
+        })
+    });
 })
 
 describe('Compiling text templates via exported API', function() {
