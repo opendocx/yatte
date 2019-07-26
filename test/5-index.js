@@ -785,7 +785,7 @@ The logic tree should include the if twice, but should call for the data only on
         ]);
     });
 
-    it('should not filter out usage in an If field that follows unconditional usage in a Content field', function() {
+    it('should NOT filter out usage in an If field that follows unconditional usage in a Content field', function() {
         const template = "{[x]}{[if x]}{[y]}{[endif]}";
         let logic = yatte.extractLogic(template);
         assert.deepStrictEqual(logic, [
@@ -800,7 +800,7 @@ The logic tree should include the if twice, but should call for the data only on
             },{
                 "type": "If",
                 "expr": "x",
-                "firstRef": false,
+                "firstRef": true,
                 "exprAst": {
                     "type": "Identifier",
                     "name": "x",
@@ -907,7 +907,35 @@ describe('Emitting appropriate data hints for OpenDocx', function() {
                 "contentArray": []
             }
         ]);
+    })
 
+    it('should not omit a conditional usage that follows a content usage', function() {
+        const template = "{[x]}{[if x]}what{[endif]}";
+        // firstRef needs to === true for the "If" node, because that's what tells OpenDocx that it needs to emit a separate answer for this variable
+        // even though it's already been emitted for the Content field.  (If answers are not emitted separately for both Content AND If fields,
+        // assembly will not go as expected.)
+        let logic = yatte.extractLogic(template);
+        assert.deepStrictEqual(logic, [
+            {
+                "type": "Content",
+                "expr": "x",
+                "exprAst": {
+                    "type": "Identifier",
+                    "name": "x",
+                    "constant": false
+                }
+            }, {
+                "type": "If",
+                "expr": "x",
+                "firstRef": true,
+                "exprAst": {
+                    "type": "Identifier",
+                    "name": "x",
+                    "constant": false
+                },
+                "contentArray": []
+            }
+        ]);
     })
 })
 

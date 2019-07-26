@@ -1,8 +1,10 @@
 const expressions= require('angular-expressions');
 require('./filters'); // ensure filters are loaded into (shared) expressions object
 const OD = require('./fieldtypes');
-const { AST, astMutateInPlace } = require('./estree')
-exports.AST = AST;
+const { AST, astMutateInPlace, escapeQuotes, unEscapeQuotes } = require('./estree')
+exports.AST = AST
+exports.escapeQuotes = escapeQuotes
+exports.unEscapeQuotes = unEscapeQuotes
 exports.serializeAST = AST.serialize // this export is redundant and deprecated, slated for removal in next version
 
 const parseContentArray = function(contentArray, bIncludeExpressions = true) {
@@ -317,9 +319,9 @@ const reduceContentNode = function(astNode, scope, parentScope = null) {
 
     if (astNode.type == OD.Content) {
         if (scope[astNode.expr]) return null; // expression already defined in this scope
-        const {id, ...copy} = astNode; // strip field id if it's there // TODO: stop stripping the id!
-        scope[astNode.expr] = copy;
-        return copy;
+        const {id, ...copyOfNode} = astNode; // strip field id if it's there // TODO: stop stripping the id!
+        scope[astNode.expr] = copyOfNode;
+        return copyOfNode;
     }
     if (astNode.type == OD.List) {
         let existingListNode
@@ -327,11 +329,11 @@ const reduceContentNode = function(astNode, scope, parentScope = null) {
             reduceContentArray(astNode.contentArray, existingListNode.contentArray, existingListNode.scope);
             return null;
         } else {
-            const {id, contentArray, ...copy} = astNode; // TODO: stop stripping the id!
-            copy.scope = {}; // fresh new wholly separate scope for lists
-            copy.contentArray = reduceContentArray(contentArray, null, copy.scope);
-            scope[astNode.expr] = copy; // set BEFORE recursion for consistent results?  (or is it intentionally after?)
-            return copy;
+            const {id, contentArray, ...copyOfNode} = astNode; // TODO: stop stripping the id!
+            copyOfNode.scope = {}; // fresh new wholly separate scope for lists
+            copyOfNode.contentArray = reduceContentArray(contentArray, null, copyOfNode.scope);
+            scope[astNode.expr] = copyOfNode; // set BEFORE recursion for consistent results?  (or is it intentionally after?)
+            return copyOfNode;
         }
     }
     if (astNode.type == OD.If || astNode.type == OD.ElseIf || astNode.type == OD.Else) {
@@ -343,25 +345,26 @@ const reduceContentNode = function(astNode, scope, parentScope = null) {
             // HOWEVER, we can't add the expr to the parent scope by virtue of it having been referenced in a condition,
             // because it means something different for the same expression to be evaluated in a Content node vs. an If/ElseIf node,
             // and therefore an expression emitted/evaluated as part of a condition still needs to be emitted/evaluated as part of a merge/content node.
+            // AND VICE VERSA: an expression emitted as part of a content node STILL needs to be emitted as part of a condition, too.
 
-            const {id, contentArray, ...copy} = astNode; // TODO: stop stripping the id!
+            const {id, contentArray, ...copyOfNode} = astNode; // TODO: stop stripping the id!
             // this 'parentScope' thing is a bit tricky.  The parentScope argument is only supplied when we're inside an If/ElseIf/Else block within the current scope.
             // If supplied, it INDIRECTLY refers to the actual scope -- basically, successive layers of "if" blocks
             // that each establish a new "mini" scope, that has the parent scope as its prototype.
             // This means, a reference to an identifier in a parent scope, will prevent that identifier from appearing (redundantly) in a child;
             // but a reference to an identifier in a child scope, will NOT prevent that identifier from appearing in a parent scope.
-            const ps = (parentScope != null) ? parentScope : scope;
-            if (copy.type == OD.If || copy.type == OD.ElseIf) {
-                if (astNode.expr in ps) {
-                    copy.firstRef = false; // firstRef = false means opendocx, when it's deciding which expressions to evaluate and place in output XML, will skip this one
+            const pscope = (parentScope != null) ? parentScope : scope;
+            if (copyOfNode.type == OD.If || copyOfNode.type == OD.ElseIf) {
+                if (('if$'+astNode.expr) in pscope) {
+                    copyOfNode.firstRef = false; // firstRef = false means opendocx, when it's deciding which expressions to evaluate and place in output XML, will skip this one
                 } else {
-                    ps[astNode.expr] = false; // we put this expression "in" the scope, but set it to false -- so the checks above in Content and List (that check for truthiness) will not see it, but the checks here (that check for "in") WILL see it.
-                    copy.firstRef = true; // firstRef = true means the firs time this IF expression has been encountered in this scope, so opendocx will output this expression in the data XML
+                    pscope['if$'+astNode.expr] = copyOfNode;
+                    copyOfNode.firstRef = true; // firstRef = true means the firs time this IF expression has been encountered in this scope, so opendocx will output this expression in the data XML
                 }
             }            
-            const childContext = Object.create(ps);
-            copy.contentArray = reduceContentArray(contentArray, null, childContext, ps);
-            return copy;
+            const childContext = Object.create(pscope);
+            copyOfNode.contentArray = reduceContentArray(contentArray, null, childContext, pscope);
+            return copyOfNode;
     }
 }
 
