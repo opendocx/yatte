@@ -148,6 +148,23 @@ describe('Compiling expressions via exported API', function() {
         ],
         constant: false,
     }
+
+    it('cleans up parse errors thrown by angular-expressions', function() {
+        assert.throws(() => yatte.Engine.compileExpr('members|name!=this.name'), // forgot "filter" filter
+            {
+                name: 'SyntaxError',
+                message: "Syntax Error: '!=' is an unexpected token:\nmembers|name!=this.name\n            ^^"
+            })
+        assert.throws(() => yatte.Engine.compileExpr('ProbateClient.MaritalStatus == “Married”'), // used curly quotes
+            {
+                name: 'SyntaxError',
+                message: "Lexer Error: Unexpected next character '“':\nProbateClient.MaritalStatus == “Married”\n                               ^"})
+        assert.throws(() => yatte.Engine.compileExpr('Name|UPPER'), // non-existing filter
+            {
+                name: 'SyntaxError',
+                message: "Syntax Error: did you refer to a non-existant filter?\nName|UPPER"
+            })
+    })
 })
 
 describe('Compiling text templates via exported API', function() {

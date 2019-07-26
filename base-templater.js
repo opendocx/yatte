@@ -1,4 +1,5 @@
 const expressions= require('angular-expressions');
+const url = require('url')
 require('./filters'); // ensure filters are loaded into (shared) expressions object
 const OD = require('./fieldtypes');
 const { AST, astMutateInPlace, escapeQuotes, unEscapeQuotes } = require('./estree')
@@ -77,13 +78,35 @@ const compiledExprCache = {} // this doesn't seem to do anything... it's always 
  */
 const compileExpr = function(expr) {
     if (!expr) {
-        throw new Error('Cannot compile invalid (empty or null) expression')
+        throw new Error('Cannot compile empty or null expression')
     }
     if (expr == ".") expr = "this";
     const cacheKey = expr;
     let result = compiledExprCache[cacheKey];
     if (!result) {
-        result = expressions.compile(expr);
+        try {
+            result = expressions.compile(expr);
+        } catch (e) {
+            let errLines = e.message.split('\n')
+            if (errLines[0].startsWith('[$parse:syntax]')) {
+                let errUrl = new URL(errLines[1])
+                let token = errUrl.searchParams.get('p0')
+                let msg = errUrl.searchParams.get('p1')
+                let position = errUrl.searchParams.get('p2')
+                let expr = errUrl.searchParams.get('p3')
+                throw new SyntaxError(`Syntax Error: '${token}' ${msg}:\n${expr}\n${' '.repeat(position-1) + '^'.repeat(token.length)}`)
+            } else if (errLines[0].startsWith('[$parse:lexerr]')) {
+                let msg = errLines[0].substr(15).trim()
+                let errInfo = msg.match(/^(.+) +at columns (\d+).*?\[(.*?)\]/)
+                let expr = msg.match(/in expression \[(.*)\].*?$/)[1]
+                msg = errInfo[1].trim()
+                let position = errInfo[2]
+                let token = errInfo[3]
+                throw new SyntaxError(`${msg} '${token}':\n${expr}\n${' '.repeat(position)+'^'.repeat(token.length)}`)
+            } else if (e.message === "Cannot read property '$stateful' of undefined") {
+                throw new SyntaxError('Syntax Error: did you refer to a non-existant filter?\n' + expr)
+            }
+        }
         // check if angular-expressions gave us back a cached copy that has already been fixed up!
         if (result.ast.body) { // if the AST still has "body" property (which we remove below), it has not yet been fixed
             // strip out the angular 'toWatch' array, etc., from the AST,
