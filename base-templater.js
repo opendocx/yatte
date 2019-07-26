@@ -501,13 +501,14 @@ const fixConditionalExpressions = function (astNode) {
  *       or not changes were made.
  * 
  * @param {object} astNode 
- * @returns {boolean}
+ * @returns {boolean} true means the AST was modified in such a way as to materially change how the expression should be evaluated;
+ * false means the AST may or may not have been modified, but it should not require re-compilation by angular-expressions.
  */
 const fixFilters = function (astNode) {
     return astMutateInPlace(astNode, node => {
-        if (node.type === AST.CallExpression && node.filter && (node.arguments.length < 2 || node.arguments[1].type !== AST.ThisExpression)) {
-            convertCallNodeToFilterNode(node)
-            if (node.rtl) {
+        if (node.type === AST.CallExpression && node.filter) {
+            let modified = convertCallNodeToFilterNode(node)
+            if (modified && node.rtl) {
                 let newNode = getRTLFilterChain(node)
                 if (newNode !== node) {
                     node.input = newNode.input
@@ -515,7 +516,7 @@ const fixFilters = function (astNode) {
                     node.arguments = newNode.arguments
                 }
             }
-            return true;
+            return modified;
         }
         return false;
     })
@@ -523,7 +524,7 @@ const fixFilters = function (astNode) {
 
 /**
  * Given a chain of one or more filter nodes that are supposed to have right-to-left associativity, but
- * which have been parsed (as filter nodes are, initially, by angular-expressions) as left-to-right,
+ * which have been initially parsed (as all filter nodes are by angular-expressions) as left-to-right,
  * reverse the order/structure of the nodes in the chain, and return the node at the beginning of the chain.
  */
 const getRTLFilterChain = function(node, innerNode = undefined) {
@@ -537,7 +538,8 @@ const getRTLFilterChain = function(node, innerNode = undefined) {
                 rtl: true,
                 input: inputNode.arguments[0],
                 filter: node.filter,
-                arguments: innerNode ? [ innerNode ] : node.arguments
+                arguments: innerNode ? [ innerNode ] : node.arguments,
+                constant: inputNode.arguments[0].constant && (innerNode ? innerNode.constant : node.arguments[0].constant)
             }
             return getRTLFilterChain(inputNode, newInnerNode)
         }
@@ -562,7 +564,19 @@ const convertCallNodeToFilterNode = function (node) {
             node.filter.name = 'every'
         }
         node.rtl = ['any', 'every'].includes(node.filter.name);
+        if (node.arguments[0].type === AST.ThisExpression && node.arguments[1] && node.arguments[1].type === AST.Literal) {
+            // the node is a list filter that had formerly been normalized -- re-parse the string argument into the original AST
+            node.arguments.shift() // discard AST's extra "this" (added during normalization, when the param expression was stringified)
+            let parsedArg = compileExpr(unEscapeQuotes(node.arguments[0].value))
+            node.arguments[0] = parsedArg.ast
+            return false // existing compiled behavior was already based on the normalized form, so return false to avoid recompilation (which would only be redundant)
+        } else {
+            // the node is a list filter that is just now being parsed & fixed up
+            return true // returning true means after we're done mutating the AST, we'll re-serialize to get the normalized form, and then recompile with angular-expressions
+        }
+
     } else {
         node.type = AST.AngularFilterExpression
+        return false
     }
 }
