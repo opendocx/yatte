@@ -134,6 +134,13 @@ describe('Field parsing of simple conditionals', function() {
     });
 })
 
+describe('new-and-improved text template parsing', function() {
+    it('should parse fields out of a multi-line template', function() {
+        const template = "what\nhappens when {[IDontKnow]}{[WhatWillHappen]}\nnow"
+        let result = textTemplater.parseText(template, true, false)
+    })
+})
+
 describe('Field parsing of nested conditionals', function() {
     it('should parse the if/if/endif/elseif/if/endif/else/if/endif/endif template', function() {
         const template = "{[if false]}{[if true]}A{[endif]}{[elseif false]}{[if true]}B{[endif]}{[else]}{[if true]}C{[endif]}{[endif]}";

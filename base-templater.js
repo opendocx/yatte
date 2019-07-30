@@ -8,13 +8,13 @@ exports.escapeQuotes = escapeQuotes
 exports.unEscapeQuotes = unEscapeQuotes
 exports.serializeAST = AST.serialize // this export is redundant and deprecated, slated for removal in next version
 
-const parseContentArray = function(contentArray, bIncludeExpressions = true) {
+const parseContentArray = function(contentArray, bIncludeExpressions = true, bIncludeListPunctuation = true) {
     // contentArray can be either an array of strings (as from a text template split via regex)
     // or an array of objects with field text and field IDs (as extracted from a DOCX template)
     let astBody = [];
     let i = 0;
     while (i < contentArray.length) {
-        const parsedContent = parseField(contentArray, i, bIncludeExpressions);
+        const parsedContent = parseField(contentArray, i, bIncludeExpressions, bIncludeListPunctuation);
         if (parsedContent !== null) {
             if (typeof parsedContent == "object"
                 && (    parsedContent.type == OD.EndList
@@ -47,6 +47,10 @@ const buildLogicTree = function(astBody) {
     return copy;
 }
 exports.buildLogicTree = buildLogicTree;
+
+const reduceAst = function(ast) {
+    
+}
 
 const compiledExprCache = {} // this doesn't seem to do anything... it's always empty? I'm missing something obvious.
 
@@ -136,7 +140,7 @@ const compileExpr = function(expr) {
 }
 exports.compileExpr = compileExpr;
 
-const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
+const parseField = function(contentArray, idx = 0, bIncludeExpressions = true, bIncludeListPunctuation = true) {
     const contentArrayItem = contentArray[idx];
     let content, fieldId;
     if (typeof contentArrayItem == 'string') {
@@ -158,7 +162,7 @@ const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
     if ((match = _ifRE.exec(content)) !== null) {
         node = createNode(OD.If, match[1], fieldId);
         if (bIncludeExpressions) parseFieldExpr(node);
-        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndIf, bIncludeExpressions);
+        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndIf, bIncludeExpressions, bIncludeListPunctuation);
     }
     else if ((match = _elseifRE.exec(content)) !== null) {
         node = createNode(OD.ElseIf, match[1], fieldId);
@@ -176,7 +180,7 @@ const parseField = function(contentArray, idx = 0, bIncludeExpressions = true) {
         if (bIncludeExpressions) {
             parseFieldExpr(node);
         } 
-        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndList, bIncludeExpressions);
+        node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndList, bIncludeExpressions, bIncludeListPunctuation);
     }
     else if (_endlistRE.test(content)) {
         node = createNode(OD.EndList, void 0, fieldId);
@@ -216,17 +220,17 @@ const parseFieldExpr = function(fieldObj) {
     }
 };
 
-const parseContentUntilMatch = function(contentArray, startIdx, targetType, bIncludeExpressions) {
+const parseContentUntilMatch = function(contentArray, startIdx, targetType, bIncludeExpressions, bIncludeListPunctuation) {
     let idx = startIdx;
     let result = [];
     let parentContent = result;
     let elseEncountered = false;
     while (true) {
-        const parsedContent = parseField(contentArray, idx, bIncludeExpressions);
+        const parsedContent = parseField(contentArray, idx, bIncludeExpressions, bIncludeListPunctuation);
         const isObj = (typeof parsedContent == "object" && parsedContent !== null);
         idx++;
         if (isObj && parsedContent.type == targetType) {
-            if (parsedContent.type == OD.EndList) {
+            if (parsedContent.type == OD.EndList && bIncludeListPunctuation) {
                 // future: possibly inject this only if we're in a list on which the "punc" filter was used
                 // (because without the "punc" filter specifying list punctuation, this node will be a no-op)
                 // However, that is a little more complicated than it might seem, because this
