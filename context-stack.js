@@ -99,31 +99,16 @@ class StackFrame {
     }
 
     evaluate(compiledExpr) {
-        if (compiledExpr.ast.type === AST.ThisExpression) {
-            // special case: when evaluating 'this', there are no locals, so pass value in as global scope object
-            return compiledExpr(this.localScope)
-        }
-        // general case
         return compiledExpr(this.parentScope, this.localScope)
     }
 
     deferredEvaluation(compiledExpr) {
-        let scope, locals
-        if (compiledExpr.ast.type === AST.ThisExpression) {
-            // special case: when evaluating 'this', there are no locals, so pass value in as global scope object
-            scope = this.localScope
-            locals = undefined
-        } else {
-            // general case
-            scope = this.parentScope
-            locals = this.localScope
-        }
         return {
             type: AST.ExpressionStatement,
             expression: compiledExpr.ast,
             text: compiledExpr.normalized,
-            scope,
-            locals
+            scope: this.parentScope,
+            locals: this.localScope
         }
     }
 }

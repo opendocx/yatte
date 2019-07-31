@@ -84,7 +84,7 @@ const compileExpr = function(expr) {
     if (!expr) {
         throw new Error('Cannot compile empty or null expression')
     }
-    if (expr == ".") expr = "this";
+    if (expr == ".") expr = "$locals";
     const cacheKey = expr;
     let result = compiledExprCache[cacheKey];
     if (!result) {
@@ -98,8 +98,8 @@ const compileExpr = function(expr) {
             // strip out the angular 'toWatch' array, etc., from the AST,
             // since I'm not entirely sure how to do anything useful with that stuff outside of Angular itself
             result.ast = reduceAstNode(result.ast.body[0].expression);
-            // extend AST with enhanced nodes for filters
-            let modified = fixFilters(result.ast)
+            // extend AST with enhanced nodes for filters; change "this" to "$locals"
+            let modified = fixFilters(result.ast) | thisTo$locals(result.ast)
             // normalize the expression
             let normalizedExpr = AST.serialize(result.ast)
             // recompile the expression if filter fixes changed its functionality
@@ -607,7 +607,7 @@ const convertCallNodeToFilterNode = function (node) {
         } else {
             // the node is a list filter that is just now being parsed & fixed up
             // transform any 'ThisExpression' nodes to 'LocalsExpression', because when evaluating the argument/predicate of a list filter, "this" should refer to the item in the list, not the parent scope
-            thisTo$locals(node.arguments[0]) // we don't care whether this specific call returns true or false, since at this point we're always returning true anyway
+            //thisTo$locals(node.arguments[0]) // we don't care whether this specific call returns true or false, since at this point we're always returning true anyway
             return true // returning true means after we're done mutating the AST, we'll re-serialize to get the normalized form, and then recompile with angular-expressions
         }
     } else {
@@ -627,7 +627,12 @@ const convertCallNodeToFilterNode = function (node) {
  */
 const thisTo$locals = function (astNode) {
     return astMutateInPlace(astNode, node => {
-        if (node.type === AST.ThisExpression) {
+        if (node.type === AST.ListFilterExpression && node.arguments.length > 1 && node.arguments[0].type === AST.ThisExpression && node.arguments[1].type === AST.Literal) {
+            // the one case where we LEAVE a ThisExpression in place, is when it's the first (implicit) argument to a ListFilterExpression that has already been fixed up
+            node.arguments[0].preserve = true
+            return false
+        }
+        if (node.type === AST.ThisExpression && !node.preserve) {
             node.type = AST.LocalsExpression
             return true
         }

@@ -195,7 +195,7 @@ describe('Assembling text templates', function() {
         assert.equal(result, "Children were born in the years 1970 (Alice and John); 2000 (Beth and Yolanda); and 2007 (Eric, Mark and Ted).");
     });
     it('should assemble a document with a primitive list, _index', function() {
-        const template = "Continents:\n\n{[list Continents]}\n * {[.]} (#{[_index]} on {[Planet]})\n{[endlist]}";
+        const template = "Continents:\n\n{[list Continents]}\n * {[this]} (#{[_index]} on {[Planet]})\n{[endlist]}";
         const compiled = templater.parseTemplate(template);
         const data = {
             "Planet":"Earth",
