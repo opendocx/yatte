@@ -91,25 +91,7 @@ const compileExpr = function(expr) {
         try {
             result = expressions.compile(expr);
         } catch (e) {
-            let errLines = e.message.split('\n')
-            if (errLines[0].startsWith('[$parse:syntax]')) {
-                let errUrl = new URL(errLines[1])
-                let token = errUrl.searchParams.get('p0')
-                let msg = errUrl.searchParams.get('p1')
-                let position = errUrl.searchParams.get('p2')
-                let expr = errUrl.searchParams.get('p3')
-                throw new SyntaxError(`Syntax Error: '${token}' ${msg}:\n${expr}\n${' '.repeat(position-1) + '^'.repeat(token.length)}`)
-            } else if (errLines[0].startsWith('[$parse:lexerr]')) {
-                let msg = errLines[0].substr(15).trim()
-                let errInfo = msg.match(/^(.+) +at columns (\d+).*?\[(.*?)\]/)
-                let expr = msg.match(/in expression \[(.*)\].*?$/)[1]
-                msg = errInfo[1].trim()
-                let position = errInfo[2]
-                let token = errInfo[3]
-                throw new SyntaxError(`${msg} '${token}':\n${expr}\n${' '.repeat(position)+'^'.repeat(token.length)}`)
-            } else if (e.message === "Cannot read property '$stateful' of undefined") {
-                throw new SyntaxError('Syntax Error: did you refer to a non-existant filter?\n' + expr)
-            }
+            throw new SyntaxError(angularExpressionErrorMessage(e, expr))
         }
         // check if angular-expressions gave us back a cached copy that has already been fixed up!
         if (result.ast.body) { // if the AST still has "body" property (which we remove below), it has not yet been fixed
@@ -139,6 +121,31 @@ const compileExpr = function(expr) {
     return result;
 }
 exports.compileExpr = compileExpr;
+
+const angularExpressionErrorMessage = function(e, expr) {
+    let errLines = e.message.split('\n')
+    if (errLines[0].startsWith('[$parse:syntax]')) {
+        let errUrl = new URL(errLines[1])
+        let token = errUrl.searchParams.get('p0')
+        let msg = errUrl.searchParams.get('p1')
+        let position = errUrl.searchParams.get('p2')
+        let expr = errUrl.searchParams.get('p3')
+        return `Syntax Error: '${token}' ${msg}:\n${expr}\n${' '.repeat(position-1) + '^'.repeat(token.length)}`
+    }
+    if (errLines[0].startsWith('[$parse:lexerr]')) {
+        let msg = errLines[0].substr(15).trim()
+        let errInfo = msg.match(/^(.+) +at columns (\d+).*?\[(.*?)\]/)
+        let expr = msg.match(/in expression \[(.*)\].*?$/)[1]
+        msg = errInfo[1].trim()
+        let position = errInfo[2]
+        let token = errInfo[3]
+        return `${msg} '${token}':\n${expr}\n${' '.repeat(position)+'^'.repeat(token.length)}`
+    }
+    if (e.message === "Cannot read property '$stateful' of undefined") {
+        return 'Syntax Error: did you refer to a non-existant filter?\n' + expr
+    }
+    return e.message
+}
 
 const parseField = function(contentArray, idx = 0, bIncludeExpressions = true, bIncludeListPunctuation = true) {
     const contentArrayItem = contentArray[idx];
@@ -599,11 +606,31 @@ const convertCallNodeToFilterNode = function (node) {
             return false // existing compiled behavior was already based on the normalized form, so return false to avoid recompilation (which would only be redundant)
         } else {
             // the node is a list filter that is just now being parsed & fixed up
+            // transform any 'ThisExpression' nodes to 'LocalsExpression', because when evaluating the argument/predicate of a list filter, "this" should refer to the item in the list, not the parent scope
+            thisTo$locals(node.arguments[0]) // we don't care whether this specific call returns true or false, since at this point we're always returning true anyway
             return true // returning true means after we're done mutating the AST, we'll re-serialize to get the normalized form, and then recompile with angular-expressions
         }
-
     } else {
         node.type = AST.AngularFilterExpression
         return false
     }
+}
+
+/**
+ * Recursively processes the given AST node to convert any and all nodes representing the "this" token, to the "$locals" token instead
+ * 
+ * Note: if this function makes changes, it modifies the given ast *in place*. The return value indicates whether
+ *       or not changes were made.
+ * 
+ * @param {object} astNode 
+ * @returns {boolean} whether or not the AST was modified
+ */
+const thisTo$locals = function (astNode) {
+    return astMutateInPlace(astNode, node => {
+        if (node.type === AST.ThisExpression) {
+            node.type = AST.LocalsExpression
+            return true
+        }
+        return false
+    })
 }

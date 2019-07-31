@@ -21,9 +21,11 @@ const AST = {
     MemberExpression: 'MemberExpression',
     ConditionalExpression: 'ConditionalExpression',
     CallExpression: 'CallExpression',
-    // custom/proprietary:
+    // also includes some custom/proprietary node types:
+    LocalsExpression: 'LocalsExpression', // from angular-expressions -- like 'ThisExpression', but for the local scope (Angular equates "this" to the broader evaluation "scope")
     AngularFilterExpression: 'AngularFilterExpression', // properties: input (node), filter (ident), arguments (node array)
     ListFilterExpression: 'ListFilterExpression', // properties: input (node), filter (ident), arguments (node array), rtl (bool)
+    // also includes a utility method:
     serialize: serializeAstNode
 }
 exports.AST = AST
@@ -56,6 +58,7 @@ const EXPRESSIONS_PRECEDENCE = {
     // Definitions
     [AST.ArrayExpression]: 20,
     [AST.ThisExpression]: 20,
+    [AST.LocalsExpression]: 20,
     [AST.Identifier]: 20,
     [AST.Literal]: 18,
     // Operations
@@ -83,6 +86,7 @@ function astMutateInPlace(node, mutator) {
         case AST.Literal:
         case AST.Identifier:
         case AST.ThisExpression:
+        case AST.LocalsExpression:
             return nodeModified;
         case AST.MemberExpression:
             return nodeModified | astMutateInPlace(node.object, mutator) | astMutateInPlace(node.property, mutator);
@@ -212,6 +216,8 @@ function serializeAstNode(astNode) {
                     + ':' + serializeAstNode(astNode.fixed ? astNode.alternate : astNode.consequent);
         case AST.ThisExpression:
             return 'this';
+        case AST.LocalsExpression:
+            return '$locals';
         default:
             throw new Error('Unsupported expression type')
     }

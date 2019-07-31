@@ -47,6 +47,57 @@ describe('Compiling expressions via exported API', function() {
         assert.deepStrictEqual(evaluator.ast, ListFilterAST);
     })
 
+    it('correctly parses and compiles array concatenation and filtering out falsy values', function() {
+        const evaluator = yatte.Engine.compileExpr('[].concat(Client, Spouse, Children)|filter:this')
+        assert.deepStrictEqual(evaluator.ast, {
+            type: 'ListFilterExpression',
+            rtl: false,
+            constant: false,
+            filter: { type: 'Identifier', name: 'filter' },
+            input: {
+                type: 'CallExpression',
+                constant: false,
+                callee: {
+                    type: 'MemberExpression',
+                    computed: false,
+                    object: { type: 'ArrayExpression', elements: [] },
+                    property: { type: 'Identifier', name: 'concat' }
+                },
+                arguments: [
+                    { type: 'Identifier', name: 'Client', constant: false },
+                    { type: 'Identifier', name: 'Spouse', constant: false },
+                    { type: 'Identifier', name: 'Children', constant: false },
+                ]
+            },
+            arguments: [ { type: 'LocalsExpression', constant: false } ]
+        })
+
+        const data = {
+            Client: { name: "John Smith" },
+            Children: [
+                { name: "Ken Smith" },
+                null,
+                { name: "Susan Smith" }
+            ]
+        }
+        let result = evaluator(data)
+        assert.deepStrictEqual(result, [{name: "John Smith"}, {name: "Ken Smith"}, {name: "Susan Smith"}])
+    })
+
+    // list Children|filter:this.LastName == _parent.LastName
+    // list Children|filter:LastName == _parent.LastName
+    // list WitnessNames|filter:this != Spouse.Name
+    it('handles list filters that refer both to "this" and stuff in the broader scope/context', function() {
+        const evaluator = yatte.Engine.compileExpr('WitnessNames|filter:this != Spouse.Name')
+        const data = {
+            Client: { Name: 'Jane' },
+            Spouse: { Name: 'Kevin' },
+            WitnessNames: [ 'Lucy', 'Kevin', 'Ed' ]
+        }
+        let result = evaluator(data)
+        assert.deepStrictEqual(result, ['Lucy', 'Ed'])
+    })
+
     it('allow chaining of "any" filter (and/or its "some" alias)', function() {
         const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate.valueOf() > Date.now()')
         let result = evaluator({ Date }, TV_Family_Data)

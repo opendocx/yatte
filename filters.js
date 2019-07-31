@@ -183,8 +183,14 @@ function callArrayFunc(func, array, scope, predicateStr) {
         scope = {}
     }
     const evaluator = expressions.compile(unEscapeQuotes(predicateStr))
-    // when it encounters "this" in an expression, angular always plugs in whatever is passed in "scope" below.
-    // so if the item in a list is a string or number, it must be passed as the "scope" because "this" is the only way
-    // that value could be accessed in the expression.
-    return func.call(array, item => ['string','number'].includes(typeof item) ? evaluator(item) : evaluator(scope, item))
+    return func.call(array, item => evaluator(scope, boxObj(item)))
+}
+
+function boxObj(item) {
+    switch(typeof item) {
+        case 'string': return new String(item)
+        case 'number': return new Number(item)
+        case 'boolean': return new Boolean(item)
+        default: return item
+    }
 }
