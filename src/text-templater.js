@@ -29,7 +29,8 @@ const _blockFieldReplacer = function (match, fieldText, eol, offset, string) {
   }
   return cleaned
 }
-const _blockFieldRE = /(?<=\n|\r|^)\{\s*\[([^{}]*?)\]\s*\}(\r\n|\n|\r)/g
+//const _blockFieldRE = /(?<=\n|\r|^)\{\s*\[([^{}]*?)\]\s*\}(\r\n|\n|\r)/g // positive lookbehind breaks every browser but chrome! (as of mid 2019)
+const _blockFieldRE = /^\{\s*\[([^{}]*?)\]\s*\}(\r\n|\n|\r)/gm
 const _fieldRE = /\{\s*(\[.*?\])\s*\}/
 const _fieldsRE = /\{\s*\[(.*?)\]\s*\}/g
 
