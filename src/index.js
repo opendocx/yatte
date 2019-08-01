@@ -51,5 +51,5 @@ exports.assembleMeta = function (metaTemplate, context, locals) {
   }
 }
 
-exports.FieldTypes = require('./fieldtypes');
-exports.ContextStack = require('./context-stack');
+exports.FieldTypes = require('./fieldtypes')
+exports.ContextStack = require('./context-stack')
