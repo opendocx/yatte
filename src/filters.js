@@ -1,9 +1,9 @@
 const expressions = require('angular-expressions')
 const format = require('date-fns/format')
-const dateparse = require('date-fns/parse')
 const numeral = require('numeral')
 const numWords = require('number-to-words')
 const { unEscapeQuotes } = require('./estree')
+const deepEqual = require('fast-deep-equal')
 
 // define built-in filters
 expressions.filters.upper = function (input) {
@@ -28,30 +28,45 @@ expressions.filters.titlecaps = function (input, forceLower = false) {
   if (forceLower) input = input.toLowerCase()
   return input.replace(/(^| )(\w)/g, s => s.toUpperCase())
 }
-expressions.filters.date = function (input, fmtStr) {
-  if (!input) return input
-  if (!(input instanceof Date)) input = dateparse(input)
-  return format(input, fmtStr)
-}
-expressions.filters.number = function (input, positiveFmt, negativeFmt, zeroFmt) {
+expressions.filters.format = function (input, generalFmt, negativeFmt, zeroFmt) {
   if (input === null || typeof input === 'undefined') return input
+  if (input instanceof Date) {
+    return format(input, generalFmt)
+  }
+  if (typeof input === 'boolean' || input instanceof Boolean) {
+    input = input.valueOf()
+    if (generalFmt || negativeFmt) {
+      generalFmt = generalFmt ? String(generalFmt) : ''
+      negativeFmt = negativeFmt ? String(negativeFmt) : ''
+      return input ? generalFmt : negativeFmt
+    } // else
+    return input ? 'true' : 'false'
+  }
+  // else number
   const num = Number(input)
   let fmtStr
   if (num == 0) {
-    fmtStr = zeroFmt || positiveFmt || '0,0'
+    fmtStr = zeroFmt || generalFmt || '0,0'
   } else if (num < 0) {
-    fmtStr = negativeFmt || positiveFmt || '0,0'
+    fmtStr = negativeFmt || generalFmt || '0,0'
   } else {
-    fmtStr = positiveFmt || '0,0'
+    fmtStr = generalFmt || '0,0'
   }
-  if (/^[a-zA-Z]/.test(fmtStr)) { // starts with a letter --> spelled out number
-    if (fmtStr[0].toLowerCase() === 'o') { // starts with an 'o' --> ordinal
-      return numWords.toWordsOrdinal(num)
-    } // else
+  if (fmtStr === 'cardinal') {
     return numWords.toWords(num)
-  } // else
-  const n = numeral(num)
-  return n.format(fmtStr)
+  }
+  if (fmtStr === 'ordinal') {
+    return numWords.toWordsOrdinal(num)
+  }
+  return numeral(num).format(fmtStr)
+}
+expressions.filters.cardinal = function (input) {
+  if (input === null || typeof input === 'undefined') return input
+  return numWords.toWords(Number(input))
+}
+expressions.filters.ordinal = function (input) {
+  if (input === null || typeof input === 'undefined') return input
+  return numWords.toWordsOrdinal(Number(input))
 }
 expressions.filters.ordsuffix = function (input) {
   if (input === null || typeof input === 'undefined') return input
@@ -63,19 +78,24 @@ expressions.filters.ordsuffix = function (input) {
     default: return 'th'
   }
 }
-expressions.filters.tf = function (input, trueStr, falseStr) {
-  if (input === null || typeof input === 'undefined') return input
-  const bool = Boolean(input)
-  if (trueStr || falseStr) {
-    trueStr = trueStr ? String(trueStr) : ''
-    falseStr = falseStr ? String(falseStr) : ''
-    return bool ? trueStr : falseStr
-  } // else
-  return bool ? 'true' : 'false'
-}
 expressions.filters.else = function (input, unansweredFmt) {
   if (input === null || typeof input === 'undefined') return unansweredFmt
   return input
+}
+
+expressions.filters.contains = function (input, value) {
+  if (input === null || typeof input === 'undefined' || input === '') return false
+  if (!isIterable(input)) return false
+  if (typeof input === 'string') {
+    return input.includes(value.toString())
+  }
+  value = value && value.valueOf()
+  for (const item of input) {
+    if (deepEqual(item && item.valueOf(), value)) {
+      return true
+    }
+  }
+  return false
 }
 
 expressions.filters.punc = function (inputList, example = '1, 2 and 3') {
@@ -189,4 +209,11 @@ function boxObj (item) {
     case 'boolean': return new Boolean(item)
     default: return item
   }
+}
+
+function isIterable (val) {
+  return (val != null && (
+    (typeof Symbol !== 'undefined' && Symbol && 'iterator' in Symbol && 'function' === typeof val[Symbol.iterator])
+    || ('function' === typeof val['@@iterator'])
+  ))
 }
