@@ -167,7 +167,7 @@ function createListItemFrame (name, index, listFrame) {
   let local
   if (typeof item === 'object') {
     if (isPrimitiveWrapper(item)) {
-      local = wrapPrimitive(item.valueOf())
+      local = primitiveWrapperClone(item)
     } else {
       local = shallowClone(item, Object.getPrototypeOf(item))
     }
@@ -234,5 +234,11 @@ function shallowClone (obj, newProto) {
     clone = Object.create(newProto || Object.getPrototypeOf(obj))
     Object.getOwnPropertyNames(obj).forEach(key => Object.defineProperty(clone, key, Object.getOwnPropertyDescriptor(obj, key)))
   }
+  return clone
+}
+
+function primitiveWrapperClone (obj) {
+  let clone = wrapPrimitive(obj.valueOf())
+  Object.getOwnPropertyNames(obj).forEach(key => Object.defineProperty(clone, key, Object.getOwnPropertyDescriptor(obj, key)))
   return clone
 }

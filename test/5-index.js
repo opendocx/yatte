@@ -364,6 +364,25 @@ describe('Assembly of text template via exported API', function () {
     const result = yatte.assembleText(template2, data, localData)
     assert.equal(result, 'Who is John Smith?')
   })
+  it('should assemble a punctuated list based on an array of keyed objects', function () {
+    const template = 'My favorite colors are {[list Colors|punc:"1, 2 and 3"]}{[Description]}{[endlist]}.'
+    const evaluator = yatte.compileText(template)
+    const data = { Colors: [] }
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(255,0,0)', Description: 'Red'}, 'Name'))
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(255,255,0)', Description: 'Yellow'}, 'Name'))
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(0,0,255)', Description: 'Blue'}, 'Name'))
+
+    const result = evaluator(data)
+    assert.equal(result, 'My favorite colors are Red, Yellow and Blue.')
+  })
+
+  function CreateKeyedObject(obj, keyPropName) {
+    let result = new String(obj[keyPropName])
+    for (const [k, v] of Object.entries(obj)) {
+      Object.defineProperty(result, k, { value: v })
+    }
+    return result
+  }
   // it('should always allow access to the top of the stack using the _ identifier', function() {
   //     const data = {
   //         name: 'Xenia',
