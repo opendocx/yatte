@@ -105,6 +105,9 @@ class StackFrame {
   }
 
   evaluate (compiledExpr) {
+    if (this.parentScope && this.localScope && compiledExpr.ast.type === AST.ListFilterExpression) {
+      return compiledExpr(MergeParentScopes(this.localScope, this.parentScope, false))
+    } // else
     return compiledExpr(this.parentScope, this.localScope)
   }
 
@@ -138,21 +141,27 @@ function createGlobalFrame (contextObj, localsObj, name = '_odx') {
 //   return new StackFrame('Object', name, contextObj, parentFrame, MergeParentScopes(parentFrame.localScope, parentFrame.parentScope))
 // }
 
-function MergeParentScopes (parentLocal, parentParent) {
+function MergeParentScopes (parentLocal, parentParent, define_parent = true) {
   let merged
   if (parentLocal) {
     if (isPrimitiveWrapper(parentLocal)) {
       merged = Object.create(parentParent)
-      Object.defineProperty(merged, '_parent', { value: parentLocal })
+      if (define_parent) {
+        Object.defineProperty(merged, '_parent', { value: parentLocal })
+      }
     } else {
-      // make a copy of the prototype object for the object, but redirect its prototype chain to point to the parent context
+      // make a copy of the prototype object for parentLocal, but redirect its prototype chain to point to the parent context
       const proto = shallowClone(Object.getPrototypeOf(parentLocal), parentParent)
       merged = shallowClone(parentLocal, proto)
-      Object.defineProperty(merged, '_parent', { value: merged })
+      if (define_parent) {
+        Object.defineProperty(merged, '_parent', { value: merged })
+      }
     }
   } else {
     merged = Object.create(parentParent)
-    Object.defineProperty(merged, '_parent', { value: parentParent })
+    if (define_parent) {
+      Object.defineProperty(merged, '_parent', { value: parentParent })
+    }
   }
   return merged
 }

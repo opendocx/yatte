@@ -186,6 +186,14 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'The first item is ONE, followed by TWO, followed by THREE, and lastly FOUR.')
   })
 
+  it('should assemble LOCAL object lists that filter on _index and .length', function () {
+    const template = '{[list items|filter:_index == 1]}The first item is {[FieldName]}{[endlist]}{[list items|filter:_index > 1 && _index < items.length]}, followed by {[FieldName]}{[endlist]}{[if items.length > 1]}, and lastly {[items[items.length-1].FieldName]}{[endif]}.'
+    const global = { neverMind: true }
+    const data = { items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" }, { FieldName: "FOUR" } ] }
+    const result = yatte.assembleText(template, global, data).value
+    assert.equal(result, 'The first item is ONE, followed by TWO, followed by THREE, and lastly FOUR.')
+  })
+
 })
 
 function CreateKeyedObject(obj, keyPropName) {

@@ -225,7 +225,7 @@ function pseudoListFrame (item, index, parent) {
     Object.defineProperties(result, {
       _index0: { value: index },
       _index: { value: index + 1 },
-      _parent: { value: parent }
+      _parent: { value: parent } // todo: see if this _parent link is redundant all the time, or only some of the time.  It can be redundant when MergeParentScope has been used to merge a local scope with a parent scope.
     })
   }
   return result
