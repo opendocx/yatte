@@ -198,17 +198,37 @@ function callArrayFunc (func, array, scope, predicateStr) {
     scope = {}
   }
   const evaluator = expressions.compile(unEscapeQuotes(predicateStr))
-  return func.call(array, item => evaluator(scope, boxObj(item)))
+  // predicateStr can refer to built-in properties _index, _index0, or _parent. These need to evaluate to the correct thing.
+  return func.call(array, (item, index) => evaluator(scope, pseudoListFrame(item, index, scope)))
 }
 
-function boxObj (item) {
+function pseudoListFrame (item, index, parent) {
+  var result
   switch (typeof item) {
     case 'string':
-      return new String(item)
-    case 'number': return new Number(item)
-    case 'boolean': return new Boolean(item)
-    default: return item
+      result = new String(item)
+      break
+    case 'number':
+      result = new Number(item)
+      break
+    case 'boolean': 
+      result = new Boolean(item)
+      break
+    case 'object':
+      result = item && Object.create(item)
+      break
+    default:  // unusual or unexpected
+      result = item
+      break
   }
+  if (result && typeof result === 'object') {
+    Object.defineProperties(result, {
+      _index0: { value: index },
+      _index: { value: index + 1 },
+      _parent: { value: parent }
+    })
+  }
+  return result
 }
 
 function isIterable (val) {

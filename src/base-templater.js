@@ -354,9 +354,6 @@ const reduceContentNode = function (astNode, scope, parentScope = null) {
   if (astNode.type == OD.If || astNode.type == OD.ElseIf || astNode.type == OD.Else) {
     // if's are always left in at this point (because of their importance to the logic;
     // a lot more work would be required to accurately optimize them out.)
-    // But we still need to check whether the if expr is in the scope already (or not)
-    // so we can place a "firstRef" hint in the node, which is used by opendocx to decide whether
-    // this expression should be included in the data as its being transformed into XML (UGLY! improvement planned ASAP!)
     // HOWEVER, we can't add the expr to the parent scope by virtue of it having been referenced in a condition,
     // because it means something different for the same expression to be evaluated in a Content node vs. an If/ElseIf node,
     // and therefore an expression emitted/evaluated as part of a condition still needs to be emitted/evaluated as part of a merge/content node.
@@ -371,11 +368,8 @@ const reduceContentNode = function (astNode, scope, parentScope = null) {
     // but a reference to an identifier in a child scope, will NOT prevent that identifier from appearing in a parent scope.
     const pscope = (parentScope != null) ? parentScope : scope
     if (copyOfNode.type == OD.If || copyOfNode.type == OD.ElseIf) {
-      if (('if$' + astNode.expr) in pscope) {
-        copyOfNode.firstRef = false // firstRef = false means opendocx, when it's deciding which expressions to evaluate and place in output XML, will skip this one
-      } else {
+      if (!(('if$' + astNode.expr) in pscope)) {
         pscope['if$' + astNode.expr] = copyOfNode
-        copyOfNode.firstRef = true // firstRef = true means the firs time this IF expression has been encountered in this scope, so opendocx will output this expression in the data XML
       }
     }
     const childContext = Object.create(pscope)

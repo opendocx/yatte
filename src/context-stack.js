@@ -113,7 +113,8 @@ class StackFrame {
       type: AST.ExpressionStatement,
       expression: compiledExpr.ast,
       text: compiledExpr.normalized,
-      scope: this.parentScope,
+      // for deferred evaluation (which happens for meta templates), we do not currently allow use of _parent to *explicitly* reference the parent context.
+      scope: Object.prototype.hasOwnProperty.call(this.parentScope, '_parent') ? this.parentScope._parent : this.parentScope,
       locals: this.localScope
     }
   }
@@ -150,7 +151,8 @@ function MergeParentScopes (parentLocal, parentParent) {
       Object.defineProperty(merged, '_parent', { value: merged })
     }
   } else {
-    merged = parentParent
+    merged = Object.create(parentParent)
+    Object.defineProperty(merged, '_parent', { value: parentParent })
   }
   return merged
 }
@@ -173,11 +175,11 @@ function createListItemFrame (name, index, listFrame) {
     }
   } else {
     local = wrapPrimitive(item)
-    // Object.defineProperty(local, '_parent', { value: listFrame.parentScope })
   }
   Object.defineProperties(local, {
     _index0: { value: index },
     _index: { value: index + 1 },
+    // _parent is set above in MergeParentScopes, once for the whole list
     _punc: { value: (
       listFrame.punctuation
         ? (
