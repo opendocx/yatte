@@ -560,6 +560,14 @@ const getRTLFilterChain = function (node, innerNode = undefined) {
   return node
 }
 
+/* If you want to support nesting list filters inside list filters,
+   it seems like we need to support passing BOTH the scope AND
+   the locals into the list filter.  The outer filter doesn't need
+   them both, because we could just merge both into the scope
+   without worrying about it:  because in the outer list filter,
+   if we refer to _index, it's the only index... or something like
+   that.  It's something about _index and _parent.  */
+
 const convertCallNodeToFilterNode = function (node) {
   node.filter = node.callee
   delete node.callee
@@ -572,18 +580,17 @@ const convertCallNodeToFilterNode = function (node) {
     } else if (node.filter.name === 'all') { // alias for 'every'
       node.filter.name = 'every'
     }
-    node.rtl = ['any', 'every'].includes(node.filter.name)
-    if (node.arguments[0].type === AST.ThisExpression && node.arguments[1] && node.arguments[1].type === AST.Literal) {
+    node.rtl = ['any', 'every'].includes(node.filter.name) // should 'map' also be rtl??
+    if (isNormalizedListFilterNode(node)) {
       // the node is a list filter that had formerly been normalized -- re-parse the string argument into the original AST
       node.arguments.shift() // discard AST's extra "this" (added during normalization, when the param expression was stringified)
+      node.arguments.shift() // discard AST's extra "$locals" (added during normalization)
       const parsedArg = compileExpr(unEscapeQuotes(node.arguments[0].value))
       node.arguments[0] = parsedArg.ast
       return false // existing compiled behavior was already based on the normalized form, so return false to avoid recompilation (which would only be redundant)
     } else {
       // the node is a list filter that is just now being parsed & fixed up
-      // transform any 'ThisExpression' nodes to 'LocalsExpression', because when evaluating the argument/predicate of a list filter, "this" should refer to the item in the list, not the parent scope
-      // thisTo$locals(node.arguments[0]) // we don't care whether this specific call returns true or false, since at this point we're always returning true anyway
-      return true // returning true means after we're done mutating the AST, we'll re-serialize to get the normalized form, and then recompile with angular-expressions
+      return true // returning true means after we're done mutating the AST, we'll re-serialize to get the normalized form, and then recompile THAT with angular-expressions
     }
   } else {
     node.type = AST.AngularFilterExpression
@@ -602,7 +609,7 @@ const convertCallNodeToFilterNode = function (node) {
  */
 const thisTo$locals = function (astNode) {
   return astMutateInPlace(astNode, node => {
-    if (node.type === AST.ListFilterExpression && node.arguments.length > 1 && node.arguments[0].type === AST.ThisExpression && node.arguments[1].type === AST.Literal) {
+    if (isNormalizedListFilterNode(node)) {
       // the one case where we LEAVE a ThisExpression in place, is when it's the first (implicit) argument to a ListFilterExpression that has already been fixed up
       node.arguments[0].preserve = true
       return false
@@ -613,4 +620,20 @@ const thisTo$locals = function (astNode) {
     }
     return false
   })
+}
+
+function isNormalizedListFilterNode(node) {
+  if (!node || node.type !== AST.ListFilterExpression) return false
+  let args = node.arguments
+  if (args.length > 2
+    && args[0].type === AST.ThisExpression
+    && args[1].type === AST.LocalsExpression
+    && args[2].type === AST.Literal)
+  {
+    if (args.length !== 3) {
+      console.log(`Warning: ListFilterExpression with multiple arguments: ${AST.serialize(node)}`)
+    }
+    return true
+  }
+  return false
 }

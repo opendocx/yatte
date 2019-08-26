@@ -1,4 +1,4 @@
-const { describe, it} = require('mocha')
+//const { describe, it} = require('mocha')
 const textTemplater = require('../src/text-templater')
 var assert = require('assert')
 
@@ -451,7 +451,7 @@ describe('Parsing and normalization of list filters', function () {
     assert.deepStrictEqual(compiled, [
       {
         type: 'List',
-        expr: 'Oceans|filter:this:"AverageDepth>3500"',
+        expr: 'Oceans|filter:this:$locals:"AverageDepth>3500"',
         exprAst: {
           type: 'ListFilterExpression',
           rtl: false,
@@ -508,6 +508,13 @@ describe('Parsing and normalization of list filters', function () {
       }
     ])
   })
+
+  // it('should parse chained list filters in the right order', function () {
+  //   const template = '{[list Oceans | filter: a > 1 | sort: colName | map: a | filter: this.startsWith("A") | any: this]}{[this]}{[endlist]}'
+  //   const compiled = textTemplater.parseTemplate(template)
+  //   assert.deepStrictEqual(compiled, [])
+  // })
+
 })
 
 describe('Parsing and normalization of expressions', function () {

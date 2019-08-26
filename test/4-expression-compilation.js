@@ -1,5 +1,5 @@
-//const yatte = require('../src/index')
-const yatte = require('../lib/yatte.min')
+const yatte = require('../src/index')
+//const yatte = require('../lib/yatte.min')
 const assert = require('assert')
 const { TV_Family_Data } = require('./test-data')
 
@@ -40,10 +40,10 @@ describe('Compiling expressions via exported API', function () {
   it('re-compiling a normalized list filter expression produces the same normalization but does not go back to original AST', function () {
     // note: compiling a normalized list filter expression shoulod produce the same AST as the original (non-normalized) list filter expression
     // we do this so downline features that depend on the AST can reliably know what they're going to get.
-    const evaluator = yatte.Engine.compileExpr(' Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"') // space at beginning is intentional, to avoid cached expression AST
+    const evaluator = yatte.Engine.compileExpr(' Families|any:this:$locals:"Children|any:this:$locals:&quot;Birthdate.valueOf()>Date.now()&quot;"') // space at beginning is intentional, to avoid cached expression AST
     const result = evaluator({ Date }, TV_Family_Data)
     assert.strictEqual(result, true)
-    assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
+    assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:$locals:"Children|any:this:$locals:&quot;Birthdate.valueOf()>Date.now()&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
   })
 
@@ -102,7 +102,7 @@ describe('Compiling expressions via exported API', function () {
     const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate.valueOf() > Date.now()')
     const result = evaluator({ Date }, TV_Family_Data)
     assert.strictEqual(result, true)
-    assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
+    assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:$locals:"Children|any:this:$locals:&quot;Birthdate.valueOf()>Date.now()&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
   })
 
@@ -162,7 +162,7 @@ describe('Compiling expressions via exported API', function () {
 
   it('allow chaining of the "any" filter with nested objects', function () {
     const evaluator = yatte.Engine.compileExpr('obj1.list1|any:obj2.list2|any:prop3')
-    assert.deepStrictEqual(evaluator.normalized, 'obj1.list1|any:this:"obj2.list2|any:this:&quot;prop3&quot;"')
+    assert.deepStrictEqual(evaluator.normalized, 'obj1.list1|any:this:$locals:"obj2.list2|any:this:$locals:&quot;prop3&quot;"')
     assert.deepStrictEqual(evaluator.ast, nestedAny_AST)
     // ensure the normalized expression produces the same AST but does not get recompiled!
     const evaluator2 = yatte.Engine.compileExpr(' ' + evaluator.normalized)
@@ -199,6 +199,61 @@ describe('Compiling expressions via exported API', function () {
     ],
     constant: false
   }
+
+  it('allow chaining of the "map" filter with independent lists', function () {
+    const evaluator = yatte.Engine.compileExpr('List1|map:(List2|map:a + b)')
+    assert.deepStrictEqual(evaluator.normalized, 'List1|map:this:$locals:"List2|map:this:$locals:&quot;a+b&quot;"')
+    assert.deepStrictEqual(evaluator.ast, nestedMap_AST)
+    // ensure the normalized expression produces the same AST but does not get recompiled!
+    // const evaluator2 = yatte.Engine.compileExpr(' ' + evaluator.normalized)
+    // assert.deepStrictEqual(evaluator2.ast, evaluator.ast)
+    // assert.deepStrictEqual(evaluator2.normalized, evaluator.normalized)
+    // assert.deepStrictEqual(evaluator.toString(), evaluator2.toString())
+    const data = { List1: [ {a: 2}, {a: 4} ], List2: [ {b: 10}, {b: 20}, {b: 30} ] }
+    let result = evaluator(data)
+    assert.deepStrictEqual(result, [[12,22,32],[14,24,34]])
+  })
+
+  const nestedMap_AST = {
+    type: 'ListFilterExpression',
+    rtl: false,
+    input: {type: 'Identifier', name: 'List1', constant: false},
+    filter: { type: 'Identifier', name: 'map' },
+    arguments: [{
+      type: 'ListFilterExpression',
+      rtl: false,
+      input: {type: 'Identifier', name: 'List2', constant: false},
+      filter: { type: 'Identifier', name: 'map' },
+      arguments: [{
+        type: 'BinaryExpression',
+        operator: '+',
+        left: { type: 'Identifier', name: 'a', constant: false },
+        right: { type: 'Identifier', name: 'b', constant: false },
+        constant: false
+      }],
+      constant: false,
+    }],
+    constant: false,
+  }
+
+  it('check if the cross product of two vectors contains a certain value', function () {
+    const evaluator = yatte.Engine.compileExpr('List1|any:([].concat.apply([],List1|map:(List2|map:a + b))|contains:c)')
+    //assert.deepStrictEqual(evaluator.normalized, 'List1|map:this:$locals:"List2|map:this:$locals:&quot;a+b&quot;"')
+    //assert.deepStrictEqual(evaluator.ast, nestedMap_AST)
+    // ensure the normalized expression produces the same AST but does not get recompiled!
+    // const evaluator2 = yatte.Engine.compileExpr(' ' + evaluator.normalized)
+    // assert.deepStrictEqual(evaluator2.ast, evaluator.ast)
+    // assert.deepStrictEqual(evaluator2.normalized, evaluator.normalized)
+    // assert.deepStrictEqual(evaluator.toString(), evaluator2.toString())
+    const globals = { global_placeholder: true }
+    const locals = { List1: [ {a: 2, c:24}, {a: 4, c:12} ], List2: [ {b: 10}, {b: 20}, {b: 30} ] }
+    let result = evaluator(globals, locals)
+    // List1|map:(List2|map:a + b)                      ==>  [ [ 12, 22, 32 ], [ 14, 24, 34 ] ]
+    // [].concat.apply([],List1|map:(List2|map:a + b))  ==>  [ 12, 22, 32, 14, 24, 34 ]
+    // List1|any:([].concat.apply([],List1|map:(List2|map:a + b))|contains:c)  ==>  does list1 contain any item whose 'c' is part of the above list?
+    // (hardly efficient, since it does a triply nested iteration where theoretically only a doubly nested iteration ought to suffice...)
+    assert.deepStrictEqual(result, true)
+  })
 
   it('cleans up parse errors thrown by angular-expressions', function () {
     assert.throws(() => yatte.Engine.compileExpr('members|name!=this.name'), // forgot "filter" filter

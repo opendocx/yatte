@@ -1,5 +1,6 @@
 'use strict'
 const { AST } = require('./estree')
+const { shallowCloneOrWrap, mergeScopes, isPrimitiveWrapper } = require('./util')
 
 class ContextStack {
   constructor () {
@@ -105,9 +106,9 @@ class StackFrame {
   }
 
   evaluate (compiledExpr) {
-    if (this.parentScope && this.localScope && compiledExpr.ast.type === AST.ListFilterExpression) {
-      return compiledExpr(MergeParentScopes(this.localScope, this.parentScope, false))
-    } // else
+    //if (this.parentScope && this.localScope && compiledExpr.ast.type === AST.ListFilterExpression) {
+    //  return compiledExpr(MergeParentScopes(this.localScope, this.parentScope, false))
+    //} // else
     return compiledExpr(this.parentScope, this.localScope)
   }
 
@@ -142,26 +143,9 @@ function createGlobalFrame (contextObj, localsObj, name = '_odx') {
 // }
 
 function MergeParentScopes (parentLocal, parentParent, define_parent = true) {
-  let merged
-  if (parentLocal) {
-    if (isPrimitiveWrapper(parentLocal)) {
-      merged = Object.create(parentParent)
-      if (define_parent) {
-        Object.defineProperty(merged, '_parent', { value: parentLocal })
-      }
-    } else {
-      // make a copy of the prototype object for parentLocal, but redirect its prototype chain to point to the parent context
-      const proto = shallowClone(Object.getPrototypeOf(parentLocal), parentParent)
-      merged = shallowClone(parentLocal, proto)
-      if (define_parent) {
-        Object.defineProperty(merged, '_parent', { value: merged })
-      }
-    }
-  } else {
-    merged = Object.create(parentParent)
-    if (define_parent) {
-      Object.defineProperty(merged, '_parent', { value: parentParent })
-    }
+  let merged = mergeScopes(parentLocal, parentParent)
+  if (define_parent) {
+    Object.defineProperty(merged, '_parent', { value: (parentLocal ? isPrimitiveWrapper(parentLocal) ? parentLocal : merged : parentParent) })
   }
   return merged
 }
@@ -175,16 +159,7 @@ function createListFrame (name, iterable, parentFrame) {
 
 function createListItemFrame (name, index, listFrame) {
   const item = listFrame.localScope[index]
-  let local
-  if (typeof item === 'object') {
-    if (isPrimitiveWrapper(item)) {
-      local = primitiveWrapperClone(item)
-    } else {
-      local = shallowClone(item, Object.getPrototypeOf(item))
-    }
-  } else {
-    local = wrapPrimitive(item)
-  }
+  let local = shallowCloneOrWrap(item)
   Object.defineProperties(local, {
     _index0: { value: index },
     _index: { value: index + 1 },
@@ -209,47 +184,4 @@ function createListItemFrame (name, index, listFrame) {
     }
   })
   return new StackFrame('Object', name, local, listFrame, listFrame.parentScope)
-}
-
-function wrapPrimitive (value) {
-  let val
-  switch (typeof value) {
-    case 'string': val = new String(value); break
-    case 'number': val = new Number(value); break
-    case 'boolean': val = new Boolean(value); break
-    default: throw new Error('unexpected value type')
-  }
-  return val
-}
-
-// function wrapPrimitiveAlt (value) {
-//   return {
-//     _value: value,
-//     valueOf: () => this._value
-//   }
-// }
-
-function isPrimitiveWrapper (obj) {
-  return obj.constructor && ['String', 'Number', 'Boolean'].includes(obj.constructor.name)
-}
-
-function shallowClone (obj, newProto) {
-  let clone
-  if (newProto && isPrimitiveWrapper(newProto)) {
-    const val = newProto.valueOf()
-    newProto = { _value: val }
-  }
-  if (obj === Object.prototype) {
-    clone = Object.create(newProto || obj)
-  } else {
-    clone = Object.create(newProto || Object.getPrototypeOf(obj))
-    Object.getOwnPropertyNames(obj).forEach(key => Object.defineProperty(clone, key, Object.getOwnPropertyDescriptor(obj, key)))
-  }
-  return clone
-}
-
-function primitiveWrapperClone (obj) {
-  let clone = wrapPrimitive(obj.valueOf())
-  Object.getOwnPropertyNames(obj).forEach(key => Object.defineProperty(clone, key, Object.getOwnPropertyDescriptor(obj, key)))
-  return clone
 }

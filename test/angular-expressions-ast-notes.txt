@@ -58,6 +58,6 @@ type=='ConditionalExpression' // a ? b : c
 *    consequent==node
 
 ThisExpression   // this
+LocalsExpression // $locals
 
 AssignmentExpression  // a = "a"    N/A?
-LocalsExpression // $locals  N/A?

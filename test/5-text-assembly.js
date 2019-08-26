@@ -168,7 +168,7 @@ describe('Assembly of text template via exported API', function () {
       FieldName: "ZERO",
       items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" } ]
     }
-    const result = yatte.assembleText(template, data).value
+    const result = yatte.assembleText(template, data).value 
     assert.equal(result, 'ONE plus ZERO, TWO plus ZERO, THREE plus ZERO.')
   })
 
@@ -192,6 +192,18 @@ describe('Assembly of text template via exported API', function () {
     const data = { items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" }, { FieldName: "FOUR" } ] }
     const result = yatte.assembleText(template, global, data).value
     assert.equal(result, 'The first item is ONE, followed by TWO, followed by THREE, and lastly FOUR.')
+  })
+
+  it('should assemble object lists that filter on an item in the list', function () {
+    const template = '{[list children | filter: Age >= 18 | punc:"1, 2"]}{[Name]}{[endlist]}'
+    const global = { neverMind: true }
+    const data = { children: [ { Name: "John", Age: 20 }, { Name: "Mary", Age: 18 }, { Name: "Carl", Age: 16 } ] }
+    const result = yatte.assembleText(template, global, data).value
+    assert.equal(result, 'John, Mary')
+
+    const template2 = '{[list children | filter: Age < 18 | punc:"1, 2"]}{[Name]}{[endlist]}'
+    const result2 = yatte.assembleText(template2, global, data).value
+    assert.equal(result2, 'Carl')
   })
 
 })

@@ -3,6 +3,7 @@ const format = require('date-fns/format')
 const numeral = require('numeral')
 const numWords = require('number-to-words')
 const { unEscapeQuotes } = require('./estree')
+const { mergeScopes, wrapPrimitive } = require('./util')
 const deepEqual = require('fast-deep-equal')
 
 // define built-in filters
@@ -125,11 +126,12 @@ expressions.filters.punc = function (inputList, example = '1, 2 and 3') {
 
 // runtime implementation of list filters:
 
-expressions.filters.sort = function (input, scope) {
+// scope and locals are not currently used because sort expressions must only refer to stuff in the current list item
+// eslint-disable-next-line no-unused-vars
+expressions.filters.sort = function (input, scope, locals) {
   if (!input || !Array.isArray(input) || !input.length || arguments.length < 3) return input
-  if (!scope) scope = {}
   const sortBy = []
-  let i = 2
+  let i = 3
   while (i < arguments.length) {
     const argument = unEscapeQuotes(arguments[i++])
     sortBy.push({
@@ -142,7 +144,7 @@ expressions.filters.sort = function (input, scope) {
       depth = 0
     }
     if (depth >= sortBy.length) { return 0 }
-    const valA = sortBy[depth].evaluator(a) // sort expressions must only  refer to stuff in the current list item
+    const valA = sortBy[depth].evaluator(a)
     const valB = sortBy[depth].evaluator(b)
     if (valA < valB) { return sortBy[depth].descending ? 1 : -1 }
     if (valA > valB) { return sortBy[depth].descending ? -1 : 1 }
@@ -150,34 +152,31 @@ expressions.filters.sort = function (input, scope) {
   }
   return input.slice().sort(compare)
 }
-expressions.filters.filter = function (input, scope, predicateStr) {
-  return callArrayFunc(Array.prototype.filter, input, scope, predicateStr)
+expressions.filters.filter = function (input, scope, locals, predicateStr) {
+  return callArrayFunc(Array.prototype.filter, input, scope, locals, predicateStr)
 }
-expressions.filters.find = function (input, scope, predicateStr) {
-  return callArrayFunc(Array.prototype.find, input, scope, predicateStr)
+expressions.filters.find = function (input, scope, locals, predicateStr) {
+  return callArrayFunc(Array.prototype.find, input, scope, locals, predicateStr)
 }
-expressions.filters.any = function (input, scope, predicateStr) {
-  return callArrayFunc(Array.prototype.some, input, scope, predicateStr)
+expressions.filters.any = function (input, scope, locals, predicateStr) {
+  return callArrayFunc(Array.prototype.some, input, scope, locals, predicateStr)
 }
 expressions.filters.some = expressions.filters.any // alias
-expressions.filters.every = function (input, scope, predicateStr) {
-  return callArrayFunc(Array.prototype.every, input, scope, predicateStr)
+expressions.filters.every = function (input, scope, locals, predicateStr) {
+  return callArrayFunc(Array.prototype.every, input, scope, locals, predicateStr)
 }
 expressions.filters.all = expressions.filters.every // alias
-expressions.filters.map = function (input, scope, mappedStr) {
-  return callArrayFunc(Array.prototype.map, input, scope, mappedStr)
+expressions.filters.map = function (input, scope, locals, mappedStr) {
+  return callArrayFunc(Array.prototype.map, input, scope, locals, mappedStr)
 }
-expressions.filters.group = function (input, scope, groupStr) {
+expressions.filters.group = function (input, scope, locals, groupStr) {
   if (!input || !Array.isArray(input) || !input.length || arguments.length < 2) {
     return input
-  }
-  if (!scope) {
-    scope = {}
   }
   const evaluator = expressions.compile(unEscapeQuotes(groupStr))
   return input.reduce(
     (result, item) => {
-      const key = ['string', 'number'].includes(typeof item) ? evaluator(item) : evaluator(scope, item)
+      const key = evaluator(mergeScopes(locals, scope), ['string', 'number', 'boolean'].includes(typeof item) ? wrapPrimitive(item) : item)
       let bucket = result.find(b => b._key === key)
       if (!bucket) {
         bucket = { _key: key, _values: [] }
@@ -190,16 +189,17 @@ expressions.filters.group = function (input, scope, groupStr) {
   )
 }
 
-function callArrayFunc (func, array, scope, predicateStr) {
+function callArrayFunc (func, array, scope, locals, predicateStr) {
   if (!array || !Array.isArray(array) || !array.length || arguments.length < 2) {
     return array
   }
-  if (!scope) {
-    scope = {}
-  }
   const evaluator = expressions.compile(unEscapeQuotes(predicateStr))
   // predicateStr can refer to built-in properties _index, _index0, or _parent. These need to evaluate to the correct thing.
-  return func.call(array, (item, index) => evaluator(scope, pseudoListFrame(item, index, scope)))
+  return func.call(array, (item, index) => {
+    let newScope = locals ? scope ? mergeScopes(locals, scope) : locals : scope || {}
+    //let itemScope = locals ? ((locals._parent === scope) ? locals : mergeScopes(locals, scope)) : scope
+    return evaluator(newScope, pseudoListFrame(item, index, newScope))
+  })
 }
 
 function pseudoListFrame (item, index, parent) {

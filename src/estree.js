@@ -192,7 +192,7 @@ function serializeAstNode (astNode) {
                 astNode.arguments.map(arg => ':' + serializeOptionallyWrapped(arg, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)).join('')
     case AST.ListFilterExpression:
       return serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.ListFilterExpression, astNode.rtl) +
-                '|' + serializeAstNode(astNode.filter) + ':this' +
+                '|' + serializeAstNode(astNode.filter) + ':this:$locals' +
                 astNode.arguments.map(arg => `:"${escapeQuotes(serializeAstNode(arg))}"`).join('')
     case AST.ArrayExpression:
       return '[' + astNode.elements.map(elem => serializeAstNode(elem)).join(',') + ']'
