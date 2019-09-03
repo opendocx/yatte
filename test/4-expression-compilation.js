@@ -1,5 +1,5 @@
-//const yatte = require('../src/index')
-const yatte = require('../lib/yatte.min')
+const yatte = require('../src/index')
+//const yatte = require('../lib/yatte.min')
 const assert = require('assert')
 const { TV_Family_Data } = require('./test-data')
 

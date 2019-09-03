@@ -1,5 +1,5 @@
-//const yatte = require('../src/index')
-const yatte = require('../lib/yatte.min')
+const yatte = require('../src/index')
+//const yatte = require('../lib/yatte.min')
 const assert = require('assert')
 
 /*
@@ -226,6 +226,12 @@ The logic tree should include the if twice, but should call for the data only on
     const template = '{[if x]}{[x]}{[elseif y]}{[y]}{[else]}{[z]}{[endif]}'
     const logic = yatte.extractLogic(template)
     assert.deepStrictEqual(logic, XYZLogicTree)
+  })
+
+  it('correctly parses & extracts logic from the ugly nested if/elseif template', function() {
+    debugger
+    const result = yatte.extractLogic(ugly_nested_template)
+    assert.deepStrictEqual(result, ugly_nested_contentArray)
   })
 
 })
@@ -618,6 +624,667 @@ const XYZLogicTree = [
       }
       ]
     }
+    ]
+  }
+]
+
+const ugly_nested_template = `{[if DocSelect == "SelectAllPlan"]}
+  {[EngageLetter]}
+  {[DPOA]}
+  {[AdvCarePlan]}
+  {[SimpleWill]}
+  {[FinancialStatement]}
+  {[CoverSheet]}
+  {[if Married]}
+    {[DPOASpouse]}
+    {[AdvCarePlanSpouse]}
+    {[SimpleWillSpouse]}
+  {[endif]}
+{[elseif DocSelect == "SelectAllLivingWill"]}
+  {[EngageLetter]}
+  {[DPOA]}
+  {[LivingWill]}
+  {[AdvHealthDirective]}
+  {[SimpleWill]}
+  {[FinancialStatement]}
+  {[CoverSheet]}
+  {[if Married]}
+    {[DPOASpouse]}
+    {[LivingWillSpouse]}
+    {[AdvHCDirSpouse]}
+    {[SimpleWillSpouse]}
+  {[endif]}
+{[elseif DocSelect == "SelectDocs"]}
+  {[if Documents | contains: "Engagement Letter"]}
+    {[EngageLetter]}
+  {[endif]}
+  {[if Documents | contains: "Living Will"]}
+    {[LivingWill]}
+    {[if Married]}
+      {[LivingWillSpouse]}
+    {[endif]}
+  {[endif]}
+  {[if Documents | contains: "Power of Attorney"]}
+    {[DPOA]}
+    {[if Married]}
+      {[DPOASpouse]}
+    {[endif]}
+  {[endif]}
+  {[if Documents | contains: "Advanced Care Plan"]}
+    {[AdvCarePlan]}
+    {[if Married]}
+      {[AdvCarePlanSpouse]}
+    {[endif]}
+  {[endif]}
+  {[if Documents | contains: "Advance Health Care Directive"]}
+    {[AdvHealthDirective]}
+    {[if Married]}
+      {[AdvHCDirSpouse]}
+    {[endif]}
+  {[endif]}
+  {[if Documents | contains: "Financial Statement"]}
+    {[FinancialStatement]}
+  {[endif]}
+  {[if Documents | contains: "Will"]}
+    {[SimpleWill]}
+    {[if Married]}
+      {[SimpleWillSpouse]}
+    {[endif]}
+  {[endif]}
+  {[if Documents | contains: "Cover Sheet"]}
+    {[CoverSheet]}
+  {[endif]}
+{[endif]}
+`
+const ugly_nested_contentArray = [
+  {
+    type: "If",
+    expr: "DocSelect==\"SelectAllPlan\"",
+    exprAst: {
+      type: "BinaryExpression",
+      operator: "==",
+      left: {
+        type: "Identifier",
+        name: "DocSelect",
+        constant: false
+      },
+      right: {
+        type: "Literal",
+        value: "SelectAllPlan",
+        constant: true
+      },
+      constant: false
+    },
+    contentArray: [
+      {
+        type: "Content",
+        expr: "EngageLetter",
+        exprAst: {
+          type: "Identifier",
+          name: "EngageLetter",
+          constant: false
+        }
+      }, {
+        type: "Content",
+        expr: "DPOA",
+        exprAst: {
+          type: "Identifier",
+          name: "DPOA",
+          constant: false
+        }
+      }, {
+        type: "Content",
+        expr: "AdvCarePlan",
+        exprAst: {
+          type: "Identifier",
+          name: "AdvCarePlan",
+          constant: false
+        }
+      }, {
+        type: "Content",
+        expr: "SimpleWill",
+        exprAst: {
+          type: "Identifier",
+          name: "SimpleWill",
+          constant: false
+        }
+      }, {
+        type: "Content",
+        expr: "FinancialStatement",
+        exprAst: {
+          type: "Identifier",
+          name: "FinancialStatement",
+          constant: false
+        }
+      }, {
+        type: "Content",
+        expr: "CoverSheet",
+        exprAst: {
+          type: "Identifier",
+          name: "CoverSheet",
+          constant: false
+        }
+      }, {
+        type: "If",
+        expr: "Married",
+        exprAst: {
+          type: "Identifier",
+          name: "Married",
+          constant: false
+        },
+        contentArray: [{
+            type: "Content",
+            expr: "DPOASpouse",
+            exprAst: {
+              type: "Identifier",
+              name: "DPOASpouse",
+              constant: false
+            }
+          }, {
+            type: "Content",
+            expr: "AdvCarePlanSpouse",
+            exprAst: {
+              type: "Identifier",
+              name: "AdvCarePlanSpouse",
+              constant: false
+            }
+          }, {
+            type: "Content",
+            expr: "SimpleWillSpouse",
+            exprAst: {
+              type: "Identifier",
+              name: "SimpleWillSpouse",
+              constant: false
+            }
+          }
+        ]
+      }, {
+        type: "ElseIf",
+        expr: "DocSelect==\"SelectAllLivingWill\"",
+        exprAst: {
+          type: "BinaryExpression",
+          operator: "==",
+          left: {
+            type: "Identifier",
+            name: "DocSelect",
+            constant: false
+          },
+          right: {
+            type: "Literal",
+            value: "SelectAllLivingWill",
+            constant: true
+          },
+          constant: false
+        },
+        contentArray: [
+          {
+            type: "Content",
+            expr: "EngageLetter",
+            exprAst: {
+              type: "Identifier",
+              name: "EngageLetter",
+              constant: false
+            }
+          }, {
+            type: "Content",
+            expr: "DPOA",
+            exprAst: {
+              type: "Identifier",
+              name: "DPOA",
+              constant: false
+            }
+          },{
+            type: "Content",
+            expr: "LivingWill",
+            exprAst: {
+              type: "Identifier",
+              name: "LivingWill",
+              constant: false
+            }
+          }, {
+            type: "Content",
+            expr: "AdvHealthDirective",
+            exprAst: {
+              type: "Identifier",
+              name: "AdvHealthDirective",
+              constant: false
+            }
+          }, {
+            type: "Content",
+            expr: "SimpleWill",
+            exprAst: {
+              type: "Identifier",
+              name: "SimpleWill",
+              constant: false
+            }
+          }, {
+            type: "Content",
+            expr: "FinancialStatement",
+            exprAst: {
+              type: "Identifier",
+              name: "FinancialStatement",
+              constant: false
+            }
+          }, {
+            type: "Content",
+            expr: "CoverSheet",
+            exprAst: {
+              type: "Identifier",
+              name: "CoverSheet",
+              constant: false
+            }
+          }, {
+            type: "If",
+            expr: "Married",
+            exprAst: {
+              type: "Identifier",
+              name: "Married",
+              constant: false
+            },
+            contentArray: [{
+                type: "Content",
+                expr: "DPOASpouse",
+                exprAst: {
+                  type: "Identifier",
+                  name: "DPOASpouse",
+                  constant: false
+                }
+              }, {
+                type: "Content",
+                expr: "LivingWillSpouse",
+                exprAst: {
+                  type: "Identifier",
+                  name: "LivingWillSpouse",
+                  constant: false
+                }
+              }, {
+                type: "Content",
+                expr: "AdvHCDirSpouse",
+                exprAst: {
+                  type: "Identifier",
+                  name: "AdvHCDirSpouse",
+                  constant: false
+                }
+              }, {
+                type: "Content",
+                expr: "SimpleWillSpouse",
+                exprAst: {
+                  type: "Identifier",
+                  name: "SimpleWillSpouse",
+                  constant: false
+                }
+              }
+            ]
+          }, {
+            type: "ElseIf",
+            expr: "DocSelect==\"SelectDocs\"",
+            exprAst: {
+              type: "BinaryExpression",
+              operator: "==",
+              left: {
+                type: "Identifier",
+                name: "DocSelect",
+                constant: false
+              },
+              right: {
+                type: "Literal",
+                value: "SelectDocs",
+                constant: true
+              },
+              constant: false
+            },
+            contentArray: [{
+                type: "If",
+                expr: "Documents|contains:\"Engagement Letter\"",
+                exprAst: {
+                  type: "AngularFilterExpression",
+                  arguments: [{
+                      type: "Literal",
+                      value: "Engagement Letter",
+                      constant: true
+                    }
+                  ],
+                  filter: {
+                    type: "Identifier",
+                    name: "contains"
+                  },
+                  constant: false,
+                  input: {
+                    type: "Identifier",
+                    name: "Documents",
+                    constant: false
+                  }
+                },
+                contentArray: [{
+                  type: "Content",
+                  expr: "EngageLetter",
+                  exprAst: {
+                    type: "Identifier",
+                    name: "EngageLetter",
+                    constant: false
+                  }
+                }]
+              }, {
+                type: "If",
+                expr: "Documents|contains:\"Living Will\"",
+                exprAst: {
+                  type: "AngularFilterExpression",
+                  arguments: [{
+                      type: "Literal",
+                      value: "Living Will",
+                      constant: true
+                    }
+                  ],
+                  filter: {
+                    type: "Identifier",
+                    name: "contains"
+                  },
+                  constant: false,
+                  input: {
+                    type: "Identifier",
+                    name: "Documents",
+                    constant: false
+                  }
+                },
+                contentArray: [{
+                    type: "Content",
+                    expr: "LivingWill",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "LivingWill",
+                      constant: false
+                    }
+                  }, {
+                    type: "If",
+                    expr: "Married",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "Married",
+                      constant: false
+                    },
+                    contentArray: [{
+                        type: "Content",
+                        expr: "LivingWillSpouse",
+                        exprAst: {
+                          type: "Identifier",
+                          name: "LivingWillSpouse",
+                          constant: false
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                type: "If",
+                expr: "Documents|contains:\"Power of Attorney\"",
+                exprAst: {
+                  type: "AngularFilterExpression",
+                  arguments: [{
+                      type: "Literal",
+                      value: "Power of Attorney",
+                      constant: true
+                    }
+                  ],
+                  filter: {
+                    type: "Identifier",
+                    name: "contains"
+                  },
+                  constant: false,
+                  input: {
+                    type: "Identifier",
+                    name: "Documents",
+                    constant: false
+                  }
+                },
+                contentArray: [
+                  {
+                    type: "Content",
+                    expr: "DPOA",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "DPOA",
+                      constant: false
+                    }
+                  }, {
+                    type: "If",
+                    expr: "Married",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "Married",
+                      constant: false
+                    },
+                    contentArray: [{
+                        type: "Content",
+                        expr: "DPOASpouse",
+                        exprAst: {
+                          type: "Identifier",
+                          name: "DPOASpouse",
+                          constant: false
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                type: "If",
+                expr: "Documents|contains:\"Advanced Care Plan\"",
+                exprAst: {
+                  type: "AngularFilterExpression",
+                  arguments: [{
+                      type: "Literal",
+                      value: "Advanced Care Plan",
+                      constant: true
+                    }
+                  ],
+                  filter: {
+                    type: "Identifier",
+                    name: "contains"
+                  },
+                  constant: false,
+                  input: {
+                    type: "Identifier",
+                    name: "Documents",
+                    constant: false
+                  }
+                },
+                contentArray: [
+                  {
+                    type: "Content",
+                    expr: "AdvCarePlan",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "AdvCarePlan",
+                      constant: false
+                    }
+                  }, {
+                    type: "If",
+                    expr: "Married",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "Married",
+                      constant: false
+                    },
+                    contentArray: [{
+                        type: "Content",
+                        expr: "AdvCarePlanSpouse",
+                        exprAst: {
+                          type: "Identifier",
+                          name: "AdvCarePlanSpouse",
+                          constant: false
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                type: "If",
+                expr: "Documents|contains:\"Advance Health Care Directive\"",
+                exprAst: {
+                  type: "AngularFilterExpression",
+                  arguments: [{
+                      type: "Literal",
+                      value: "Advance Health Care Directive",
+                      constant: true
+                    }
+                  ],
+                  filter: {
+                    type: "Identifier",
+                    name: "contains"
+                  },
+                  constant: false,
+                  input: {
+                    type: "Identifier",
+                    name: "Documents",
+                    constant: false
+                  }
+                },
+                contentArray: [
+                  {
+                    type: "Content",
+                    expr: "AdvHealthDirective",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "AdvHealthDirective",
+                      constant: false
+                    }
+                  },{
+                    type: "If",
+                    expr: "Married",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "Married",
+                      constant: false
+                    },
+                    contentArray: [{
+                        type: "Content",
+                        expr: "AdvHCDirSpouse",
+                        exprAst: {
+                          type: "Identifier",
+                          name: "AdvHCDirSpouse",
+                          constant: false
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                type: "If",
+                expr: "Documents|contains:\"Financial Statement\"",
+                exprAst: {
+                  type: "AngularFilterExpression",
+                  arguments: [{
+                      type: "Literal",
+                      value: "Financial Statement",
+                      constant: true
+                    }
+                  ],
+                  filter: {
+                    type: "Identifier",
+                    name: "contains"
+                  },
+                  constant: false,
+                  input: {
+                    type: "Identifier",
+                    name: "Documents",
+                    constant: false
+                  }
+                },
+                contentArray: [{
+                  type: "Content",
+                  expr: "FinancialStatement",
+                  exprAst: {
+                    type: "Identifier",
+                    name: "FinancialStatement",
+                    constant: false
+                  }
+                }]
+              }, {
+                type: "If",
+                expr: "Documents|contains:\"Will\"",
+                exprAst: {
+                  type: "AngularFilterExpression",
+                  arguments: [{
+                      type: "Literal",
+                      value: "Will",
+                      constant: true
+                    }
+                  ],
+                  filter: {
+                    type: "Identifier",
+                    name: "contains"
+                  },
+                  constant: false,
+                  input: {
+                    type: "Identifier",
+                    name: "Documents",
+                    constant: false
+                  }
+                },
+                contentArray: [
+                  {
+                    type: "Content",
+                    expr: "SimpleWill",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "SimpleWill",
+                      constant: false
+                    }
+                  }, {
+                    type: "If",
+                    expr: "Married",
+                    exprAst: {
+                      type: "Identifier",
+                      name: "Married",
+                      constant: false
+                    },
+                    contentArray: [{
+                        type: "Content",
+                        expr: "SimpleWillSpouse",
+                        exprAst: {
+                          type: "Identifier",
+                          name: "SimpleWillSpouse",
+                          constant: false
+                        }
+                      }
+                    ]
+                  }
+                ]
+              }, {
+                type: "If",
+                expr: "Documents|contains:\"Cover Sheet\"",
+                exprAst: {
+                  type: "AngularFilterExpression",
+                  arguments: [{
+                      type: "Literal",
+                      value: "Cover Sheet",
+                      constant: true
+                    }
+                  ],
+                  filter: {
+                    type: "Identifier",
+                    name: "contains"
+                  },
+                  constant: false,
+                  input: {
+                    type: "Identifier",
+                    name: "Documents",
+                    constant: false
+                  }
+                },
+                contentArray: [{
+                  type: "Content",
+                  expr: "CoverSheet",
+                  exprAst: {
+                    type: "Identifier",
+                    name: "CoverSheet",
+                    constant: false
+                  }
+                }]
+              }
+            ]
+          }
+        ]
+      }
     ]
   }
 ]

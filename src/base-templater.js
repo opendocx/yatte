@@ -393,6 +393,7 @@ const simplifyNode2 = function (astNode) {
 
 const simplifyContentArray3 = function (body, scope = {}) {
   // 3rd pass at simplifying scopes
+  let initialScope = { ...scope } // shallow-clone the scope to start with
   // first go through content fields
   let i = 0
   while (i < body.length) {
@@ -417,8 +418,12 @@ const simplifyContentArray3 = function (body, scope = {}) {
         scope[field.expr] = true
       }
       simplifyContentArray3(field.contentArray, {}) // new scope for lists
-    } else if (field.type === OD.If || field.type === OD.ElseIf || field.type === OD.Else) {
-      simplifyContentArray3(field.contentArray, { ...scope }) // copy scope for ifs
+    } else if (field.type === OD.If) {
+      // the content in an if block has everything in its parent scope
+      simplifyContentArray3(field.contentArray, { ...scope }) // copy the parent scope
+    } else if (field.type === OD.ElseIf || field.type === OD.Else) {
+      // elseif and else fields are (in the logic tree) children of ifs, but they do NOT have access to the parent scope, reset to initial scope for if
+      simplifyContentArray3(field.contentArray, { ...initialScope })
     }
   }
   // note: although this will eliminate some redundant fields, it will not eliminate all of them.
