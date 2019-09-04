@@ -1,6 +1,7 @@
 const yatte = require('../src/index')
 //const yatte = require('../lib/yatte.min')
 const assert = require('assert')
+const TestData = require('./test-data')
 
 describe('Assembly of text template via exported API', function () {
 
@@ -194,6 +195,32 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'The first item is ONE, followed by TWO, followed by THREE, and lastly FOUR.')
   })
 
+  it('should assemble object lists that filter on an item in the list', function () {
+    const template = '{[list children | filter: Age >= 18 | punc:"1, 2"]}{[Name]}{[endlist]}'
+    const global = { neverMind: true }
+    const data = { children: [ { Name: "John", Age: 20 }, { Name: "Mary", Age: 18 }, { Name: "Carl", Age: 16 } ] }
+    const result = yatte.assembleText(template, global, data).value
+    assert.equal(result, 'John, Mary')
+
+    const template2 = '{[list children | filter: Age < 18 | punc:"1, 2"]}{[Name]}{[endlist]}'
+    const result2 = yatte.assembleText(template2, global, data).value
+    assert.equal(result2, 'Carl')
+  })
+
+  it('should assemble object lists that filter on a computed value', function () {
+    const template = '{[list Children|filter:Birthdate<=Date.parse("01/01/1960")]}{[Name]} was born on {[Birthdate|format:"MM/DD/YYYY"]}.\n{[endlist]}'
+    const global = { Date }
+    const result = yatte.assembleText(template, global, TestData.TV_Family_Data.Families[0]).value
+    assert.equal(result, 'Greg was born on 09/30/1954.\nMarcia was born on 08/05/1956.\nPeter was born on 11/07/1957.\nJan was born on 04/29/1958.\n')
+  })
+
+  it('should assemble object lists that filter on a computed value (2)', function () {
+    const template = '{[list Children|filter:Age<60]}{[Name]} was born on {[Birthdate|format:"MM/DD/YYYY"]}.\n{[endlist]}'
+    const global = { neverMind: true }
+    const result = yatte.assembleText(template, global, { Children: TestData.TV_Family_Data.Families[0].Children.map(c => new Child(c)) }).value
+    assert.equal(result, 'Bobby was born on 12/19/1960.\nCindy was born on 08/14/1961.\n')
+  })
+
 })
 
 function CreateKeyedObject(obj, keyPropName) {
@@ -202,4 +229,25 @@ function CreateKeyedObject(obj, keyPropName) {
     Object.defineProperty(result, k, { value: v })
   }
   return result
+}
+
+class Child {
+  constructor (instance) {
+    copyProperties(instance, this)
+  }
+
+  get Age() {
+    var today = new Date();
+    var birthDate = this.Birthdate;
+    var age = today.getFullYear() - birthDate.getFullYear();
+    var m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+    }
+    return age;
+  }
+}
+
+function copyProperties (fromObj, toObj) {
+  Object.getOwnPropertyNames(fromObj).filter(n => isNaN(n)).forEach(name => Object.defineProperty(toObj, name, Object.getOwnPropertyDescriptor(fromObj, name)))
 }
