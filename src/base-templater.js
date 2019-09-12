@@ -628,7 +628,7 @@ function isNormalizedListFilterNode(node) {
     && args[0].type === AST.ThisExpression
     && args[1].type === AST.Literal)
   {
-    if (args.length !== 2) {
+    if (args.length !== 2 && node.filter.name !== 'sort') {
       console.log(`Warning: ListFilterExpression with multiple arguments: ${AST.serialize(node)}`)
     }
     return true
