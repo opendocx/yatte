@@ -1,6 +1,5 @@
 /* eslint-disable no-prototype-builtins */
 const base = require('./base-templater')
-const templateCache = {}
 
 /* parseTemplate parses a text template (passed in as a string)
    into an object tree structure -- essentially a high-level AST for the template.
@@ -9,18 +8,21 @@ const templateCache = {}
    any field that's alone on a line of text (preceded by either a CRLF or the beginning of the string, and followed by a CRLF),
    needs to (during parsing) "consume" the CRLF that follows it, to avoid unexpected lines in the assembled output.
 */
-exports.parseTemplate = function (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
-  if (templateCache.hasOwnProperty(template)) { return templateCache[template] }
+function parseTemplate (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
+  const templateCache = parseTemplate.cache
+  if (templateCache && templateCache.hasOwnProperty(template)) { return templateCache[template] }
   // if any block-level paired fields are on a lines by themselves, remove the CR/LF following those fields
   // (but leave block-level content fields alone)
   const tweaked = template.replace(_blockFieldRE, _blockFieldReplacer)
   const templateSplit = tweaked.split(_fieldRE) // TODO: improve this approach with something that captures & retains each field offset
-  if (templateSplit.length < 2) { // no fields
-    templateCache[template] = [template]
-    return templateCache[template]
+  let result = (templateSplit.length < 2) /* no fields */ ? [ template ] : base.parseContentArray(templateSplit, bIncludeExpressions, bIncludeListPunctuation)
+  if (templateCache) {
+    templateCache[template] = result
   }
-  return templateCache[template] = base.parseContentArray(templateSplit, bIncludeExpressions, bIncludeListPunctuation)
+  return result
 }
+parseTemplate.cache = {}
+exports.parseTemplate = parseTemplate
 
 const _blockFieldReplacer = function (match, fieldText, eol, offset, string) {
   var cleaned = `{[${fieldText}]}`
@@ -50,8 +52,10 @@ const _fieldsRE = /\{\s*\[(.*?)\]\s*\}/g
 // }
 // exports.extractFields = extractFields;
 
-exports.parseText = function (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
-  if (templateCache.hasOwnProperty(template)) { return templateCache[template] }
+// new-and-improved parsing of text templates... not yet fully implemented :-(
+function parseText (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
+  let templateCache = parseText.cache
+  if (templateCache && templateCache.hasOwnProperty(template)) { return templateCache[template] }
   // split template into lines (parallel to paragraphs in Word doc)
   const lines = []
   // scan fields in text, embedding metadata in each field about its line no, character offset & chunk no. Each line is now an array of content items, and each field has a L:C:K id.
@@ -92,8 +96,14 @@ exports.parseText = function (template, bIncludeExpressions = true, bIncludeList
     })
   })
   // the base templater only gets a list of fields, it doesn't know whether they're from text or DOCX or PDF etc.
-  return templateCache[template] = base.parseContentArray(contentArray, bIncludeExpressions, bIncludeListPunctuation)
+  let result = base.parseContentArray(contentArray, bIncludeExpressions, bIncludeListPunctuation)
+  if (templateCache) {
+    templateCache[template] = result
+  }
+  return result
 }
+parseText.cache = {}
+exports.parseText = parseText
 
 class ParsedTextTemplate {
   constructor (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {

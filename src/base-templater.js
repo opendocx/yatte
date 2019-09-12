@@ -51,8 +51,6 @@ exports.buildLogicTree = buildLogicTree
 
 // }
 
-const compiledExprCache = {} // this doesn't seem to do anything... it's always empty? I'm missing something obvious.
-
 /**
  * The result of calling compileExpr() is an instance of EvaluateExpression.
  * It is a curried function that (when called with a global and, optionally, local data context) will
@@ -84,8 +82,9 @@ const compileExpr = function (expr) {
     throw new Error('Cannot compile empty or null expression')
   }
   if (expr == '.') expr = '$locals'
+  const cache = compileExpr.cache
   const cacheKey = expr
-  let result = compiledExprCache[cacheKey]
+  let result = cache ? cache[cacheKey] : undefined
   if (!result) {
     try {
       result = expressions.compile(expr)
@@ -113,12 +112,16 @@ const compileExpr = function (expr) {
       fixConditionalExpressions(result.ast) // (note: it serializes/normalizes the same whether this has been run or not)
     }
     // cache the compiled expression under the original string
-    compiledExprCache[cacheKey] = result
+    if (cache) {
+      cache[cacheKey] = result
+    }
     // does it make any sense to also cache the compiled expression under the normalized string?
     // Maybe not, since you have to compile the expression in order to GET a normalized string...
   }
   return result
 }
+compileExpr.cache = {}
+expressions.compile.cache = false // disable angular-expressions' own caching of compiled expressions (we cache instead)
 exports.compileExpr = compileExpr
 
 const angularExpressionErrorMessage = function (e, expr) {
