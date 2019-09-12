@@ -34,6 +34,11 @@ describe('number formatting', function () {
     const evaluator = yatte.Engine.compileExpr('num|cardinal')
     assert.equal(evaluator({num: 123}), 'one hundred twenty-three')
   })
+
+  it('cardinal - over one thousand', function () {
+    const evaluator = yatte.Engine.compileExpr('num|cardinal')
+    assert.equal(evaluator({num: 1234}), 'one thousand two hundred thirty-four')
+  })
 })
 
 describe('contains filter', function () {
