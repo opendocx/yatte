@@ -11,22 +11,24 @@ exports.serializeAST = AST.serialize // this export is redundant and deprecated,
 const parseContentArray = function (contentArray, bIncludeExpressions = true, bIncludeListPunctuation = true) {
   // contentArray can be either an array of strings (as from a text template split via regex)
   // or an array of objects with field text and field IDs (as extracted from a DOCX template)
+  // In the latter case (array of objects), sub-arrays indicate discreet blocks of content (paragraphs, table cells, etc.)??
   const astBody = []
   let i = 0
-  while (i < contentArray.length) {
-    const parsedContent = parseField(contentArray, i, bIncludeExpressions, bIncludeListPunctuation)
-    if (parsedContent !== null) {
+  while (i < contentArray.length) { // we use a 'while' because contentArray gets shorter as we go!
+    let parsedContentItem = parseContentItem(i, contentArray, bIncludeExpressions, bIncludeListPunctuation)
+    if (parsedContentItem.length == 1) {
+      let parsedContent = parsedContentItem[0]
       if (typeof parsedContent === 'object' &&
-                (parsedContent.type == OD.EndList ||
-                        parsedContent.type == OD.EndIf ||
-                        parsedContent.type == OD.Else ||
-                        parsedContent.type == OD.ElseIf
-                )
+           (parsedContent.type == OD.EndList ||
+            parsedContent.type == OD.EndIf ||
+            parsedContent.type == OD.Else ||
+            parsedContent.type == OD.ElseIf
+           )
       ) {
-        throw new Error('Unmatched ' + parsedContent.type)
+        throw new Error(`Encountered an ${parsedContent.type}${parsedContent.id ? ` (field ${parsedContent.id})` : ''} without a matching ${(parsedContent.type === OD.EndList) ? 'List' : 'If' }`)
       }
-      astBody.push(parsedContent)
     }
+    Array.prototype.push.apply(astBody, parsedContentItem)
     i++
   }
   return astBody
@@ -149,6 +151,22 @@ const angularExpressionErrorMessage = function (e, expr) {
   return e.message
 }
 
+const parseContentItem = function (idx, contentArray, bIncludeExpressions = true, bIncludeListPunctuation = true) {
+  let contentItem = contentArray[idx]
+  const parsedItems = []
+  if (Array.isArray(contentItem)) {
+    // if there's a sub-array, that item must be its own valid sequence of fields with appropriately matched ifs/endifs and/or lists/endlists
+    let parsedBlockContent = parseContentArray(contentItem, bIncludeExpressions, bIncludeListPunctuation)
+    Array.prototype.push.apply(parsedItems, parsedBlockContent)
+  } else {
+    const parsedContent = parseField(contentArray, idx, bIncludeExpressions, bIncludeListPunctuation)
+    if (parsedContent !== null) {
+      parsedItems.push(parsedContent)
+    }
+  }
+  return parsedItems
+}
+
 const parseField = function (contentArray, idx = 0, bIncludeExpressions = true, bIncludeListPunctuation = true) {
   const contentArrayItem = contentArray[idx]
   let content, fieldId
@@ -170,7 +188,7 @@ const parseField = function (contentArray, idx = 0, bIncludeExpressions = true, 
   if ((match = _ifRE.exec(content)) !== null) {
     node = createNode(OD.If, match[1], fieldId)
     if (bIncludeExpressions) parseFieldExpr(node)
-    node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndIf, bIncludeExpressions, bIncludeListPunctuation)
+    node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndIf, fieldId, bIncludeExpressions, bIncludeListPunctuation)
   } else if ((match = _elseifRE.exec(content)) !== null) {
     node = createNode(OD.ElseIf, match[1], fieldId)
     if (bIncludeExpressions) parseFieldExpr(node)
@@ -184,7 +202,7 @@ const parseField = function (contentArray, idx = 0, bIncludeExpressions = true, 
     if (bIncludeExpressions) {
       parseFieldExpr(node)
     }
-    node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndList, bIncludeExpressions, bIncludeListPunctuation)
+    node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndList, fieldId, bIncludeExpressions, bIncludeListPunctuation)
   } else if (_endlistRE.test(content)) {
     node = createNode(OD.EndList, void 0, fieldId)
   } else {
@@ -216,18 +234,20 @@ const parseFieldExpr = function (fieldObj) {
   return compiledExpr
 }
 
-const parseContentUntilMatch = function (contentArray, startIdx, targetType, bIncludeExpressions, bIncludeListPunctuation) {
+const parseContentUntilMatch = function (contentArray, startIdx, targetType, originId, bIncludeExpressions, bIncludeListPunctuation) {
+  // parses WITHIN THE SAME CONTENT ARRAY (block) until it finds a field of the given targetType
+  // returns a content array 
   let idx = startIdx
   const result = []
   let parentContent = result
   let elseEncountered = false
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    const parsedContent = parseField(contentArray, idx, bIncludeExpressions, bIncludeListPunctuation)
-    const isObj = (typeof parsedContent === 'object' && parsedContent !== null)
+    const parsedContent = parseContentItem(idx, contentArray, bIncludeExpressions, bIncludeListPunctuation)
+    const isObj = (parsedContent.length == 1 && typeof parsedContent[0] === 'object' && parsedContent[0] !== null)
     idx++
-    if (isObj && parsedContent.type == targetType) {
-      if (parsedContent.type == OD.EndList && bIncludeListPunctuation) {
+    if (isObj && parsedContent[0].type == targetType) {
+      if (parsedContent[0].type == OD.EndList && bIncludeListPunctuation) {
         // future: possibly inject this only if we're in a list on which the "punc" filter was used
         // (because without the "punc" filter specifying list punctuation, this node will be a no-op)
         // However, that is a little more complicated than it might seem, because this
@@ -236,23 +256,23 @@ const parseContentUntilMatch = function (contentArray, startIdx, targetType, bIn
         // See "puncElem" in OpenDocx.Templater\Templater.cs
         injectListPunctuationNode(parentContent, bIncludeExpressions)
       }
-      parentContent.push(parsedContent)
+      parentContent.push(parsedContent[0])
       break
     }
-    if (parsedContent) { parentContent.push(parsedContent) }
-    if (isObj && (parsedContent.type == OD.ElseIf || parsedContent.type == OD.Else)) {
+    if (parsedContent) { parsedContent.forEach(pc => { if (pc) { parentContent.push(pc)} }) }
+    if (isObj && (parsedContent[0].type == OD.ElseIf || parsedContent[0].type == OD.Else)) {
       if (targetType == OD.EndIf) {
-        if (elseEncountered) { throw new Error(parsedContent.type + ' cannot follow an Else') }
-        if (parsedContent.type == OD.Else) { elseEncountered = true }
-        parentContent = parsedContent.contentArray
+        if (elseEncountered) { throw new Error(`An ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${parsedContent[0].id})` : ''} cannot follow an Else`) }
+        if (parsedContent[0].type == OD.Else) { elseEncountered = true }
+        parentContent = parsedContent[0].contentArray
       } else if (targetType == OD.EndList) {
-        throw new Error(parsedContent.type + ' cannot be in a List')
+        throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${parsedContent[0].id})` : ''} when expecting ${originId ? `field ${originId}'s` : 'an'} EndList`)
       }
     }
-    if (isObj && (parsedContent.type == OD.EndIf || parsedContent.type == OD.EndList)) {
-      throw new Error('Unmatched ' + parsedContent.type)
+    if (isObj && (parsedContent[0].type == OD.EndIf || parsedContent[0].type == OD.EndList)) {
+      throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${parsedContent[0].id})` : ''} without a matching ${(parsedContent[0].type === OD.EndList) ? 'List' : 'If' }`)
     }
-    if (idx >= contentArray.length) { throw new Error(targetType + ' not found') }
+    if (idx >= contentArray.length) { throw new Error(`No ${targetType} found to match ${originId ? `field ${originId}'s` : (targetType === OD.EndList) ? 'a' : 'an'} ${(targetType === OD.EndList) ? 'List' : 'If' }`) }
   }
   // remove (consume) all parsed items from the contentArray before returning
   contentArray.splice(startIdx, idx - startIdx)

@@ -217,7 +217,7 @@ function wrapPrimitive (value) {
     case 'string': val = new String(value); break
     case 'number': val = new Number(value); break
     case 'boolean': val = new Boolean(value); break
-    default: throw new Error('unexpected value type')
+    default: throw new Error(`unexpected value type '${typeof value}'`)
   }
   return val
 }

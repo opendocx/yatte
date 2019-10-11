@@ -1,4 +1,4 @@
-const { describe, it} = require('mocha')
+//const { describe, it} = require('mocha')
 const textTemplater = require('../src/text-templater')
 var assert = require('assert')
 
@@ -90,7 +90,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'ElseIf cannot follow an Else')
+      assert.equal(err.message, 'An ElseIf cannot follow an Else')
     }
   })
   it('should reject the if/else/else/endif template', function () {
@@ -99,7 +99,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Else cannot follow an Else')
+      assert.equal(err.message, 'An Else cannot follow an Else')
     }
   })
   it('should reject the if template (no endif)', function () {
@@ -108,7 +108,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'EndIf not found')
+      assert.equal(err.message, 'No EndIf found to match an If')
     }
   })
   it('should reject the if/else template (no endif)', function () {
@@ -117,7 +117,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'EndIf not found')
+      assert.equal(err.message, 'No EndIf found to match an If')
     }
   })
   it('should reject the if/endif/endif template', function () {
@@ -126,7 +126,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched EndIf')
+      assert.equal(err.message, 'Encountered an EndIf without a matching If')
     }
   })
   it('should reject the if/endif/else template', function () {
@@ -135,7 +135,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched Else')
+      assert.equal(err.message, 'Encountered an Else without a matching If')
     }
   })
   it('should reject the if/endif/elseif template', function () {
@@ -144,7 +144,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched ElseIf')
+      assert.equal(err.message, 'Encountered an ElseIf without a matching If')
     }
   })
 })
@@ -271,7 +271,7 @@ describe('Field parsing of lists and nested lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'EndList not found')
+      assert.equal(err.message, 'No EndList found to match a List')
     }
   })
   it('should reject the endlist template (missing list)', function () {
@@ -280,7 +280,7 @@ describe('Field parsing of lists and nested lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched EndList')
+      assert.equal(err.message, 'Encountered an EndList without a matching List')
     }
   })
   it('should reject the list/list/endlist template (missing endlist)', function () {
@@ -289,7 +289,7 @@ describe('Field parsing of lists and nested lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'EndList not found')
+      assert.equal(err.message, 'No EndList found to match a List')
     }
   })
   it('should (for now) reject the list/else/endlist template', function () {
@@ -298,7 +298,7 @@ describe('Field parsing of lists and nested lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Else cannot be in a List')
+      assert.equal(err.message, 'Encountered an Else when expecting an EndList')
     }
   })
 })
@@ -385,7 +385,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched EndIf')
+      assert.equal(err.message, 'Encountered an EndIf without a matching If')
     }
   })
   it('should reject the list/endif template', function () {
@@ -394,7 +394,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched EndIf')
+      assert.equal(err.message, 'Encountered an EndIf without a matching If')
     }
   })
   it('should reject the list/endif/endlist template', function () {
@@ -403,7 +403,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched EndIf')
+      assert.equal(err.message, 'Encountered an EndIf without a matching If')
     }
   })
   it('should reject the list/elseif/endlist template', function () {
@@ -412,7 +412,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'ElseIf cannot be in a List')
+      assert.equal(err.message, 'Encountered an ElseIf when expecting an EndList')
     }
   })
   it('should reject the if/list/endif/endlist template', function () {
@@ -421,7 +421,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched EndIf')
+      assert.equal(err.message, 'Encountered an EndIf without a matching If')
     }
   })
   it('should reject the list/if/else/endlist/endif template', function () {
@@ -430,7 +430,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Unmatched EndList')
+      assert.equal(err.message, 'Encountered an EndList without a matching List')
     }
   })
   it('should (for now) reject the if/list/endlist/elseif/list/else/endlist/endif template', function () {
@@ -439,7 +439,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Else cannot be in a List')
+      assert.equal(err.message, 'Encountered an Else when expecting an EndList')
     }
   })
 })

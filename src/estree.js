@@ -218,7 +218,7 @@ function serializeAstNode (astNode) {
     case AST.LocalsExpression:
       return '$locals'
     default:
-      throw new Error('Unsupported expression type')
+      throw new Error(`Unsupported expression type '${astNode.type}'`)
   }
 }
 
