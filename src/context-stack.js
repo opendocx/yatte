@@ -12,7 +12,8 @@ class ContextStack {
 
   pushGlobal (contextObj, localsObj = null) {
     if (!this.empty()) { throw new Error('Internal error: execution stack is not empty at beginning of assembly') }
-    this.push(createGlobalFrame(contextObj, localsObj))
+    const newFrame = new StackFrame('Object', '_odx', localsObj, null, contextObj)
+    this.push(newFrame)
   }
 
   popGlobal () {
@@ -21,13 +22,47 @@ class ContextStack {
     return result
   }
 
-  pushObject (name, contextObj) {
-    const currentFrame = this.peek()
-    if (currentFrame && currentFrame.type == 'List') {
-      this.push(createListItemFrame(name, contextObj, currentFrame))
+  pushObject (name, index) {
+    const listFrame = this.peek()
+    if (listFrame && listFrame.type == 'List') {
+      const item = listFrame.localScope[index]
+      let local
+      if (typeof item === 'object') {
+        if (isPrimitiveWrapper(item)) {
+          local = primitiveWrapperClone(item)
+        } else {
+          local = shallowClone(item, Object.getPrototypeOf(item))
+        }
+      } else {
+        local = wrapPrimitive(item)
+      }
+      Object.defineProperties(local, {
+        _index0: { value: index },
+        _index: { value: index + 1 },
+        // _parent is set above in MergeParentScopes, once for the whole list
+        _punc: { value: (
+          listFrame.punctuation
+            ? (
+              (index == listFrame.localScope.length - 1)
+                ? listFrame.punctuation.suffix
+                : (
+                  (index == listFrame.localScope.length - 2)
+                    ? (
+                      index == 0
+                        ? listFrame.punctuation.only2
+                        : listFrame.punctuation.last2
+                    )
+                    : listFrame.punctuation.between
+                )
+            )
+            : ''
+        )
+        }
+      })
+      const newFrame = new StackFrame('Object', name, local, listFrame, listFrame.parentScope)
+      this.push(newFrame)
     } else {
-      throw new Error('Unexpected: pushing non-list stack frames not fully tested')
-      //this.push(createObjectFrame(name, contextObj, currentFrame))
+      throw new Error('Cannot push non-list stack frame')
     }
   }
 
@@ -38,7 +73,10 @@ class ContextStack {
   }
 
   pushList (name, iterable) {
-    const newFrame = createListFrame(name, iterable, this.peek())
+    const parentFrame = this.peek()
+    const array = iterable ? Array.from(iterable) : []
+    const newFrame = new StackFrame('List', name, array, parentFrame, MergeParentScopes(parentFrame.localScope, parentFrame.parentScope))
+    newFrame.punctuation = iterable ? iterable.punc : null
     this.push(newFrame)
     return indices(newFrame.localScope.length)
   }
@@ -123,24 +161,6 @@ class StackFrame {
   }
 }
 
-function createGlobalFrame (contextObj, localsObj, name = '_odx') {
-  // always add an '_' identifier in the top stack frame, that refers to the top-level object itself,
-  // so templates have a way to explicitly request the top-most frame of data
-  // temporarily disabled...
-  // let topMostScope = contextObj || localsObj
-  // if (!('_' in topMostScope)) {
-  //    topMostScope['_'] = localsObj || contextObj
-  // }
-  return new StackFrame('Object', name, localsObj, null, contextObj)
-}
-
-// function createObjectFrame (name, contextObj, parentFrame) {
-//   // like createListFrame, but not a list of objects, just a single object
-//   // not exercised currently: would be exercised if templates provided a way to "push/pop" object contexts
-//   if (typeof contextObj !== 'object') throw new Error('Cannot create object stack frame for literal value')
-//   return new StackFrame('Object', name, contextObj, parentFrame, MergeParentScopes(parentFrame.localScope, parentFrame.parentScope))
-// }
-
 function MergeParentScopes (parentLocal, parentParent, define_parent = true) {
   let merged
   if (parentLocal) {
@@ -164,51 +184,6 @@ function MergeParentScopes (parentLocal, parentParent, define_parent = true) {
     }
   }
   return merged
-}
-
-function createListFrame (name, iterable, parentFrame) {
-  const array = iterable ? Array.from(iterable) : []
-  const frame = new StackFrame('List', name, array, parentFrame, MergeParentScopes(parentFrame.localScope, parentFrame.parentScope))
-  frame.punctuation = iterable ? iterable.punc : null
-  return frame
-}
-
-function createListItemFrame (name, index, listFrame) {
-  const item = listFrame.localScope[index]
-  let local
-  if (typeof item === 'object') {
-    if (isPrimitiveWrapper(item)) {
-      local = primitiveWrapperClone(item)
-    } else {
-      local = shallowClone(item, Object.getPrototypeOf(item))
-    }
-  } else {
-    local = wrapPrimitive(item)
-  }
-  Object.defineProperties(local, {
-    _index0: { value: index },
-    _index: { value: index + 1 },
-    // _parent is set above in MergeParentScopes, once for the whole list
-    _punc: { value: (
-      listFrame.punctuation
-        ? (
-          (index == listFrame.localScope.length - 1)
-            ? listFrame.punctuation.suffix
-            : (
-              (index == listFrame.localScope.length - 2)
-                ? (
-                  index == 0
-                    ? listFrame.punctuation.only2
-                    : listFrame.punctuation.last2
-                )
-                : listFrame.punctuation.between
-            )
-        )
-        : ''
-    )
-    }
-  })
-  return new StackFrame('Object', name, local, listFrame, listFrame.parentScope)
 }
 
 function wrapPrimitive (value) {
