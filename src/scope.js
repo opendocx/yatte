@@ -78,7 +78,7 @@ class Scope {
   }
 
   static empty(scope) {
-    return (!scope || !scope._parentScope)
+    return (!scope)
   }
 
   static pop (scope) {
