@@ -83,7 +83,7 @@ const compileExpr = function (expr) {
   if (!expr) {
     throw new Error('Cannot compile empty or null expression')
   }
-  if (expr == '.') expr = '$locals'
+  if (expr == '.') expr = 'this'
   const cache = compileExpr.cache
   const cacheKey = expr
   let result = cache ? cache[cacheKey] : undefined
@@ -99,7 +99,7 @@ const compileExpr = function (expr) {
       // since I'm not entirely sure how to do anything useful with that stuff outside of Angular itself
       result.ast = reduceAstNode(result.ast.body[0].expression)
       // extend AST with enhanced nodes for filters; change "this" to "$locals"
-      const modified = fixFilters(result.ast) | thisTo$locals(result.ast)
+      const modified = fixFilters(result.ast) // | thisTo$locals(result.ast)
       // normalize the expression
       const normalizedExpr = AST.serialize(result.ast)
       // recompile the expression if filter fixes changed its functionality
@@ -617,29 +617,29 @@ const convertCallNodeToFilterNode = function (node) {
   }
 }
 
-/**
- * Recursively processes the given AST node to convert any and all nodes representing the "this" token, to the "$locals" token instead
- *
- * Note: if this function makes changes, it modifies the given ast *in place*. The return value indicates whether
- *       or not changes were made.
- *
- * @param {object} astNode
- * @returns {boolean} whether or not the AST was modified
- */
-const thisTo$locals = function (astNode) {
-  return astMutateInPlace(astNode, node => {
-    if (isNormalizedListFilterNode(node)) {
-      // the one case where we LEAVE a ThisExpression in place, is when it's the first (implicit) argument to a ListFilterExpression that has already been fixed up
-      node.arguments[0].preserve = true
-      return false
-    }
-    if (node.type === AST.ThisExpression && !node.preserve) {
-      node.type = AST.LocalsExpression
-      return true
-    }
-    return false
-  })
-}
+// /**
+//  * Recursively processes the given AST node to convert any and all nodes representing the "this" token, to the "$locals" token instead
+//  *
+//  * Note: if this function makes changes, it modifies the given ast *in place*. The return value indicates whether
+//  *       or not changes were made.
+//  *
+//  * @param {object} astNode
+//  * @returns {boolean} whether or not the AST was modified
+//  */
+// const thisTo$locals = function (astNode) {
+//   return astMutateInPlace(astNode, node => {
+//     if (isNormalizedListFilterNode(node)) {
+//       // the one case where we LEAVE a ThisExpression in place, is when it's the first (implicit) argument to a ListFilterExpression that has already been fixed up
+//       node.arguments[0].preserve = true
+//       return false
+//     }
+//     if (node.type === AST.ThisExpression && !node.preserve) {
+//       node.type = AST.LocalsExpression
+//       return true
+//     }
+//     return false
+//   })
+// }
 
 function isNormalizedListFilterNode(node) {
   if (!node || node.type !== AST.ListFilterExpression) return false

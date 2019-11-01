@@ -242,7 +242,7 @@ describe('Assembling text templates', function () {
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Asia\nAfrica\nNorth America\nSouth America\nAntarctica\nEurope\nAustralia/Oceania\n')
   })
-  it('should assemble a document with a filtered primitive list and a filter, nested (but unrelated) list, and then vice versa', function () {
+  it('should assemble a document with a filtered primitive list and an UNRELATED nested + filtered list, and then vice versa', function () {
     // const originalObjectPrototype = Object.prototype;
     // const originalStringPrototype = String.prototype;
     const template = 'Continents:\n{[list Continents|filter:!this.startsWith("A")]}\n * {[.]} ({[list Oceans|filter:Name.startsWith("A")]}{[_index]}. {[Name]} in {[_parent]}, {[endlist]})\n{[endlist]}'

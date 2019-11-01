@@ -1,5 +1,4 @@
 const yatte = require('../src/index')
-//const yatte = require('../lib/yatte.min')
 const assert = require('assert')
 const TestData = require('./test-data')
 

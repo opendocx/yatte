@@ -1,37 +1,64 @@
 const expressions = require('angular-expressions')
-const format = require('date-fns/format')
+const dateFormat = require('date-fns/format')
 const numeral = require('numeral')
 const numWords = require('number-to-words')
+const base = require('./base-templater')
+const Scope = require('./scope')
 const { unEscapeQuotes } = require('./estree')
 const deepEqual = require('fast-deep-equal')
 
 // define built-in filters
-expressions.filters.upper = function (input) {
+expressions.filters.upper = upper
+expressions.filters.lower = lower
+expressions.filters.initcap = initcap
+expressions.filters.titlecaps = titlecaps
+expressions.filters.format = format
+expressions.filters.cardinal = cardinal
+expressions.filters.ordinal = ordinal
+expressions.filters.ordsuffix = ordsuffix
+expressions.filters.else = elseFunc
+expressions.filters.contains = contains
+expressions.filters.punc = punc
+expressions.filters.sort = sort
+expressions.filters.filter = filter
+expressions.filters.find = find
+expressions.filters.any = any
+expressions.filters.some = any
+expressions.filters.every = every
+expressions.filters.all = every
+expressions.filters.map = map
+expressions.filters.group = group
+
+function upper (input) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   return input.toUpperCase()
 }
-expressions.filters.lower = function (input) {
+
+function lower (input) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   return input.toLowerCase()
 }
-expressions.filters.initcap = function (input, forceLower = false) {
+
+function initcap (input, forceLower = false) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   if (forceLower) input = input.toLowerCase()
   return input.charAt(0).toUpperCase() + input.slice(1)
 }
-expressions.filters.titlecaps = function (input, forceLower = false) {
+
+function titlecaps (input, forceLower = false) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   if (forceLower) input = input.toLowerCase()
   return input.replace(/(^| )(\w)/g, s => s.toUpperCase())
 }
-expressions.filters.format = function (input, generalFmt, negativeFmt, zeroFmt) {
+
+function format (input, generalFmt, negativeFmt, zeroFmt) {
   if (input === null || typeof input === 'undefined') return input
   if (input instanceof Date) {
-    return format(input, generalFmt)
+    return dateFormat(input, generalFmt)
   }
   if (typeof input === 'boolean' || input instanceof Boolean) {
     input = input.valueOf()
@@ -60,15 +87,18 @@ expressions.filters.format = function (input, generalFmt, negativeFmt, zeroFmt) 
   }
   return numeral(num).format(fmtStr)
 }
-expressions.filters.cardinal = function (input) {
+
+function cardinal (input) {
   if (input === null || typeof input === 'undefined') return input
   return numWords.toWords(Number(input))
 }
-expressions.filters.ordinal = function (input) {
+
+function ordinal (input) {
   if (input === null || typeof input === 'undefined') return input
   return numWords.toWordsOrdinal(Number(input))
 }
-expressions.filters.ordsuffix = function (input) {
+
+function ordsuffix (input) {
   if (input === null || typeof input === 'undefined') return input
   if (typeof input !== 'number') input = Number(input)
   switch (input % 10) {
@@ -78,17 +108,18 @@ expressions.filters.ordsuffix = function (input) {
     default: return 'th'
   }
 }
-expressions.filters.else = function (input, unansweredFmt) {
+
+function elseFunc (input, unansweredFmt) {
   if (input === null || typeof input === 'undefined') return unansweredFmt
   return input
 }
 
-expressions.filters.contains = function (input, value) {
+function contains (input, value) {
   if (input === null || typeof input === 'undefined' || input === '') return false
-  if (!isIterable(input)) return false
   if (typeof input === 'string') {
     return input.includes(value.toString())
   }
+  if (!Scope.isIterable(input)) return false
   value = value && value.valueOf()
   for (const item of input) {
     if (deepEqual(item && item.valueOf(), value)) {
@@ -98,7 +129,7 @@ expressions.filters.contains = function (input, value) {
   return false
 }
 
-expressions.filters.punc = function (inputList, example = '1, 2 and 3') {
+function punc (inputList, example = '1, 2 and 3') {
   if (!inputList || !Array.isArray(inputList) || !inputList.length) return inputList
   const p1 = example.indexOf('1')
   const p2 = example.indexOf('2')
@@ -125,7 +156,7 @@ expressions.filters.punc = function (inputList, example = '1, 2 and 3') {
 
 // runtime implementation of list filters:
 
-expressions.filters.sort = function (input, scope) {
+function sort (input, scope) {
   if (!input || !Array.isArray(input) || !input.length || arguments.length < 3) return input
   if (!scope) scope = {}
   const sortBy = []
@@ -150,45 +181,56 @@ expressions.filters.sort = function (input, scope) {
   }
   return input.slice().sort(compare)
 }
-expressions.filters.filter = function (input, scope, predicateStr) {
+
+function filter (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.filter, input, scope, predicateStr)
 }
-expressions.filters.find = function (input, scope, predicateStr) {
+
+function find (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.find, input, scope, predicateStr)
 }
-expressions.filters.any = function (input, scope, predicateStr) {
+
+function any (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.some, input, scope, predicateStr)
 }
-expressions.filters.some = expressions.filters.any // alias
-expressions.filters.every = function (input, scope, predicateStr) {
+
+function every (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.every, input, scope, predicateStr)
 }
-expressions.filters.all = expressions.filters.every // alias
-expressions.filters.map = function (input, scope, mappedStr) {
+
+function map (input, scope, mappedStr) {
   return callArrayFunc(Array.prototype.map, input, scope, mappedStr)
 }
-expressions.filters.group = function (input, scope, groupStr) {
+
+function group (input, scope, groupStr) {
   if (!input || !Array.isArray(input) || !input.length || arguments.length < 2) {
     return input
   }
   if (!scope) {
     scope = {}
   }
-  const evaluator = expressions.compile(unEscapeQuotes(groupStr))
-  return input.reduce(
-    (result, item) => {
-      const key = ['string', 'number'].includes(typeof item) ? evaluator(item) : evaluator(scope, item)
+  const evaluator = base.compileExpr(unEscapeQuotes(groupStr))
+  let lScope = Scope.pushList(input, scope.__scope, 'group')
+  const grouped = input.reduce(
+    (result, item, index) => {
+      lScope = Scope.pushListItem(index, lScope, 'o' + index)
+      const key = lScope._evaluate(evaluator).toString() // ['string', 'number'].includes(typeof item) ? evaluator(item) : evaluator(scope, item)
       let bucket = result.find(b => b._key === key)
       if (!bucket) {
         bucket = { _key: key, _values: [] }
         result.push(bucket)
       }
       bucket._values.push(item)
+      lScope = Scope.pop(lScope)
       return result
     },
     []
   )
+  lScope = Scope.pop(lScope)
+  return grouped
 }
+
+// helper functions
 
 function callArrayFunc (func, array, scope, predicateStr) {
   if (!array || !Array.isArray(array) || !array.length || arguments.length < 2) {
@@ -197,43 +239,15 @@ function callArrayFunc (func, array, scope, predicateStr) {
   if (!scope) {
     scope = {}
   }
-  const evaluator = expressions.compile(unEscapeQuotes(predicateStr))
+  const evaluator = base.compileExpr(unEscapeQuotes(predicateStr))
   // predicateStr can refer to built-in properties _index, _index0, or _parent. These need to evaluate to the correct thing.
-  return func.call(array, (item, index) => evaluator(scope, pseudoListFrame(item, index, scope)))
-}
-
-function pseudoListFrame (item, index, parent) {
-  var result
-  switch (typeof item) {
-    case 'string':
-      result = new String(item)
-      break
-    case 'number':
-      result = new Number(item)
-      break
-    case 'boolean': 
-      result = new Boolean(item)
-      break
-    case 'object':
-      result = item && Object.create(item)
-      break
-    default:  // unusual or unexpected
-      result = item
-      break
-  }
-  if (result && typeof result === 'object') {
-    Object.defineProperties(result, {
-      _index0: { value: index },
-      _index: { value: index + 1 },
-      _parent: { value: parent } // todo: see if this _parent link is redundant all the time, or only some of the time.  It can be redundant when MergeParentScope has been used to merge a local scope with a parent scope.
-    })
-  }
+  let lScope = Scope.pushList(array, scope.__scope, func.name)
+  const result = func.call(array, (item, index) => {
+    lScope = Scope.pushListItem(index, lScope, 'o' + index)
+    const subResult = lScope._evaluate(evaluator)
+    lScope = Scope.pop(lScope)
+    return subResult
+  })
+  lScope = Scope.pop(lScope)
   return result
-}
-
-function isIterable (val) {
-  return (val != null && (
-    (typeof Symbol !== 'undefined' && Symbol && 'iterator' in Symbol && 'function' === typeof val[Symbol.iterator])
-    || ('function' === typeof val['@@iterator'])
-  ))
 }

@@ -1,6 +1,5 @@
 const assert = require('assert')
 const yatte = require('../src/index')
-//const yatte = require('../lib/yatte.min')
 
 describe('text formatting', function () {
   it('upper', function () {

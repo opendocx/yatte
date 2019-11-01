@@ -1,20 +1,22 @@
 'use strict'
 
-const ContextStack = require('./context-stack')
+const Scope = require('./scope')
 const OD = require('./fieldtypes')
 const base = require('./base-templater')
 
 class MetaEvaluator {
   constructor (context, locals = null) {
-    this.context = context
-    this.locals = locals
-    this.contextStack = new ContextStack()
+    if (context) {
+      this.contextStack = Scope.pushObject(context)
+    }
+    if (locals) {
+      this.contextStack = Scope.pushObject(locals, this.contextStack)
+    }
   }
 
   assemble (contentArray) {
-    this.contextStack.pushGlobal(this.context, this.locals)
     const result = contentArray.map(contentItem => ContentReplacementTransform(contentItem, this.contextStack))
-    this.contextStack.popGlobal()
+    this.contextStack = Scope.pop(this.contextStack)
     return FlatSingle(result)
   }
 }
@@ -23,12 +25,12 @@ module.exports = MetaEvaluator
 function ContentReplacementTransform (contentItem, contextStack) {
   if (!contentItem || (typeof contentItem === 'string')) { return }
   if (typeof contentItem !== 'object') { throw new Error(`Unexpected content '${contentItem}'`) }
-  const frame = contextStack.peek()
+  const frame = contextStack // .peek()
   switch (contentItem.type) {
     case OD.Content:
       try {
         const evaluator = base.compileExpr(contentItem.expr)
-        return frame.deferredEvaluation(evaluator)
+        return frame._deferredEvaluation(evaluator)
       } catch (err) {
         return CreateContextErrorMessage(err.message)
       }
@@ -37,18 +39,18 @@ function ContentReplacementTransform (contentItem, contextStack) {
       let iterable
       try {
         const evaluator = base.compileExpr(contentItem.expr)
-        iterable = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
+        iterable = frame._evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
       } catch (err) {
         return CreateContextErrorMessage(err.message)
       }
-      const indices = contextStack.pushList(contentItem.expr, iterable)
-      const allContent = indices.map(index => {
-        contextStack.pushObject('o' + index, index)
+      contextStack = Scope.pushList(iterable, contextStack, contentItem.expr)
+      const allContent = contextStack._indices.map(index => {
+        contextStack = Scope.pushListItem(index, contextStack, 'o' + index)
         const listItemContent = contentItem.contentArray.map(listContentItem => ContentReplacementTransform(listContentItem, contextStack))
-        contextStack.popObject()
+        contextStack = Scope.pop(contextStack)
         return FlatSingle(listItemContent)
       })
-      contextStack.popList()
+      contextStack = Scope.pop(contextStack)
       return FlatSingle(allContent)
     }
 
@@ -56,12 +58,12 @@ function ContentReplacementTransform (contentItem, contextStack) {
     case OD.ElseIf: {
       let bValue
       try {
-        if (frame.type != 'Object') {
-          throw new Error(`Internal error: cannot define a condition directly in a ${frame.type} context`)
+        if (frame._scopeType != Scope.OBJECT) {
+          throw new Error(`Internal error: cannot define a condition directly in a ${frame._scopeType} context`)
         }
         const evaluator = base.compileExpr(contentItem.expr)
-        const value = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
-        bValue = ContextStack.IsTruthy(value)
+        const value = frame._evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
+        bValue = Scope.isTruthy(value)
       } catch (err) {
         return CreateContextErrorMessage(err.message)
       }

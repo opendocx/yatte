@@ -1,5 +1,5 @@
 const yatte = require('../src/index')
-//const yatte = require('../lib/yatte.min')
+const Scope = require('../src/scope')
 const assert = require('assert')
 const { TV_Family_Data } = require('./test-data')
 
@@ -13,7 +13,8 @@ describe('Compiling expressions via exported API', function () {
   it('should correctly categorize the outcomes of a conditional expression', function () {
     const evaluator = yatte.Engine.compileExpr('test ? consequent : alternative')
     const data = { test: true, consequent: 'consequent', alternative: 'alternative' }
-    assert.deepStrictEqual(evaluator(data), 'consequent')
+    let stack = Scope.pushObject(data)
+    assert.deepStrictEqual(evaluator(stack._getScopeObject()), 'consequent')
     assert.deepStrictEqual(evaluator.normalized, 'test?consequent:alternative')
     assert.deepStrictEqual(evaluator.ast, {
       type: 'ConditionalExpression',
@@ -41,7 +42,9 @@ describe('Compiling expressions via exported API', function () {
     // note: compiling a normalized list filter expression shoulod produce the same AST as the original (non-normalized) list filter expression
     // we do this so downline features that depend on the AST can reliably know what they're going to get.
     const evaluator = yatte.Engine.compileExpr(' Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"') // space at beginning is intentional, to avoid cached expression AST
-    const result = evaluator({ Date }, TV_Family_Data)
+    let stack = Scope.pushObject({ Date })
+    stack = Scope.pushObject(TV_Family_Data, stack)
+    const result = evaluator(stack._getScopeObject())
     assert.strictEqual(result, true)
     assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
@@ -69,7 +72,7 @@ describe('Compiling expressions via exported API', function () {
           { type: 'Identifier', name: 'Children', constant: false }
         ]
       },
-      arguments: [{ type: 'LocalsExpression', constant: false }]
+      arguments: [{ type: 'ThisExpression', constant: false }]
     })
 
     const data = {
@@ -80,7 +83,8 @@ describe('Compiling expressions via exported API', function () {
         { name: 'Susan Smith' }
       ]
     }
-    const result = evaluator(data)
+    let stack = Scope.pushObject(data)
+    const result = evaluator(stack._getScopeObject())
     assert.deepStrictEqual(result, [{ name: 'John Smith' }, { name: 'Ken Smith' }, { name: 'Susan Smith' }])
   })
 
@@ -94,13 +98,16 @@ describe('Compiling expressions via exported API', function () {
       Spouse: { Name: 'Kevin' },
       WitnessNames: ['Lucy', 'Kevin', 'Ed']
     }
-    const result = evaluator(data)
+    let stack = Scope.pushObject(data)
+    const result = evaluator(stack._getScopeObject())
     assert.deepStrictEqual(result, ['Lucy', 'Ed'])
   })
 
   it('allow chaining of "any" filter (and/or its "some" alias)', function () {
     const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate.valueOf() > Date.now()')
-    const result = evaluator({ Date }, TV_Family_Data)
+    let stack = Scope.pushObject({ Date })
+    stack = Scope.pushObject(TV_Family_Data, stack)
+    const result = evaluator(stack._getScopeObject())
     assert.strictEqual(result, true)
     assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)

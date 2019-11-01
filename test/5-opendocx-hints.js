@@ -1,5 +1,4 @@
 const yatte = require('../src/index')
-//const yatte = require('../lib/yatte.min')
 const assert = require('assert')
 
 describe('Emitting ifs appropriately for OpenDocx', function () {
