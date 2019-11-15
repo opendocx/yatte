@@ -50,6 +50,69 @@ describe('number formatting', function () {
   })
 })
 
+describe('date formatting', function () {
+  it('MM/dd/yyyy', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"MM/dd/yyyy"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '01/02/2019')
+  })
+
+  it('MM/DD/YYYY (compat)', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"MM/DD/YYYY"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '01/02/2019')
+  })
+
+  it('M/d/yyyy', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"M/d/yyyy"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '1/2/2019')
+  })
+
+  it('M/D/YYYY (compat)', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"M/D/YYYY"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '1/2/2019')
+  })
+
+  it('dd/MM/yyyy', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"dd/MM/yyyy"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '02/01/2019')
+  })
+
+  it('DD/MM/YYYY (compat)', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"DD/MM/YYYY"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '02/01/2019')
+  })
+
+  it('d/M/yyyy', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"d/M/yyyy"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '2/1/2019')
+  })
+
+  it('D/M/YYYY (compat)', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"D/M/YYYY"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '2/1/2019')
+  })
+
+  it('do \'day of\' MMMM yyyy', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"do \'day of\' MMMM yyyy"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '2nd day of January 2019')
+  })
+
+  it('Do [day of] MMMM YYYY (compat)', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"Do [day of] MMMM YYYY"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), '2nd day of January 2019')
+  })
+
+  it('MMMM d, yyyy', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"MMMM d, yyyy"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), 'January 2, 2019')
+  })
+
+  it('MMMM D, YYYY (compat)', function () {
+    const evaluator = yatte.Engine.compileExpr('d|format:"MMMM D, YYYY"')
+    assert.equal(evaluator({d: new Date(2019, 0, 2)}), 'January 2, 2019')
+  })
+
+})
+
 describe('contains filter', function () {
   it('string array contains string', function () {
     const evaluator = yatte.Engine.compileExpr('array|contains:"Joe"')

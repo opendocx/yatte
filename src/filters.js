@@ -55,10 +55,37 @@ function titlecaps (input, forceLower = false) {
   return input.replace(/(^| )(\w)/g, s => s.toUpperCase())
 }
 
+class DateFormatFixer {
+  constructor (oldDateFormat) {
+    this.format = oldDateFormat
+  }
+
+  fixed () {
+    return this
+      .replaceAll('YY', 'yy')
+      .replaceAll('D', 'd')
+      .replaceAll('[', '\'')
+      .replaceAll(']', '\'')
+      .format
+  }
+
+  replaceAll (find, replaceWith) {
+    return new DateFormatFixer(
+      this.format.replace(
+        new RegExp(find.replace(DateFormatFixer.escRE, '\\$&'), 'g'),
+        replaceWith
+      )
+    )
+  }
+}
+DateFormatFixer.escRE = /[.*+?^${}()|[\]\\]/g
+
 function format (input, generalFmt, negativeFmt, zeroFmt) {
   if (input === null || typeof input === 'undefined') return input
   if (input instanceof Date) {
-    return dateFormat(input, generalFmt)
+    // fix up format string to accommodate differences between date-fns 1.3 and current:
+    const newFormat = new DateFormatFixer(generalFmt).fixed()
+    return dateFormat(input, newFormat)
   }
   if (typeof input === 'boolean' || input instanceof Boolean) {
     input = input.valueOf()
