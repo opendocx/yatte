@@ -38,6 +38,16 @@ describe('number formatting', function () {
     const evaluator = yatte.Engine.compileExpr('num|cardinal')
     assert.equal(evaluator({num: 1234}), 'one thousand two hundred thirty-four')
   })
+
+  it('base 26 - under 26', function () {
+    const evaluator = yatte.Engine.compileExpr('num|format:"a"')
+    assert.equal(evaluator({num: 3}), 'c')
+  })
+
+  it('base 26 - over 26', function () {
+    const evaluator = yatte.Engine.compileExpr('num|format:"A"')
+    assert.equal(evaluator({num: 30}), 'AD')
+  })
 })
 
 describe('contains filter', function () {

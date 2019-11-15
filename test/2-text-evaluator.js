@@ -1,9 +1,38 @@
 const assert = require('assert')
 const templater = require('../src/text-templater')
 const TextEvaluator = require('../src/text-evaluator')
+const Scope = require('../src/scope')
 const { TV_Family_Data } = require('./test-data')
 
 describe('Assembling text templates', function () {
+  it('prelim: call valueOf() on a scope proxy', function () {
+    const data = new String('Testing 1... 2... 3...')
+    const context = Scope.pushObject(data)
+    const proxy = context._getScopeProxy()
+    const value = proxy.valueOf()
+    assert.equal(value, 'Testing 1... 2... 3...')
+  })
+  it('prelim: call toString() on a scope proxy', function () {
+    const data = new String('Testing 1... 2... 3...')
+    const context = Scope.pushObject(data)
+    const proxy = context._getScopeProxy()
+    const value = proxy.toString()
+    assert.equal(value, 'Testing 1... 2... 3...')
+  })
+  it('prelim: call valueOf() on a property of an object proxy', function () {
+    const data = { test: new String('Testing 1... 2... 3...') }
+    const context = Scope.pushObject(data)
+    const proxy = context._getScopeProxy()
+    const value = proxy.test.valueOf()
+    assert.equal(value, 'Testing 1... 2... 3...')
+  })
+  it('prelim: call toString() on a property of an object proxy', function () {
+    const data = { test: new String('Testing 1... 2... 3...') }
+    const context = Scope.pushObject(data)
+    const proxy = context._getScopeProxy()
+    const value = proxy.test.toString()
+    assert.equal(value, 'Testing 1... 2... 3...')
+  })
   it('should assemble a simple template', function () {
     const template = 'Hello {[planet]}!'
     const compiled = templater.parseTemplate(template)
@@ -129,6 +158,48 @@ describe('Assembling text templates', function () {
     }
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Pacific\nIndian\nAtlantic\nSouthern\nArctic\n')
+  })
+  it('should assemble a dynamically filtered list of wrapped strings', function () {
+    const template = '{[list Oceans | filter: AverageDepth < 3500]}\n * {[this]}\n{[endlist]}'
+    const compiled = templater.parseTemplate(template)
+    const data = {
+      Oceans: [
+        new String('Pacific'),
+        new String('Atlantic'),
+        new String('Indian'),
+        new String('Southern'),
+        new String('Arctic'),
+      ]
+    }
+    data.Oceans[0].AverageDepth = 3970
+    data.Oceans[1].AverageDepth = 3646
+    data.Oceans[2].AverageDepth = 3741
+    data.Oceans[3].AverageDepth = 3270
+    data.Oceans[4].AverageDepth = 1205
+    const scope = Scope.pushObject(data)
+    const result = (new TextEvaluator(scope)).assemble(compiled)
+    assert.equal(result, ' * Southern\n * Arctic\n')
+  })
+  it('should assemble a dynamically filtered list of wrapped strings WITH filters', function () {
+    const template = '{[list Oceans | filter: AverageDepth < 3500]}\n * {[this|upper]}\n{[endlist]}'
+    const compiled = templater.parseTemplate(template)
+    const data = {
+      Oceans: [
+        new String('Pacific'),
+        new String('Atlantic'),
+        new String('Indian'),
+        new String('Southern'),
+        new String('Arctic'),
+      ]
+    }
+    data.Oceans[0].AverageDepth = 3970
+    data.Oceans[1].AverageDepth = 3646
+    data.Oceans[2].AverageDepth = 3741
+    data.Oceans[3].AverageDepth = 3270
+    data.Oceans[4].AverageDepth = 1205
+    const scope = Scope.pushObject(data)
+    const result = (new TextEvaluator(scope)).assemble(compiled)
+    assert.equal(result, ' * SOUTHERN\n * ARCTIC\n')
   })
   it('should assemble a dynamically sorted list (descending by birth date, then ascending by name)', function () {
     const template = '{[list Children | sort:-Birth:+Name]}\n{[Name]}\n{[endlist]}'

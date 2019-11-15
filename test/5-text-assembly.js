@@ -1,4 +1,5 @@
 const yatte = require('../src/index')
+const Scope = yatte.Scope
 const assert = require('assert')
 const TestData = require('./test-data')
 
@@ -220,6 +221,46 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'Bobby was born on 12/19/1960.\nCindy was born on 08/14/1961.\n')
   })
 
+  it('should assemble template based on nested objects', function () {
+    const template = '{[B.B2.B52]} is {[B.B2.B52.length]} characters long'
+    const global = Scope.pushObject(nested_object)
+    const result = yatte.assembleText(template, global).value
+    assert.equal(result, 'awesome is 7 characters long')
+  })
+
+  it('should assemble template based on nested objects with virtuals', function () {
+    const template = '{[SingleEntity.FullName]} is {[SingleEntityLength1]} characters long (yes {[SingleEntityLength2]})'
+    const obj = {
+      SingleEntity: {
+        FirstName: "John",
+        LastName: "Smith",
+        _virtuals: {
+          FullName: yatte.compileText('{[FirstName]} {[LastName]}')
+        }
+      },
+      _virtuals: {
+        SingleEntityLength1: yatte.Engine.compileExpr('SingleEntity.FirstName.length + SingleEntity.LastName.length + 1'),
+        SingleEntityLength2: yatte.Engine.compileExpr('SingleEntity.FullName.length'),
+      }
+    }
+    const scope = Scope.pushObject(obj, null, undefined, obj._virtuals)
+    const result = yatte.assembleText(template, scope).value
+    assert.equal(result, 'John Smith is 10 characters long (yes 10)')
+  })
+
+  it('should assemble a compiled template against a proxied context stack (handle properly)', function () {
+    const objContext = { a: 'global' }
+    const objLocals = { b: 'local', c: [{ d: 'one' }, { d: 'two' }, { d: 'three' }] }
+    let stack = Scope.pushObject(objContext)
+    stack = Scope.pushObject(objLocals, stack)
+    stack = Scope.pushList(objLocals.c, stack)
+    stack = Scope.pushListItem(1, stack)
+    const proxy = stack._getScopeProxy()
+    const compiledTemplate = yatte.compileText('{[d]} is the {[_index]}{[_index|ordsuffix]} of {[c.length]} in {[a]}')
+    const result = compiledTemplate(proxy).value
+    assert.strictEqual(result, 'two is the 2nd of 3 in global')
+  })
+
 })
 
 function CreateKeyedObject(obj, keyPropName) {
@@ -249,4 +290,22 @@ class Child {
 
 function copyProperties (fromObj, toObj) {
   Object.getOwnPropertyNames(fromObj).filter(n => isNaN(n)).forEach(name => Object.defineProperty(toObj, name, Object.getOwnPropertyDescriptor(fromObj, name)))
+}
+
+const nested_object = {
+  A: 'a',
+  B: {
+    B1: 'b1',
+    B2: {
+      B52: 'awesome'
+    }
+  },
+  C: [ 'c1', 'c2', 'c3'],
+  D: [{
+    D1: 'd1',
+    D2: 'd2'
+  },{
+    D1: 'd3',
+    D2: 'd4'
+  }]
 }

@@ -14,7 +14,7 @@ describe('Compiling expressions via exported API', function () {
     const evaluator = yatte.Engine.compileExpr('test ? consequent : alternative')
     const data = { test: true, consequent: 'consequent', alternative: 'alternative' }
     let stack = Scope.pushObject(data)
-    assert.deepStrictEqual(evaluator(stack._getScopeObject()), 'consequent')
+    assert.deepStrictEqual(evaluator(stack._getScopeProxy()), 'consequent')
     assert.deepStrictEqual(evaluator.normalized, 'test?consequent:alternative')
     assert.deepStrictEqual(evaluator.ast, {
       type: 'ConditionalExpression',
@@ -44,7 +44,7 @@ describe('Compiling expressions via exported API', function () {
     const evaluator = yatte.Engine.compileExpr(' Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"') // space at beginning is intentional, to avoid cached expression AST
     let stack = Scope.pushObject({ Date })
     stack = Scope.pushObject(TV_Family_Data, stack)
-    const result = evaluator(stack._getScopeObject())
+    const result = evaluator(stack._getScopeProxy())
     assert.strictEqual(result, true)
     assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
@@ -84,7 +84,7 @@ describe('Compiling expressions via exported API', function () {
       ]
     }
     let stack = Scope.pushObject(data)
-    const result = evaluator(stack._getScopeObject())
+    const result = evaluator(stack._getScopeProxy())
     assert.deepStrictEqual(result, [{ name: 'John Smith' }, { name: 'Ken Smith' }, { name: 'Susan Smith' }])
   })
 
@@ -99,7 +99,7 @@ describe('Compiling expressions via exported API', function () {
       WitnessNames: ['Lucy', 'Kevin', 'Ed']
     }
     let stack = Scope.pushObject(data)
-    const result = evaluator(stack._getScopeObject())
+    const result = evaluator(stack._getScopeProxy())
     assert.deepStrictEqual(result, ['Lucy', 'Ed'])
   })
 
@@ -107,7 +107,7 @@ describe('Compiling expressions via exported API', function () {
     const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate.valueOf() > Date.now()')
     let stack = Scope.pushObject({ Date })
     stack = Scope.pushObject(TV_Family_Data, stack)
-    const result = evaluator(stack._getScopeObject())
+    const result = evaluator(stack._getScopeProxy())
     assert.strictEqual(result, true)
     assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)

@@ -85,7 +85,25 @@ function format (input, generalFmt, negativeFmt, zeroFmt) {
   if (fmtStr === 'ordinal') {
     return numWords.toWordsOrdinal(num)
   }
+  if (fmtStr.toLowerCase() === 'a') {
+    return base26(num, fmtStr === 'A')
+  }
   return numeral(num).format(fmtStr)
+}
+
+function base26 (input, upper) {
+  if (input === null || typeof input === 'undefined') return input
+  const places = []
+  let quotient = Number(input)
+  let remain, dec
+  while (quotient !== 0) {
+    dec = quotient - 1
+    quotient = Math.floor(dec / 26)
+    remain = dec % 26
+    places.unshift(remain + 1)
+  }
+  const codes = places.map(n => n + (upper ? 64 : 96))
+  return String.fromCharCode.apply(null, codes)
 }
 
 function cardinal (input) {
@@ -129,27 +147,14 @@ function contains (input, value) {
   return false
 }
 
-function punc (inputList, example = '1, 2 and 3') {
+function punc (inputList, example = '1, 2, and 3') {
   if (!inputList || !Array.isArray(inputList) || !inputList.length) return inputList
-  const p1 = example.indexOf('1')
-  const p2 = example.indexOf('2')
-  const p3 = example.indexOf('3')
-  if (p1 >= 0 && p2 > p1) {
+  const parsed = Scope.parseListExample(example)
+  if (parsed) {
     // inputList may be the actual source array (the context stack has not yet been pushed!)
     // so make a shallow copy before adding any custom properties onto the array
     inputList = [...inputList]
-    const between = example.slice(p1 + 1, p2)
-    if (p3 > p2) {
-      const last2 = example.slice(p2 + 1, p3)
-      let only2
-      if (last2 !== between && last2.startsWith(between)) // as with an oxford comma: "1, 2, and 3"
-      { only2 = last2.slice(between.trimRight().length) } else { only2 = last2 }
-      const suffix = example.slice(p3 + 1)
-      inputList['punc'] = { between, last2, only2, suffix }
-    } else if (p3 < 0) {
-      const suffix = example.slice(p2 + 1)
-      inputList['punc'] = { between, last2: between, only2: between, suffix }
-    }
+    inputList['punc'] = parsed
   }
   return inputList
 }
@@ -210,7 +215,7 @@ function group (input, scope, groupStr) {
     scope = {}
   }
   const evaluator = base.compileExpr(unEscapeQuotes(groupStr))
-  let lScope = Scope.pushList(input, scope.__scope, 'group')
+  let lScope = Scope.pushList(input, scope.__target, 'group')
   const grouped = input.reduce(
     (result, item, index) => {
       lScope = Scope.pushListItem(index, lScope, 'o' + index)
@@ -241,7 +246,7 @@ function callArrayFunc (func, array, scope, predicateStr) {
   }
   const evaluator = base.compileExpr(unEscapeQuotes(predicateStr))
   // predicateStr can refer to built-in properties _index, _index0, or _parent. These need to evaluate to the correct thing.
-  let lScope = Scope.pushList(array, scope.__scope, func.name)
+  let lScope = Scope.pushList(array, scope.__target, func.name)
   const result = func.call(array, (item, index) => {
     lScope = Scope.pushListItem(index, lScope, 'o' + index)
     const subResult = lScope._evaluate(evaluator)

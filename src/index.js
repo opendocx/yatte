@@ -6,41 +6,52 @@ const base = require('./base-templater')
 const EvaluationResult = require('./eval-result')
 exports.Engine = base
 exports.EvaluationResult = EvaluationResult
+exports.parseText = textTemplater.parseTemplate
 
-var compiledTemplateCache = new Map()
-
-exports.extractLogic = function (template, bIncludeListPunctuation = true) {
+function extractLogic (template, bIncludeListPunctuation = true) {
   // returns a 'logic tree' for this template -- a filtered, optimized AST representing the logical structure of the template
   return base.buildLogicTree(textTemplater.parseTemplate(template, true, bIncludeListPunctuation)) // note: parseTemplate uses caching for performance
 }
+exports.extractLogic = extractLogic
 
-exports.compileText = function (template) {
+function compileText (template) {
   // returns curried function that will assemble the text template (given the data context as input)
   // (this method currently throws if the template contains an error!)
+  // the resulting function includes a "logic" property containing the same thing you'd get from extractLogic()
   const contentArray = textTemplater.parseTemplate(template) // uses caching -- will return same content array for same template string
-  let func = compiledTemplateCache.get(contentArray)
+  const compiledTemplateCache = compileText.cache
+  let func = compiledTemplateCache && compiledTemplateCache.get(contentArray)
   if (!func) {
-    func = (context, locals) => new EvaluationResult((new TextEvaluator(context, locals)).assemble(contentArray), [], []) // TODO: populate the missing & errors collections!!
-    compiledTemplateCache.set(contentArray, func)
+    func = (scope, locals = null) =>
+      new EvaluationResult(
+        (new TextEvaluator(scope, locals)).assemble(contentArray),
+        [], // TODO: keep track of identifiers that did not produce a value (missing)
+        [], // TODO: keep track of other errors encountered during evaluations
+      )
+    func.logic = base.buildLogicTree(contentArray)
+    if (compiledTemplateCache) compiledTemplateCache.set(contentArray, func)
   }
   return func
 }
+compileText.cache = new Map()
+exports.compileText = compileText
 
-exports.assembleText = function (template, context, locals) {
+function assembleText (template, scope, locals = null) {
   // non-curried version of assembly: pass in a template AND a context
   try {
     const contentArray = textTemplater.parseTemplate(template)
-    const value = (new TextEvaluator(context, locals)).assemble(contentArray)
+    const value = (new TextEvaluator(scope, locals)).assemble(contentArray)
     return new EvaluationResult(value, [], []) // TODO: populate the missing & errors collections!!
   } catch (err) {
     return new EvaluationResult(null, [], [err.message]) // TODO: populate the missing & errors collections!!
   }
 }
+exports.assembleText = assembleText
 
-exports.assembleMeta = function (metaTemplate, context, locals) {
+function assembleMeta (metaTemplate, scope, locals = null) {
   try {
     const contentArray = textTemplater.parseTemplate(metaTemplate, true, false)
-    const nodes = (new MetaEvaluator(context, locals)).assemble(contentArray)
+    const nodes = (new MetaEvaluator(scope, locals)).assemble(contentArray)
     const program = {
       type: AST.Program,
       body: nodes.filter(n => !n.error)
@@ -50,6 +61,7 @@ exports.assembleMeta = function (metaTemplate, context, locals) {
     return new EvaluationResult(null, [], [err.message])
   }
 }
+exports.assembleMeta = assembleMeta
 
 exports.FieldTypes = require('./fieldtypes')
 exports.Scope = require('./scope')
