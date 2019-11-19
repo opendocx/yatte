@@ -1,54 +1,56 @@
 const expressions = require('angular-expressions')
-const dateFormat = require('date-fns/format')
+const dateFns = { format: require('date-fns/format') }
 const numeral = require('numeral')
-const numWords = require('number-to-words')
+const numWords = require('number-to-words-en')
 const base = require('./base-templater')
 const Scope = require('./scope')
 const { unEscapeQuotes } = require('./estree')
 const deepEqual = require('fast-deep-equal')
 
-// define built-in filters
-expressions.filters.upper = upper
-expressions.filters.lower = lower
-expressions.filters.initcap = initcap
-expressions.filters.titlecaps = titlecaps
-expressions.filters.format = format
-expressions.filters.cardinal = cardinal
-expressions.filters.ordinal = ordinal
-expressions.filters.ordsuffix = ordsuffix
-expressions.filters.else = elseFunc
-expressions.filters.contains = contains
-expressions.filters.punc = punc
-expressions.filters.sort = sort
-expressions.filters.filter = filter
-expressions.filters.find = find
-expressions.filters.any = any
-expressions.filters.some = any
-expressions.filters.every = every
-expressions.filters.all = every
-expressions.filters.map = map
-expressions.filters.group = group
+module.exports = expressions.filters
 
-function upper (input) {
+// define built-in filters
+expressions.filters.upper = Upper
+expressions.filters.lower = Lower
+expressions.filters.initcap = Initcap
+expressions.filters.titlecaps = Titlecaps
+expressions.filters.format = Format
+expressions.filters.cardinal = Cardinal
+expressions.filters.ordinal = Ordinal
+expressions.filters.ordsuffix = Ordsuffix
+expressions.filters.else = Else
+expressions.filters.contains = Contains
+expressions.filters.punc = Punc
+expressions.filters.sort = Sort
+expressions.filters.filter = Filter
+expressions.filters.find = Find
+expressions.filters.any = Any
+expressions.filters.some = Any
+expressions.filters.every = Every
+expressions.filters.all = Every
+expressions.filters.map = MapFilter
+expressions.filters.group = Group
+
+function Upper (input) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   return input.toUpperCase()
 }
 
-function lower (input) {
+function Lower (input) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   return input.toLowerCase()
 }
 
-function initcap (input, forceLower = false) {
+function Initcap (input, forceLower = false) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   if (forceLower) input = input.toLowerCase()
   return input.charAt(0).toUpperCase() + input.slice(1)
 }
 
-function titlecaps (input, forceLower = false) {
+function Titlecaps (input, forceLower = false) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   if (forceLower) input = input.toLowerCase()
@@ -57,7 +59,7 @@ function titlecaps (input, forceLower = false) {
 
 class DateFormatFixer {
   constructor (oldDateFormat) {
-    this.format = oldDateFormat
+    this.formatStr = oldDateFormat
   }
 
   fixed () {
@@ -66,12 +68,12 @@ class DateFormatFixer {
       .replaceAll('D', 'd')
       .replaceAll('[', '\'')
       .replaceAll(']', '\'')
-      .format
+      .formatStr
   }
 
   replaceAll (find, replaceWith) {
     return new DateFormatFixer(
-      this.format.replace(
+      this.formatStr.replace(
         new RegExp(find.replace(DateFormatFixer.escRE, '\\$&'), 'g'),
         replaceWith
       )
@@ -80,12 +82,12 @@ class DateFormatFixer {
 }
 DateFormatFixer.escRE = /[.*+?^${}()|[\]\\]/g
 
-function format (input, generalFmt, negativeFmt, zeroFmt) {
+function Format (input, generalFmt, negativeFmt, zeroFmt) {
   if (input === null || typeof input === 'undefined') return input
   if (input instanceof Date) {
     // fix up format string to accommodate differences between date-fns 1.3 and current:
     const newFormat = new DateFormatFixer(generalFmt).fixed()
-    return dateFormat(input, newFormat)
+    return dateFns.format(input, newFormat)
   }
   if (typeof input === 'boolean' || input instanceof Boolean) {
     input = input.valueOf()
@@ -99,7 +101,7 @@ function format (input, generalFmt, negativeFmt, zeroFmt) {
   // else number
   const num = Number(input)
   let fmtStr
-  if (num == 0) {
+  if (num === 0) {
     fmtStr = zeroFmt || generalFmt || '0,0'
   } else if (num < 0) {
     fmtStr = negativeFmt || generalFmt || '0,0'
@@ -107,10 +109,10 @@ function format (input, generalFmt, negativeFmt, zeroFmt) {
     fmtStr = generalFmt || '0,0'
   }
   if (fmtStr === 'cardinal') {
-    return numWords.toWords(num)
+    return numWords.toWords(num, { useCommas: false })
   }
   if (fmtStr === 'ordinal') {
-    return numWords.toWordsOrdinal(num)
+    return numWords.toWordsOrdinal(num, { useCommas: false })
   }
   if (fmtStr.toLowerCase() === 'a') {
     return base26(num, fmtStr === 'A')
@@ -133,17 +135,17 @@ function base26 (input, upper) {
   return String.fromCharCode.apply(null, codes)
 }
 
-function cardinal (input) {
+function Cardinal (input) {
   if (input === null || typeof input === 'undefined') return input
-  return numWords.toWords(Number(input))
+  return numWords.toWords(Number(input), { useCommas: false })
 }
 
-function ordinal (input) {
+function Ordinal (input) {
   if (input === null || typeof input === 'undefined') return input
-  return numWords.toWordsOrdinal(Number(input))
+  return numWords.toWordsOrdinal(Number(input), { useCommas: false })
 }
 
-function ordsuffix (input) {
+function Ordsuffix (input) {
   if (input === null || typeof input === 'undefined') return input
   if (typeof input !== 'number') input = Number(input)
   switch (input % 10) {
@@ -154,12 +156,12 @@ function ordsuffix (input) {
   }
 }
 
-function elseFunc (input, unansweredFmt) {
+function Else (input, unansweredFmt) {
   if (input === null || typeof input === 'undefined') return unansweredFmt
   return input
 }
 
-function contains (input, value) {
+function Contains (input, value) {
   if (input === null || typeof input === 'undefined' || input === '') return false
   if (typeof input === 'string') {
     return input.includes(value.toString())
@@ -174,7 +176,7 @@ function contains (input, value) {
   return false
 }
 
-function punc (inputList, example = '1, 2, and 3') {
+function Punc (inputList, example = '1, 2, and 3') {
   if (!inputList || !Array.isArray(inputList) || !inputList.length) return inputList
   const parsed = Scope.parseListExample(example)
   if (parsed) {
@@ -188,7 +190,7 @@ function punc (inputList, example = '1, 2, and 3') {
 
 // runtime implementation of list filters:
 
-function sort (input, scope) {
+function Sort (input, scope) {
   if (!input || !Array.isArray(input) || !input.length || arguments.length < 3) return input
   if (!scope) scope = {}
   const sortBy = []
@@ -214,27 +216,27 @@ function sort (input, scope) {
   return input.slice().sort(compare)
 }
 
-function filter (input, scope, predicateStr) {
+function Filter (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.filter, input, scope, predicateStr)
 }
 
-function find (input, scope, predicateStr) {
+function Find (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.find, input, scope, predicateStr)
 }
 
-function any (input, scope, predicateStr) {
+function Any (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.some, input, scope, predicateStr)
 }
 
-function every (input, scope, predicateStr) {
+function Every (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.every, input, scope, predicateStr)
 }
 
-function map (input, scope, mappedStr) {
+function MapFilter (input, scope, mappedStr) {
   return callArrayFunc(Array.prototype.map, input, scope, mappedStr)
 }
 
-function group (input, scope, groupStr) {
+function Group (input, scope, groupStr) {
   if (!input || !Array.isArray(input) || !input.length || arguments.length < 2) {
     return input
   }
@@ -246,7 +248,7 @@ function group (input, scope, groupStr) {
   const grouped = input.reduce(
     (result, item, index) => {
       lScope = Scope.pushListItem(index, lScope, 'o' + index)
-      const key = lScope._evaluate(evaluator).toString() // ['string', 'number'].includes(typeof item) ? evaluator(item) : evaluator(scope, item)
+      const key = lScope._evaluate(evaluator).toString()
       let bucket = result.find(b => b._key === key)
       if (!bucket) {
         bucket = { _key: key, _values: [] }
@@ -272,7 +274,8 @@ function callArrayFunc (func, array, scope, predicateStr) {
     scope = {}
   }
   const evaluator = base.compileExpr(unEscapeQuotes(predicateStr))
-  // predicateStr can refer to built-in properties _index, _index0, or _parent. These need to evaluate to the correct thing.
+  // predicateStr can refer to built-in properties _index, _index0, or _parent.
+  // These need to evaluate to the correct thing.
   let lScope = Scope.pushList(array, scope.__target, func.name)
   const result = func.call(array, (item, index) => {
     lScope = Scope.pushListItem(index, lScope, 'o' + index)
