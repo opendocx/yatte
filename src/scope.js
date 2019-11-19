@@ -3,7 +3,7 @@ const EvaluationResult = require('./eval-result')
 const { AST } = require('./estree')
 
 const scopeChainHandler = {
-  get: function(targetStackFrame, property, receiverProxy) {
+  get: function (targetStackFrame, property, receiverProxy) {
     switch (property) {
       case '__target': return targetStackFrame
       case '_getScopeProxy': return () => receiverProxy
@@ -16,13 +16,31 @@ const scopeChainHandler = {
         return thisFrame[property]
       } // else
       if (thisFrame._virtuals && (property in thisFrame._virtuals)) {
-        const val = thisFrame._virtuals[property](receiverProxy)
+        const val = thisFrame._virtuals[property](
+          thisFrame === targetStackFrame
+            ? receiverProxy
+            : thisFrame._getScopeProxy()
+        )
         return (val instanceof EvaluationResult) ? val.value : val
       } // else
       if (property in thisFrame._data) {
         const val = thisFrame._data[property]
-        if (typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof EvaluationResult)) {
-          // need to return an object that looks like val (it's NOT a scope object), but which still knows/remembers the current scope stack.
+        if (!val
+          || typeof val === 'string'
+          || typeof val === 'number'
+          || typeof val === 'boolean'
+          || val instanceof Date
+          || val instanceof EvaluationResult) {
+          return val
+        } // else
+        if (Array.isArray(val)) {
+          return (val.length > 0 && (val._virtuals || val[0]._virtuals))
+            ? val.map(vitem => new Proxy(vitem, new ScopedObjectHandler(targetStackFrame)))
+            : val
+        } // else
+        if (typeof val === 'object' && val._virtuals) {
+          // need to return an object that looks like val (it's NOT a scope object), but which
+          // still knows/remembers the current scope stack.
           // this object can have virtuals, which (when invoked) look up identifiers against the correct scope stack.
           return new Proxy(val, new ScopedObjectHandler(targetStackFrame))
         } // else return value as-is
@@ -42,6 +60,7 @@ class ScopedObjectHandler {
   constructor (scope) {
     this.scope = scope
   }
+
   get (targetObject, property, receiverProxy) {
     switch (property) {
       case Symbol.toPrimitive: return (/* hint */) => targetObject.valueOf()
@@ -57,12 +76,26 @@ class ScopedObjectHandler {
     } // else
     if (property in targetObject) {
       const val = targetObject[property]
-      if (typeof val === 'object' && !Array.isArray(val) && !(val instanceof Date) && !(val instanceof EvaluationResult)) {
-        // need to return an object that looks like val (it's NOT a scope object), but which still knows/remembers the current scope stack.
-        // this object can have virtuals, which (when invoked) must execute independently (of their own accord) against the correct scope stack.
-        const nestedScope = Scope.pushObject(targetObject, this.scope, undefined, targetObject._virtuals)
-        return new Proxy(val, new ScopedObjectHandler(nestedScope))
+      if (!val
+        || typeof val === 'string'
+        || typeof val === 'number'
+        || typeof val === 'boolean'
+        || val instanceof Date
+        || val instanceof EvaluationResult) {
+        return val
       } // else
+      const nestedScope = Scope.pushObject(targetObject, this.scope, undefined, targetObject._virtuals)
+      if (Array.isArray(val)) {
+        return (val.length > 0 && (val._virtuals || val[0]._virtuals))
+          ? val.map(vitem => new Proxy(vitem, new ScopedObjectHandler(nestedScope)))
+          : val
+      } // else
+      if (typeof val === 'object' && val._virtuals) {
+        // need to return an object that looks like val (it's NOT a scope object), but which
+        // still knows/remembers the current scope stack.
+        // this object can have virtuals, which (when invoked) look up identifiers against the correct scope stack.
+        return new Proxy(val, new ScopedObjectHandler(nestedScope))
+      } // else return value as-is
       return val
     } // else
     // return undefined
@@ -86,22 +119,22 @@ class Scope {
         }
         break
       case 'string':
-        this._data = new String(data)
+        this._data = new String(data) // eslint-disable-line no-new-wrappers
         break
       case 'number':
-        this._data = new Number(data)
+        this._data = new Number(data) // eslint-disable-line no-new-wrappers
         break
-      case 'boolean': 
-        this._data = new Boolean(data)
+      case 'boolean':
+        this._data = new Boolean(data) // eslint-disable-line no-new-wrappers
         break
       default:
         this._data = data
     }
   }
 
-  [Symbol.toPrimitive](hint) {
+  [Symbol.toPrimitive] (hint) {
     if (!this._data) return undefined
-    switch(this._dataType) {
+    switch (this._dataType) {
       case 'string':
       case 'number':
       case 'boolean':
@@ -131,11 +164,11 @@ class Scope {
     return parentFrame && parentFrame._getObjectProxy()
   }
 
-  _getScopeProxy() {
+  _getScopeProxy () {
     return new Proxy(this, scopeChainHandler)
   }
 
-  _getObjectProxy() {
+  _getObjectProxy () {
     // if (this._dataType !== 'object') throw new Error(`Cannot get ObjectProxy on a ${this._dataType}`)
     // above commented out because it was causing a test to fail that otherwise still works...
     return new Proxy(this._data, new ScopedObjectHandler(this._parentScope))
@@ -147,7 +180,7 @@ class Scope {
     } // else
     return compiledExpr(this._getScopeProxy())
   }
-  
+
   _deferredEvaluation (compiledExpr) {
     return {
       type: AST.ExpressionStatement,
@@ -157,7 +190,7 @@ class Scope {
     }
   }
 
-  static empty(scope) {
+  static empty (scope) {
     return (!scope)
   }
 
@@ -265,10 +298,10 @@ class ItemScope extends Scope {
     const lastItem = this._parentScope._data.length - 1
     const punc = this._parentScope._punc
     return punc                  // if punctuation was specified
-      ? (index0 == lastItem)       // if index0 is the last item
+      ? (index0 === lastItem)       // if index0 is the last item
         ? punc.suffix              // get the list suffix (if any)
-        : (index0 == lastItem - 1) // else if index0 is 2nd to last
-          ? index0 == 0            //    ... and ALSO first (meaning there are only 2!)
+        : (index0 === lastItem - 1) // else if index0 is 2nd to last
+          ? index0 === 0            //    ... and ALSO first (meaning there are only 2!)
             ? punc.only2           //        ... then get only2
             : punc.last2           //        ... otherwise get last2
           : punc.between           // otherwise just get regular 'between' punctuation
