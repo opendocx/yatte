@@ -2,10 +2,30 @@
 const EvaluationResult = require('./eval-result')
 const { AST } = require('./estree')
 
+/*
+  Two kinds of proxy objects created & managed as part of this file:
+  1) Evaluation Context Proxies (ECPs)
+  2) Scoped Object Proxies (SOPs)
+
+  The former (Context Proxies) are meant to be used (by evaluation code) as a hierarchical scope -- the kind of
+  stack structure where Yatte evaluation takes place, where if an identifier is not defined in this scope, it looks
+  up the chain of parent scopes until it finds one where that identifier is defined.
+
+  The latter (Scoped Object Proxies) are meant to be used (by evaluation code) as concrete object instances -- the
+  kind of thing where it either has a specific named member, or it doesn't... there is no looking up identifiers on
+  parent contexts.  HOWEVER, Scoped Object Proxies ALSO incorporate a Context that is to be used in situations where the
+  scoped object has virtuals, which then require a lookup scope to evaluate.
+
+  During evaluation, CPs are that IN WHICH you look for identifiers, to resolve them.  Once resolved, you can have
+  an SOP, which is like an object instance that remembers the context from which it came.
+*/
+
+// TODO: implement some sort of (WeakMap) cache for all of these proxy objects
+
 const scopeChainHandler = {
   get: function (targetStackFrame, property, receiverProxy) {
     switch (property) {
-      case '__target': return targetStackFrame
+      case '__frame': return targetStackFrame
       case '_getScopeProxy': return () => receiverProxy
       case 'toString': return targetStackFrame.toString
       case 'valueOf': return targetStackFrame.valueOf
@@ -53,18 +73,39 @@ const scopeChainHandler = {
         thisFrame = thisFrame._parentScope
       }
     }
-  }
+  },
+  has: function (targetStackFrame, property) {
+    // needed to support concat spread for arrays!  (who knew?)
+    let thisFrame = targetStackFrame
+    while (thisFrame) {
+      if (property in thisFrame) { // property is a direct call to _evaluate, _deferredEvaluation, etc.
+        return true
+      } // else
+      if (thisFrame._virtuals && (property in thisFrame._virtuals)) {
+        return true
+      } // else
+      if (property in thisFrame._data) {
+        return true
+      } // else
+      // keep walking the stack...
+      if (thisFrame instanceof ItemScope) {
+        thisFrame = thisFrame._parentScope._parentScope // skip list (array) frame
+      } else {
+        thisFrame = thisFrame._parentScope
+      }
+    }
+  },
 }
 
 class ScopedObjectHandler {
-  constructor (scope) {
-    this.scope = scope
+  constructor (contextFrame) {
+    this.scope = contextFrame
   }
 
   get (targetObject, property, receiverProxy) {
     switch (property) {
       case Symbol.toPrimitive: return (/* hint */) => targetObject.valueOf()
-      // case '__target': return targetObject // this is only needed on scope stack frames, not arbitrary objects
+      case '__object': return targetObject
       case '_getObjectProxy': return () => receiverProxy
       case 'toString': return (...args) => targetObject.toString.apply(targetObject, args)
       case 'valueOf': return () => targetObject.valueOf()
@@ -99,6 +140,16 @@ class ScopedObjectHandler {
       return val
     } // else
     // return undefined
+  }
+
+  has (targetObject, property) {
+    // maybe needed to support concat spread for arrays
+    if (targetObject._virtuals && (property in targetObject._virtuals)) {
+      return true
+    } // else
+    if (property in targetObject) {
+      return true
+    }
   }
 }
 
@@ -148,6 +199,10 @@ class Scope {
     }
   }
 
+  get [Symbol.isConcatSpreadable] () {
+    return (this._dataType === 'array' || Array.isArray(this._data))
+  }
+
   toString (...args) {
     return this._data.toString.apply(this._data, args)
   }
@@ -171,13 +226,10 @@ class Scope {
   _getObjectProxy () {
     // if (this._dataType !== 'object') throw new Error(`Cannot get ObjectProxy on a ${this._dataType}`)
     // above commented out because it was causing a test to fail that otherwise still works...
-    return new Proxy(this._data, new ScopedObjectHandler(this._parentScope))
+    return new Proxy(this._data, new ScopedObjectHandler(this))
   }
 
   _evaluate (compiledExpr) {
-    if (compiledExpr.ast && (compiledExpr.ast.type === AST.ThisExpression)) { // special case
-      return this._data
-    } // else
     return compiledExpr(this._getScopeProxy())
   }
 
@@ -215,6 +267,10 @@ class Scope {
 
   static pushListItem (index0, parentList, label) {
     return new ItemScope(label, index0, parentList)
+  }
+
+  static pushReducerItem (index0, parentList, result, label) {
+    return new ReducerItemScope(label, index0, parentList, result)
   }
 
   static isTruthy (value) {
@@ -269,6 +325,7 @@ class Scope {
 }
 Scope.OBJECT = 'Object'
 Scope.LIST = 'List'
+Scope.PRIMITIVE = 'Primitive'
 module.exports = Scope
 
 class ListScope extends Scope {
@@ -285,7 +342,9 @@ class ItemScope extends Scope {
     if (!parentList || parentList._scopeType !== Scope.LIST) {
       throw new Error('ItemScope must be a child of ListScope')
     }
-    super(Scope.OBJECT, scopeLabel, parentList._data[index0], parentList, parentList._virtuals)
+    const data = parentList._data[index0]
+    const scopeType = isPrimitive(data) ? Scope.PRIMITIVE : Array.isArray(data) ? Scope.LIST : Scope.OBJECT
+    super(scopeType, scopeLabel, data, parentList, parentList._virtuals)
     this._index0 = index0
   }
 
@@ -309,4 +368,24 @@ class ItemScope extends Scope {
   }
 }
 
+class ReducerItemScope extends ItemScope {
+  constructor (scopeLabel, index0, parentList, result) {
+    super(scopeLabel, index0, parentList)
+    this._result = result
+  }
+}
+
 const indices = (length) => new Array(length).fill(undefined).map((value, index) => index)
+const isPrimitive = (value) => {
+  switch (typeof value) {
+    case 'string':
+    case 'number':
+    case 'boolean':
+      return true
+    case 'object':
+      if (value instanceof Date) {
+        return true
+      }
+  }
+  return false
+}

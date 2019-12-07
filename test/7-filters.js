@@ -158,6 +158,33 @@ describe('contains filter', function () {
   // array of wrapped primitive string contains object???
 })
 
+describe('reduce filter', function () {
+  it('sums a series of numbers (no initial value)', function () {
+    const evaluator = yatte.Engine.compileExpr('array|reduce:_result+this')
+    const data = { array: [0, 1, 2, 3, 4] }
+    const value = evaluator(data)
+    assert.strictEqual(value, 10)
+  })
+  it('sums a series of numbers (with initial value)', function () {
+    const evaluator = yatte.Engine.compileExpr('array|reduce:_result+this:10')
+    const data = { array: [0, 1, 2, 3, 4] }
+    const value = evaluator(data)
+    assert.strictEqual(value, 20)
+  })
+  it('flattens a nested array', function () {
+    const evaluator = yatte.Engine.compileExpr('array|reduce:_result.concat(this):[]')
+    const data = { array: [[0], [1, 2], [3, 4]] }
+    const value = evaluator(data)
+    assert.deepEqual(value, [0, 1, 2, 3, 4])
+  })
+  it('flattens a nested array in an object array', function () {
+    const evaluator = yatte.Engine.compileExpr('array|reduce:_result.concat(nested):[]')
+    const data = { array: [ { nested: [0] }, { nested: [1, 2] }, { nested: [3, 4] } ] }
+    const value = evaluator(data)
+    assert.deepEqual(value, [0, 1, 2, 3, 4])
+  })
+})
+
 const data_Children = {
   Children: [
     { Name: 'John', Birth: new Date(1970, 8, 5) },

@@ -3,8 +3,8 @@ const dateFns = { format: require('date-fns/format') }
 const numeral = require('numeral')
 const numWords = require('number-to-words-en')
 const base = require('./base-templater')
-const Scope = require('./scope')
-const { unEscapeQuotes } = require('./estree')
+const Scope = require('./yobject')
+const { AST, unEscapeQuotes } = require('./estree')
 const deepEqual = require('fast-deep-equal')
 
 module.exports = expressions.filters
@@ -30,6 +30,7 @@ expressions.filters.every = Every
 expressions.filters.all = Every
 expressions.filters.map = MapFilter
 expressions.filters.group = Group
+expressions.filters.reduce = Reduce
 
 function Upper (input) {
   if (!input) return input
@@ -215,26 +216,34 @@ function Sort (input, scope) {
   }
   return input.slice().sort(compare)
 }
+Sort.arrayFilter = true
 
 function Filter (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.filter, input, scope, predicateStr)
 }
+Filter.arrayFilter = true
 
 function Find (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.find, input, scope, predicateStr)
 }
+Find.arrayFilter = true
 
 function Any (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.some, input, scope, predicateStr)
 }
+Any.arrayFilter = true
+Any.rtlFilter = true
 
 function Every (input, scope, predicateStr) {
   return callArrayFunc(Array.prototype.every, input, scope, predicateStr)
 }
+Every.arrayFilter = true
+Every.rtlFilter = true
 
 function MapFilter (input, scope, mappedStr) {
   return callArrayFunc(Array.prototype.map, input, scope, mappedStr)
 }
+MapFilter.arrayFilter = true
 
 function Group (input, scope, groupStr) {
   if (!input || !Array.isArray(input) || !input.length || arguments.length < 2) {
@@ -244,10 +253,10 @@ function Group (input, scope, groupStr) {
     scope = {}
   }
   const evaluator = base.compileExpr(unEscapeQuotes(groupStr))
-  let lScope = Scope.pushList(input, scope.__target, 'group')
+  let lScope = Scope.pushList(input, scope.__frame)
   const grouped = input.reduce(
     (result, item, index) => {
-      lScope = Scope.pushListItem(index, lScope, 'o' + index)
+      lScope = Scope.pushListItem(index, lScope)
       const key = lScope._evaluate(evaluator).toString()
       let bucket = result.find(b => b._key === key)
       if (!bucket) {
@@ -263,6 +272,31 @@ function Group (input, scope, groupStr) {
   lScope = Scope.pop(lScope)
   return grouped
 }
+Group.arrayFilter = true
+
+function Reduce (input, scope, reducerStr, initValue = undefined) {
+  if (!input || !Array.isArray(input) || !input.length || arguments.length < 2) {
+    return input
+  }
+  if (!scope) {
+    scope = {}
+  }
+  const reducer = base.compileExpr(unEscapeQuotes(reducerStr))
+  let lScope = Scope.pushList(input, scope.__frame)
+  const reduced = input.reduce(
+    (result, item, index) => {
+      lScope = Scope.pushReducerItem(index, lScope, result)
+      const newResult = lScope._evaluate(reducer)
+      lScope = Scope.pop(lScope)
+      return newResult
+    },
+    initValue
+  )
+  lScope = Scope.pop(lScope)
+  return reduced
+}
+Reduce.arrayFilter = true
+Reduce.immediateArgs = [1]
 
 // helper functions
 
@@ -274,12 +308,16 @@ function callArrayFunc (func, array, scope, predicateStr) {
     scope = {}
   }
   const evaluator = base.compileExpr(unEscapeQuotes(predicateStr))
+  const justThis = evaluator.ast.type === AST.ThisExpression
   // predicateStr can refer to built-in properties _index, _index0, or _parent.
   // These need to evaluate to the correct thing.
-  let lScope = Scope.pushList(array, scope.__target, func.name)
+  // It can also refer to this, which should refer to the current array element (even if it's a primitive)
+  let lScope = Scope.pushList(array, scope.__frame)
   const result = func.call(array, (item, index) => {
-    lScope = Scope.pushListItem(index, lScope, 'o' + index)
-    const subResult = lScope._evaluate(evaluator)
+    lScope = Scope.pushListItem(index, lScope)
+    const subResult = (justThis && (!lScope._value || (lScope._objType === Scope.PRIMITIVE)))
+      ? item
+      : lScope._evaluate(evaluator)
     lScope = Scope.pop(lScope)
     return subResult
   })

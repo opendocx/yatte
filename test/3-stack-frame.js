@@ -1,4 +1,4 @@
-const Scope = require('../src/scope')
+const Scope = require('../src/yobject')
 const Engine = require('../src/base-templater')
 const assert = require('assert')
 
@@ -13,7 +13,7 @@ describe('Proper operation of the context stack', function () {
     const frame = stack // .peek()
     const evaluator = Engine.compileExpr('c|punc:"1, 2, and 3"')
     const iterable = frame._evaluate(evaluator)
-    stack = Scope.pushList(iterable, stack, 'c')
+    stack = Scope.pushList(iterable, stack)
     const indices = stack._indices
     assert.notStrictEqual(objLocals.c, iterable)
     assert(!objLocals.punc)
@@ -25,9 +25,9 @@ describe('Proper operation of the context stack', function () {
     const objLocals = { b: 'local', c: [{ d: 'one' }, { d: 'two' }, { d: 'three' }] }
     const virtuals2 = { cpi: function (obj) { return (obj.c.length * obj.pi).toFixed(8) } }
     const virtuals3 = { up: function (obj) { return obj.d.toUpperCase() } }
-    let stack = Scope.pushObject(objContext, null, null, virtuals1)
-    stack = Scope.pushObject(objLocals, stack, null, virtuals2)
-    stack = Scope.pushList(objLocals.c, stack, null, virtuals3)
+    let stack = Scope.pushObject(objContext, null, virtuals1)
+    stack = Scope.pushObject(objLocals, stack, virtuals2)
+    stack = Scope.pushList(objLocals.c, stack, virtuals3)
     stack = Scope.pushListItem(1, stack)
     const evaluator = Engine.compileExpr('up + "." + b + "." + a + " + " + cpi')
     const value = stack._evaluate(evaluator)

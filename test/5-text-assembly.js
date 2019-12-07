@@ -228,6 +228,13 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'awesome is 7 characters long')
   })
 
+  it('should assemble references to _index, _parent, and _parent._index', function () {
+    const template = '{[list D]}{[list D3]}{[_parent.D1]}\'s D3 no. {[_index]} is {[d4]} ({[_parent._index]}.{[_index]})\n{[endlist]}{[endlist]}'
+    const global = Scope.pushObject(nested_object)
+    const result = yatte.assembleText(template, global).value
+    assert.equal(result, 'd1\'s D3 no. 1 is d3-0 (1.1)\nd1\'s D3 no. 2 is d3-1 (1.2)\nd1\'s D3 no. 3 is d3-2 (1.3)\nd3\'s D3 no. 1 is d5-0 (2.1)\nd3\'s D3 no. 2 is d5-1 (2.2)\n')
+  })
+
   it('should assemble template based on nested objects with virtuals', function () {
     const template = '{[SingleEntity.FullName]} is {[SingleEntityLength1]} characters long (yes {[SingleEntityLength2]})'
     const obj = {
@@ -243,7 +250,7 @@ describe('Assembly of text template via exported API', function () {
         SingleEntityLength2: yatte.Engine.compileExpr('SingleEntity.FullName.length'),
       }
     }
-    const scope = Scope.pushObject(obj, null, undefined, obj._virtuals)
+    const scope = Scope.pushObject(obj, null, obj._virtuals)
     const result = yatte.assembleText(template, scope).value
     assert.equal(result, 'John Smith is 10 characters long (yes 10)')
   })
@@ -303,9 +310,11 @@ const nested_object = {
   C: [ 'c1', 'c2', 'c3'],
   D: [{
     D1: 'd1',
-    D2: 'd2'
+    D2: 'd2',
+    D3: [{d4: 'd3-0'}, {d4: 'd3-1'}, {d4: 'd3-2'}]
   },{
     D1: 'd3',
-    D2: 'd4'
+    D2: 'd4',
+    D3: [{d4: 'd5-0'}, {d4: 'd5-1'}]
   }]
 }

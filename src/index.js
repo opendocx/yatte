@@ -9,8 +9,10 @@ exports.EvaluationResult = EvaluationResult
 exports.parseText = textTemplater.parseTemplate
 
 function extractLogic (template, bIncludeListPunctuation = true) {
-  // returns a 'logic tree' for this template -- a filtered, optimized AST representing the logical structure of the template
-  return base.buildLogicTree(textTemplater.parseTemplate(template, true, bIncludeListPunctuation)) // note: parseTemplate uses caching for performance
+  // returns a 'logic tree' for this template --
+  // a filtered, optimized AST representing the logical structure of the template
+  return base.buildLogicTree(textTemplater.parseTemplate(template, true, bIncludeListPunctuation))
+  // note: parseTemplate uses caching for performance
 }
 exports.extractLogic = extractLogic
 
@@ -18,7 +20,7 @@ function compileText (template) {
   // returns curried function that will assemble the text template (given the data context as input)
   // (this method currently throws if the template contains an error!)
   // the resulting function includes a "logic" property containing the same thing you'd get from extractLogic()
-  const contentArray = textTemplater.parseTemplate(template) // uses caching -- will return same content array for same template string
+  const contentArray = textTemplater.parseTemplate(template) // content arrays cached on key of template string
   const compiledTemplateCache = compileText.cache
   let func = compiledTemplateCache && compiledTemplateCache.get(contentArray)
   if (!func) {
@@ -64,4 +66,4 @@ function assembleMeta (metaTemplate, scope, locals = null) {
 exports.assembleMeta = assembleMeta
 
 exports.FieldTypes = require('./fieldtypes')
-exports.Scope = require('./scope')
+exports.Scope = require('./yobject')

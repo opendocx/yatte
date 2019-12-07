@@ -1,6 +1,6 @@
 'use strict'
 
-const Scope = require('./scope')
+const Scope = require('./yobject')
 const OD = require('./fieldtypes')
 const base = require('./base-templater')
 
@@ -8,11 +8,11 @@ class MetaEvaluator {
   constructor (scope, locals = null) {
     this.scopePushed = this.localsPushed = false
     if (scope) {
-      this.contextStack = scope.__target
+      this.contextStack = scope.__frame
         || (scope instanceof Scope ? scope : (this.scopePushed = true) && Scope.pushObject(scope))
     }
     if (locals) {
-      if (locals.__target || (locals instanceof Scope)) throw new Error('Scope stack cannot be provided as locals')
+      if (locals.__frame || (locals instanceof Scope)) throw new Error('Scope stack cannot be provided as locals')
       this.contextStack = Scope.pushObject(locals, this.contextStack)
       this.localsPushed = true
     }
@@ -40,7 +40,7 @@ function ContentReplacementTransform (contentItem, contextStack) {
     case OD.Content:
       try {
         const evaluator = base.compileExpr(contentItem.expr)
-        return frame._deferredEvaluation(evaluator)
+        return frame._deferEvaluate(evaluator)
       } catch (err) {
         return CreateContextErrorMessage(err.message)
       }
@@ -49,14 +49,17 @@ function ContentReplacementTransform (contentItem, contextStack) {
       let iterable
       try {
         const evaluator = base.compileExpr(contentItem.expr)
-        iterable = frame._evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
+        // todo: make sure the following is memoized to avoid unnecessary re-evaluation
+        iterable = frame._evaluate(evaluator)
       } catch (err) {
         return CreateContextErrorMessage(err.message)
       }
-      contextStack = Scope.pushList(iterable, contextStack, contentItem.expr)
+      contextStack = Scope.pushList(iterable, contextStack)
       const allContent = contextStack._indices.map(index => {
-        contextStack = Scope.pushListItem(index, contextStack, 'o' + index)
-        const listItemContent = contentItem.contentArray.map(listContentItem => ContentReplacementTransform(listContentItem, contextStack))
+        contextStack = Scope.pushListItem(index, contextStack)
+        const listItemContent = contentItem.contentArray.map(
+          listContentItem => ContentReplacementTransform(listContentItem, contextStack)
+        )
         contextStack = Scope.pop(contextStack)
         return FlatSingle(listItemContent)
       })
@@ -68,24 +71,29 @@ function ContentReplacementTransform (contentItem, contextStack) {
     case OD.ElseIf: {
       let bValue
       try {
-        if (frame._scopeType != Scope.OBJECT) {
-          throw new Error(`Internal error: cannot define a condition directly in a ${frame._scopeType} context`)
+        if (frame._objType !== Scope.OBJECT) {
+          throw new Error(`Internal error: cannot define a condition directly in a ${frame._objType} context`)
         }
         const evaluator = base.compileExpr(contentItem.expr)
-        const value = frame._evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
+        // todo: make sure the following is memoized to avoid unnecessary re-evaluation
+        const value = frame._evaluate(evaluator)
         bValue = Scope.isTruthy(value)
       } catch (err) {
         return CreateContextErrorMessage(err.message)
       }
       if (bValue) {
         const content = contentItem.contentArray
-          .filter(item => (typeof item !== 'object') || (item == null) || (item.type != OD.ElseIf && item.type != OD.Else))
+          .filter(
+            item => (typeof item !== 'object') || (item == null) || (item.type !== OD.ElseIf && item.type !== OD.Else)
+          )
           .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, contextStack))
         return FlatSingle(content)
       }
-      const elseCond = contentItem.contentArray.find(item => (typeof item === 'object' && item != null && (item.type == OD.ElseIf || item.type == OD.Else)))
+      const elseCond = contentItem.contentArray.find(
+        item => (typeof item === 'object' && item != null && (item.type === OD.ElseIf || item.type === OD.Else))
+      )
       if (elseCond) {
-        if (elseCond.type == OD.ElseIf) { return ContentReplacementTransform(elseCond, contextStack) }
+        if (elseCond.type === OD.ElseIf) { return ContentReplacementTransform(elseCond, contextStack) }
         // else
         const content = elseCond.contentArray
           .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, contextStack))

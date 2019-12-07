@@ -1,7 +1,8 @@
 const assert = require('assert')
+const yatte = require('../src/index')
 const templater = require('../src/text-templater')
 const TextEvaluator = require('../src/text-evaluator')
-const Scope = require('../src/scope')
+const Scope = require('../src/yobject')
 const { TV_Family_Data } = require('./test-data')
 
 describe('Assembling text templates', function () {
@@ -32,6 +33,29 @@ describe('Assembling text templates', function () {
     const proxy = context._getScopeProxy()
     const value = proxy.test.toString()
     assert.equal(value, 'Testing 1... 2... 3...')
+  })
+  it('prelim: unqualified _parent yields appropriate object (non list)', function () {
+    const earth = { hello: 'earth' }
+    const mars = { hello: 'mars' }
+    let context = Scope.pushObject(earth)
+    context = Scope.pushObject(mars, context)
+    const proxy = context._getScopeProxy()
+    const parent = proxy._parent
+    assert.strictEqual(parent.__object, earth)
+  })
+  it('prelim: unqualified _parent yields appropriate object (in list)', function () {
+    const sol = { star: 'Sol', planets: [{name: 'Mercury'}, {name: 'Venus'}, {name: 'Earth'}, {name: 'Mars'}] }
+    let context = Scope.pushObject(sol)
+    // const proxy = context._getScopeProxy()
+    // const earth = proxy.planets[2]
+    // assert.strictEqual(earth.__object, sol.planets[2])
+    context = Scope.pushList(sol.planets, context)
+    context = Scope.pushListItem(2, context)
+    const proxy = context._getScopeProxy()
+    const prelimTest = proxy.name + ' orbits ' + proxy.star
+    assert.strictEqual(prelimTest, 'Earth orbits Sol')
+    const parent = proxy._parent
+    assert.strictEqual(parent.__object, sol)
   })
   it('should assemble a simple template', function () {
     const template = 'Hello {[planet]}!'
@@ -226,13 +250,14 @@ describe('Assembling text templates', function () {
     assert.equal(result, 'We found Yolanda!')
   })
   it('check if any nested lists meet a qualification by chaining the "any" filter', function () {
-    const compiled = templater.parseTemplate('Future families: {[Families|any:Children|any:Birthdate.valueOf()>Date.now()]}')
+    const compiled = templater.parseTemplate('Future families: {[Families|any:Children|any:Birthdate>testDate]}')
     // "Any family has any children with a birthdate in the future" ... true for our data set (at least until 2050 or so)
-    const result = (new TextEvaluator({ Date }, TV_Family_Data)).assemble(compiled)
+    const testDate = new Date(2019, 11, 6)
+    const result = (new TextEvaluator({ testDate }, TV_Family_Data)).assemble(compiled)
     assert.equal(result, 'Future families: true')
-    const compiled2 = templater.parseTemplate('Past families: {[Families|filter:Surname!="Robinson"|any:Children|any:Birthdate.valueOf()>Date.now()]}')
+    const compiled2 = templater.parseTemplate('Past families: {[Families|filter:Surname!="Robinson"|any:Children|any:Birthdate>testDate]}')
     // "Any family (other than the Robinsons!) has any children with a birthdate in the future"... false for our data set, since the Robinsons are the only future-family included.
-    const result2 = (new TextEvaluator({ Date }, TV_Family_Data)).assemble(compiled2)
+    const result2 = (new TextEvaluator({ testDate }, TV_Family_Data)).assemble(compiled2)
     assert.equal(result2, 'Past families: false')
   })
   it('check if all items in a list meet a criteria using the "every" filter', function () {
