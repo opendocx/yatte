@@ -1,7 +1,7 @@
 const expressions = require('angular-expressions')
 const format = require('date-fns/format')
 const numeral = require('numeral')
-const numWords = require('number-to-words')
+const numWords = require('number-to-words-en')
 const { unEscapeQuotes } = require('./estree')
 const deepEqual = require('fast-deep-equal')
 
@@ -53,20 +53,20 @@ expressions.filters.format = function (input, generalFmt, negativeFmt, zeroFmt) 
     fmtStr = generalFmt || '0,0'
   }
   if (fmtStr === 'cardinal') {
-    return numWords.toWords(num)
+    return numWords.toWords(num, { useCommas: false })
   }
   if (fmtStr === 'ordinal') {
-    return numWords.toWordsOrdinal(num)
+    return numWords.toWordsOrdinal(num, { useCommas: false })
   }
   return numeral(num).format(fmtStr)
 }
 expressions.filters.cardinal = function (input) {
   if (input === null || typeof input === 'undefined') return input
-  return numWords.toWords(Number(input))
+  return numWords.toWords(Number(input), { useCommas: false })
 }
 expressions.filters.ordinal = function (input) {
   if (input === null || typeof input === 'undefined') return input
-  return numWords.toWordsOrdinal(Number(input))
+  return numWords.toWordsOrdinal(Number(input), { useCommas: false })
 }
 expressions.filters.ordsuffix = function (input) {
   if (input === null || typeof input === 'undefined') return input

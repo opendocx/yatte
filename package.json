@@ -1,6 +1,6 @@
 {
   "name": "yatte",
-  "version": "1.0.0-beta.1",
+  "version": "1.0.0-beta.2",
   "description": "Yet Another Text Templating Engine",
   "files": [
     "/LICENSE",
@@ -43,7 +43,7 @@
     "eslint": "^6.1.0",
     "eslint-loader": "^2.2.1",
     "mocha": "^6.1.4",
-    "number-to-words": "^1.2.4",
+    "number-to-words-en": "^1.2.5",
     "numeral": "^2.0.6",
     "nyc": "^14.1.1",
     "standard": "^13.1.0",
