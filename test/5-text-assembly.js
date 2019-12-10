@@ -121,33 +121,36 @@ describe('Assembly of text template via exported API', function () {
       MiddleName: 'Jacob',
       LastName: 'Smith'
     }
-    Object.defineProperty(data, 'FullName', {
-      get () {
-        return evaluator(this)
-      }
-    })
+    const virtuals = {
+      FullName: evaluator
+    }
     const template2 = 'Who is {[FullName]}?'
-    const result = yatte.assembleText(template2, data)
+    const result = yatte.assembleText(template2, Scope.pushObject(data, null, virtuals))
     assert.equal(result, 'Who is John Jacob Smith?')
   })
 
   it('should assemble a template using local AND global contexts', function () {
-    const fullName = '{[First]} {[Middle ? Middle + " ":""]}{[Last]}'
-    const evaluator = yatte.compileText(fullName)
-    const data = {
-      Last: 'Smith',
-      First: 'Gerald'
+    const FullNameCompiled = yatte.compileText('{[First]} {[Middle ? Middle + " ":""]}{[Last]}')
+    let virtuals = {
+      FullName: FullNameCompiled
     }
-    const localData = {
-      First: 'John'
-    }
-    Object.defineProperty(data, 'FullName', {
-      get () {
-        return evaluator(data, localData)
-      }
-    })
+    let data = Scope.pushObject(
+      {
+        Last: 'Smith',
+        First: 'Gerald'
+      },
+      null,
+      virtuals
+    )
+    data = Scope.pushObject(
+      {
+        First: 'John'
+      },
+      data,
+      virtuals
+    )
     const template2 = 'Who is {[FullName]}?'
-    const result = yatte.assembleText(template2, data, localData)
+    const result = yatte.assembleText(template2, data)
     assert.equal(result, 'Who is John Smith?')
   })
 
@@ -189,35 +192,37 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble LOCAL object lists that filter on _index and .length', function () {
     const template = '{[list items|filter:_index == 1]}The first item is {[FieldName]}{[endlist]}{[list items|filter:_index > 1 && _index < items.length]}, followed by {[FieldName]}{[endlist]}{[if items.length > 1]}, and lastly {[items[items.length-1].FieldName]}{[endif]}.'
-    const global = { neverMind: true }
-    const data = { items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" }, { FieldName: "FOUR" } ] }
-    const result = yatte.assembleText(template, global, data).value
+    let data = Scope.pushObject({ neverMind: true })
+    data = Scope.pushObject({ items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" }, { FieldName: "FOUR" } ] }, data)
+    const result = yatte.assembleText(template, data).value
     assert.equal(result, 'The first item is ONE, followed by TWO, followed by THREE, and lastly FOUR.')
   })
 
   it('should assemble object lists that filter on an item in the list', function () {
     const template = '{[list children | filter: Age >= 18 | punc:"1, 2"]}{[Name]}{[endlist]}'
-    const global = { neverMind: true }
-    const data = { children: [ { Name: "John", Age: 20 }, { Name: "Mary", Age: 18 }, { Name: "Carl", Age: 16 } ] }
-    const result = yatte.assembleText(template, global, data).value
+    let data = Scope.pushObject({ neverMind: true })
+    data = Scope.pushObject({ children: [ { Name: "John", Age: 20 }, { Name: "Mary", Age: 18 }, { Name: "Carl", Age: 16 } ] }, data)
+    const result = yatte.assembleText(template, data).value
     assert.equal(result, 'John, Mary')
 
     const template2 = '{[list children | filter: Age < 18 | punc:"1, 2"]}{[Name]}{[endlist]}'
-    const result2 = yatte.assembleText(template2, global, data).value
+    const result2 = yatte.assembleText(template2, data).value
     assert.equal(result2, 'Carl')
   })
 
   it('should assemble object lists that filter on a computed value', function () {
     const template = '{[list Children|filter:Birthdate<=Date.parse("01/01/1960")]}{[Name]} was born on {[Birthdate|format:"MM/DD/YYYY"]}.\n{[endlist]}'
-    const global = { Date }
-    const result = yatte.assembleText(template, global, TestData.TV_Family_Data.Families[0]).value
+    let scope = Scope.pushObject({ Date })
+    scope = Scope.pushObject(TestData.TV_Family_Data.Families[0], scope)
+    const result = yatte.assembleText(template, scope).value
     assert.equal(result, 'Greg was born on 09/30/1954.\nMarcia was born on 08/05/1956.\nPeter was born on 11/07/1957.\nJan was born on 04/29/1958.\n')
   })
 
   it('should assemble object lists that filter on a computed value (2)', function () {
     const template = '{[list Children|filter:Age<60]}{[Name]} was born on {[Birthdate|format:"MM/DD/YYYY"]}.\n{[endlist]}'
-    const global = { neverMind: true }
-    const result = yatte.assembleText(template, global, { Children: TestData.TV_Family_Data.Families[0].Children.map(c => new Child(c)) }).value
+    let data = Scope.pushObject({ neverMind: true })
+    data = Scope.pushObject({ Children: TestData.TV_Family_Data.Families[0].Children.map(c => new Child(c)) }, data)
+    const result = yatte.assembleText(template, data).value
     assert.equal(result, 'Bobby was born on 12/19/1960.\nCindy was born on 08/14/1961.\n')
   })
 

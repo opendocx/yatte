@@ -61,6 +61,7 @@ describe('Assembling text templates', function () {
     const template = 'Hello {[planet]}!'
     const compiled = templater.parseTemplate(template)
     const data = { planet: 'World' }
+    debugger
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Hello World!')
   })
@@ -253,11 +254,12 @@ describe('Assembling text templates', function () {
     const compiled = templater.parseTemplate('Future families: {[Families|any:Children|any:Birthdate>testDate]}')
     // "Any family has any children with a birthdate in the future" ... true for our data set (at least until 2050 or so)
     const testDate = new Date(2019, 11, 6)
-    const result = (new TextEvaluator({ testDate }, TV_Family_Data)).assemble(compiled)
+    let scope = Scope.pushObject({ testDate })
+    const result = (new TextEvaluator(Scope.pushObject(TV_Family_Data, scope))).assemble(compiled)
     assert.equal(result, 'Future families: true')
     const compiled2 = templater.parseTemplate('Past families: {[Families|filter:Surname!="Robinson"|any:Children|any:Birthdate>testDate]}')
     // "Any family (other than the Robinsons!) has any children with a birthdate in the future"... false for our data set, since the Robinsons are the only future-family included.
-    const result2 = (new TextEvaluator({ testDate }, TV_Family_Data)).assemble(compiled2)
+    const result2 = (new TextEvaluator(Scope.pushObject(TV_Family_Data, scope))).assemble(compiled2)
     assert.equal(result2, 'Past families: false')
   })
   it('check if all items in a list meet a criteria using the "every" filter', function () {
@@ -354,7 +356,7 @@ describe('Assembling text templates', function () {
         { Name: 'Arctic', AverageDepth: 1205 }
       ]
     }
-    const result = (new TextEvaluator({}, data)).assemble(compiled)
+    const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Continents:\n * Europe (1. Atlantic in Europe, 2. Arctic in Europe, )\n * North America (1. Atlantic in North America, 2. Arctic in North America, )\n * South America (1. Atlantic in South America, 2. Arctic in South America, )\n')
     // ensure data context prototypes have not been messed with!
     // assert.strictEqual(String.prototype, originalStringPrototype, 'String.prototype has changed') // I doubt this works anyway
@@ -386,23 +388,13 @@ describe('Assembling text templates', function () {
   it('should assemble a simple template with local and global scopes', function () {
     const template = '{[First]} {[Middle ? Middle + " " : ""]}{[Last]}'
     const compiled = templater.parseTemplate(template)
-    const localData = {
+    const globalData = Scope.pushObject({
+      Last: 'Smith'
+    })
+    const localData = Scope.pushObject({
       First: 'John'
-    }
-    const globalData = {
-      Last: 'Smith'
-    }
-    const result = (new TextEvaluator(globalData, localData)).assemble(compiled)
-    assert.equal(result, 'John Smith')
-  })
-  it('should assemble a simple template with local scope but no global', function () {
-    const template = '{[First]} {[Middle ? Middle + " " : ""]}{[Last]}'
-    const compiled = templater.parseTemplate(template)
-    const localData = {
-      First: 'John',
-      Last: 'Smith'
-    }
-    const result = (new TextEvaluator(null, localData)).assemble(compiled)
+    }, globalData)
+    const result = (new TextEvaluator(localData)).assemble(compiled)
     assert.equal(result, 'John Smith')
   })
 })

@@ -222,7 +222,7 @@ class Scope {
       type: AST.ExpressionStatement,
       expression: compiledExpr.ast,
       text: compiledExpr.normalized,
-      data: this._value // todo: this is wrong, don't we want a proxy / context instead? maybe just "this"?
+      data: this
     }
   }
 
@@ -251,21 +251,63 @@ class Scope {
   }
 
   static pushObject (value, context = null, virtuals = null) {
-    const obj = new YObject(value, context, virtuals)
+    const frame = (value instanceof Scope) ? value : value.__frame
+    if (frame) {
+      if (context || virtuals) throw new Error('Redundant scope pushed')
+      return frame
+    }
+    if (context) {
+      if (!(context instanceof Scope)) throw new Error('Pushed onto invalid context stack')
+    }
+    let obj = (value instanceof YObject) ? value : value.__object
+    if (obj) {
+      if (context && (obj._context._value !== context._value)) throw new Error('Value/context mismatch')
+      if (virtuals && (obj._virtuals !== virtuals)) throw new Error('Value/virtuals mismatch')
+    } else {
+      obj = new YObject(value, context, virtuals)
+    }
     return new Scope(obj)
   }
 
   static pushList (iterable, context, virtuals = null) {
-    const list = new YList(iterable, context, virtuals)
+    if (context) {
+      if (!(context instanceof Scope)) throw new Error('Pushed onto invalid context stack')
+    }
+    const frame = (iterable instanceof Scope) ? iterable : iterable.__frame
+    if (frame) {
+      if (!(frame instanceof ListScope)) throw new Error('Pushed non-list as list')
+      if (context && (context._value !== frame._context._value)) throw new Error('List frame/context mismatch')
+      if (virtuals && (virtuals !== frame._virtuals)) throw new Error('List frame/virtuals mismatch')
+      return frame
+    }
+    let list = (iterable instanceof YObject) ? iterable : iterable.__object
+    if (list) {
+      if (context && (list._context._value !== context._value)) throw new Error('List/context mismatch')
+      if (virtuals && (list._virtuals !== virtuals)) throw new Error('List/virtuals mismatch')
+    } else {
+      list = new YList(iterable, context, virtuals)
+    }
     return new ListScope(list)
   }
 
   static pushListItem (index0, listContext) {
+    if (listContext) {
+      if (!(listContext instanceof ListScope)) throw new Error('Pushed onto invalid list context')
+    } else {
+      throw new Error('Cannot push list item onto empty stack')
+    }
+    if (!listContext._value || index0 >= listContext._value.length) throw new Error('List item out of range')
     const listItem = new YListItem(listContext, index0)
     return new ListItemScope(listItem)
   }
 
   static pushReducerItem (index0, listContext, result) {
+    if (listContext) {
+      if (!(listContext instanceof ListScope)) throw new Error('Pushed reducer item onto invalid list context')
+    } else {
+      throw new Error('Cannot push reducer item onto empty stack')
+    }
+    if (!listContext._value || index0 >= listContext._value.length) throw new Error('Reducer item out of range')
     const reducerItem = new YReducerItem(listContext, index0, result)
     return new ReducerItemScope(reducerItem)
   }
@@ -396,7 +438,16 @@ class YObjectHandler extends HandlerBase {
       case 'valueOf': return () => targetObject.valueOf()
     } // else
     if (this.hasProperty(targetObject._virtuals, property)) { // prop is the name of a virtual property
-      const contextScope = Scope.pushObject(targetObject, this.context, targetObject._virtuals)
+      // avoid pushing targetObject onto this.context if this.context._value === targetObject
+      let contextScope
+      if (this.context._value === targetObject) {
+        contextScope = this.context
+      } else {
+        contextScope = Scope.pushObject(targetObject, this.context, targetObject._virtuals)
+      }
+      // todo: investigate whether we should be passing contextScope._getObjectProxy() instead of _getScopeProxy()
+      //       because if we're executing a virtual ON a YObject (as we hare here), scope lookup behavior
+      //       should probably not happen!
       const val = targetObject._virtuals[property](contextScope._getScopeProxy())
       return (val instanceof EvaluationResult) ? val.value : val
     } // else

@@ -24,9 +24,9 @@ function compileText (template) {
   const compiledTemplateCache = compileText.cache
   let func = compiledTemplateCache && compiledTemplateCache.get(contentArray)
   if (!func) {
-    func = (scope, locals = null) =>
+    func = (s) =>
       new EvaluationResult(
-        (new TextEvaluator(scope, locals)).assemble(contentArray),
+        (new TextEvaluator(s)).assemble(contentArray),
         [], // TODO: keep track of identifiers that did not produce a value (missing)
         [], // TODO: keep track of other errors encountered during evaluations
       )
@@ -38,11 +38,11 @@ function compileText (template) {
 compileText.cache = new Map()
 exports.compileText = compileText
 
-function assembleText (template, scope, locals = null) {
+function assembleText (template, scope) {
   // non-curried version of assembly: pass in a template AND a context
   try {
     const contentArray = textTemplater.parseTemplate(template)
-    const value = (new TextEvaluator(scope, locals)).assemble(contentArray)
+    const value = (new TextEvaluator(scope)).assemble(contentArray)
     return new EvaluationResult(value, [], []) // TODO: populate the missing & errors collections!!
   } catch (err) {
     return new EvaluationResult(null, [], [err.message]) // TODO: populate the missing & errors collections!!
@@ -50,10 +50,10 @@ function assembleText (template, scope, locals = null) {
 }
 exports.assembleText = assembleText
 
-function assembleMeta (metaTemplate, scope, locals = null) {
+function assembleMeta (metaTemplate, scope) {
   try {
     const contentArray = textTemplater.parseTemplate(metaTemplate, true, false)
-    const nodes = (new MetaEvaluator(scope, locals)).assemble(contentArray)
+    const nodes = (new MetaEvaluator(scope)).assemble(contentArray)
     const program = {
       type: AST.Program,
       body: nodes.filter(n => !n.error)

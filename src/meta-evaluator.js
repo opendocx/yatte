@@ -5,25 +5,15 @@ const OD = require('./fieldtypes')
 const base = require('./base-templater')
 
 class MetaEvaluator {
-  constructor (scope, locals = null) {
-    this.scopePushed = this.localsPushed = false
-    if (scope) {
-      this.contextStack = scope.__frame
-        || (scope instanceof Scope ? scope : (this.scopePushed = true) && Scope.pushObject(scope))
-    }
-    if (locals) {
-      if (locals.__frame || (locals instanceof Scope)) throw new Error('Scope stack cannot be provided as locals')
-      this.contextStack = Scope.pushObject(locals, this.contextStack)
-      this.localsPushed = true
-    }
+  constructor (scope) {
+    this.scopePushed = scope && (
+      (this.contextStack = Scope.pushObject(scope)) !== scope
+    )
   }
 
   assemble (contentArray) {
     const result = contentArray.map(contentItem => ContentReplacementTransform(contentItem, this.contextStack))
     // now pop whatever was pushed (and nothing more)
-    if (this.localsPushed) {
-      this.contextStack = Scope.pop(this.contextStack)
-    }
     if (this.scopePushed) {
       this.contextStack = Scope.pop(this.contextStack)
     }
