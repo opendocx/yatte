@@ -251,7 +251,7 @@ class Scope {
   }
 
   static pushObject (value, context = null, virtuals = null) {
-    const frame = (value instanceof Scope) ? value : value.__frame
+    const frame = !value || (value instanceof Scope) ? value : value.__frame
     if (frame) {
       if (context || virtuals) throw new Error('Redundant scope pushed')
       return frame
@@ -259,7 +259,7 @@ class Scope {
     if (context) {
       if (!(context instanceof Scope)) throw new Error('Pushed onto invalid context stack')
     }
-    let obj = (value instanceof YObject) ? value : value.__object
+    let obj = !value || (value instanceof YObject) ? value : value.__object
     if (obj) {
       if (context && (obj._context._value !== context._value)) throw new Error('Value/context mismatch')
       if (virtuals && (obj._virtuals !== virtuals)) throw new Error('Value/virtuals mismatch')
@@ -273,14 +273,14 @@ class Scope {
     if (context) {
       if (!(context instanceof Scope)) throw new Error('Pushed onto invalid context stack')
     }
-    const frame = (iterable instanceof Scope) ? iterable : iterable.__frame
+    const frame = !iterable || (iterable instanceof Scope) ? iterable : iterable.__frame
     if (frame) {
       if (!(frame instanceof ListScope)) throw new Error('Pushed non-list as list')
       if (context && (context._value !== frame._context._value)) throw new Error('List frame/context mismatch')
       if (virtuals && (virtuals !== frame._virtuals)) throw new Error('List frame/virtuals mismatch')
       return frame
     }
-    let list = (iterable instanceof YObject) ? iterable : iterable.__object
+    let list = !iterable || (iterable instanceof YObject) ? iterable : iterable.__object
     if (list) {
       if (context && (list._context._value !== context._value)) throw new Error('List/context mismatch')
       if (virtuals && (list._virtuals !== virtuals)) throw new Error('List/virtuals mismatch')
