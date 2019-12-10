@@ -4,6 +4,7 @@ const { AST } = require('./estree')
 
 class YObject {
   constructor (value, context = null, virtuals = null) {
+    if (value && value.__object) throw new Error('Nested YObject')
     this._context = context // evaluation context of this yobject
     this._objType = isPrimitive(value) ? Scope.PRIMITIVE : YObject.isArray(value) ? Scope.LIST : Scope.OBJECT
     this._valueType = typeof value
@@ -208,13 +209,23 @@ class Scope {
   }
 
   _evaluate (compiledExpr) {
-    const result = compiledExpr(this._getScopeProxy())
-    // check for proxied primitives we may need to unwrap
-    const t = result && result._objType
-    if (t === Scope.PRIMITIVE) {
-      return result._bareValue
+    if (typeof compiledExpr === 'function') {
+      if (compiledExpr.ast) {
+        // appears to be a compiled angular expression; it expects a scope object (proxy)
+        const result = compiledExpr(this._getScopeProxy())
+        // check for proxied primitives we may need to unwrap
+        const t = result && result._objType
+        if (t === Scope.PRIMITIVE) {
+          return result._bareValue
+        }
+        return result
+      } // else
+      if (compiledExpr.logic) {
+        // appears to be a compiled template; it expects a scope frame (not a proxy)
+        return compiledExpr(this).valueOf()
+      }
     }
-    return result
+    throw new Error('Scope._evaluate invoked against a non-function')
   }
 
   _deferEvaluate (compiledExpr) {
