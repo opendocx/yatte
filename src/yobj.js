@@ -220,7 +220,7 @@ class YObject {
 
   static pushList (iterable, parent, virtuals = null) {
     let array
-    if (iterable.__yobj) { // it's a list proxy (result of evaluating an expression)
+    if (iterable && iterable.__yobj) { // it's a list proxy (result of evaluating an expression)
       if (iterable.__yobj.parent === parent) { // it already has the correct/desired context
         return iterable.__yobj // just go with what we've already got
       }
