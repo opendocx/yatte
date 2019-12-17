@@ -37,8 +37,9 @@ describe('Compiling expressions via exported API', function () {
   it('re-compiling a normalized list filter expression produces the same normalization but does not go back to original AST', function () {
     // note: compiling a normalized list filter expression shoulod produce the same AST as the original (non-normalized) list filter expression
     // we do this so downline features that depend on the AST can reliably know what they're going to get.
-    const evaluator = yatte.Engine.compileExpr(' Families|any:this:"Children|any:this:&quot;Birthdate>currentDate&quot;"') // space at beginning is intentional, to avoid cached expression AST
-    assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate>currentDate&quot;"')
+    yatte.Engine.compileExpr.cache = {}
+    const evaluator = yatte.Engine.compileExpr(' Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"') // space at beginning is intentional, to avoid cached expression AST
+    assert.deepStrictEqual(evaluator.normalized, 'Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
   })
 
@@ -70,7 +71,7 @@ describe('Compiling expressions via exported API', function () {
 
   it('allow chaining of "any" filter (and/or its "some" alias)', function () {
     const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate > currentDate')
-    assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate>currentDate&quot;"')
+    assert.deepStrictEqual(evaluator.normalized, 'Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
   })
 
@@ -110,7 +111,7 @@ describe('Compiling expressions via exported API', function () {
 
   it('allow chaining of the "any" filter with nested objects', function () {
     const evaluator = yatte.Engine.compileExpr('obj1.list1|any:obj2.list2|any:prop3')
-    assert.deepStrictEqual(evaluator.normalized, 'obj1.list1|any:this:"obj2.list2|any:this:&quot;prop3&quot;"')
+    assert.deepStrictEqual(evaluator.normalized, 'obj1.list1|any:"obj2.list2|any:&quot;prop3&quot;"')
     assert.deepStrictEqual(evaluator.ast, nestedAny_AST)
     // ensure the normalized expression produces the same AST but does not get recompiled!
     const evaluator2 = yatte.Engine.compileExpr(' ' + evaluator.normalized)

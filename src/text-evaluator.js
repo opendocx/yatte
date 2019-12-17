@@ -1,22 +1,22 @@
 'use strict'
 
-const Scope = require('./yobject')
+const Scope = require('./yobj')
 const OD = require('./fieldtypes')
 const base = require('./base-templater')
 
 class TextEvaluator {
   constructor (scope) {
-    this.scopePushed = scope && (
-      (this.contextStack = Scope.pushObject(scope)) !== scope
-    )
+    this.contextStack = (scope && scope.__yobj)
+      ? scope.__yobj
+      : (scope instanceof Scope)
+        ? scope
+        : Scope.pushObject(scope, null, scope._virtuals)
   }
 
   assemble (contentArray) {
     const text = contentArray.map(contentItem => ContentReplacementTransform(contentItem, this.contextStack)).join('')
-    // now pop whatever was pushed (and nothing more)
-    if (this.scopePushed) {
-      this.contextStack = Scope.pop(this.contextStack)
-    }
+    // reset context stack (a TextEvaluator is a one-time-use sort of thing)
+    this.contextStack = null
     return text
   }
 }
@@ -32,7 +32,7 @@ function ContentReplacementTransform (contentItem, contextStack) {
       try {
         const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
         // todo: make sure the following is memoized to avoid unnecessary re-evaluation
-        let value = frame._evaluate(evaluator)
+        let value = frame.evaluate(evaluator)
         if (value === null || typeof value === 'undefined') {
           value = '[' + contentItem.expr + ']' // missing value placeholder
         }
@@ -45,12 +45,12 @@ function ContentReplacementTransform (contentItem, contextStack) {
       try {
         const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
         // todo: make sure the following is memoized to avoid unnecessary re-evaluation
-        iterable = frame._evaluate(evaluator)
+        iterable = frame.evaluate(evaluator)
       } catch (err) {
         return CreateContextErrorMessage('EvaluationException: ' + err.message)
       }
       contextStack = Scope.pushList(iterable, contextStack)
-      const allContent = contextStack._indices.map(index => {
+      const allContent = contextStack.indices.map(index => {
         contextStack = Scope.pushListItem(index, contextStack)
         const listItemContent = contentItem.contentArray.map(
           listContentItem => ContentReplacementTransform(listContentItem, contextStack))
@@ -64,12 +64,12 @@ function ContentReplacementTransform (contentItem, contextStack) {
     case OD.ElseIf: {
       let bValue
       try {
-        if (frame._objType !== Scope.OBJECT) {
-          throw new Error(`Internal error: cannot define a condition directly in a ${frame._objType} context`)
+        if (frame.frameType !== Scope.OBJECT) {
+          throw new Error(`Internal error: cannot define a condition directly in a ${frame.frameType} context`)
         }
         const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
         // todo: make sure the following is memoized to avoid unnecessary re-evaluation
-        const value = frame._evaluate(evaluator)
+        const value = frame.evaluate(evaluator)
         bValue = Scope.isTruthy(value)
       } catch (err) {
         return CreateContextErrorMessage('EvaluationException: ' + err.message)

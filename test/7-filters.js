@@ -171,7 +171,13 @@ describe('reduce filter', function () {
     const value = evaluator(data)
     assert.strictEqual(value, 20)
   })
-  it('flattens a nested array', function () {
+  it('flattens a nested array (no initial value)', function () {
+    const evaluator = yatte.Engine.compileExpr('array|reduce:_result.concat(this)')
+    const data = { array: [[0], [1, 2], [3, 4]] }
+    const value = evaluator(data)
+    assert.deepEqual(value, [0, 1, 2, 3, 4])
+  })
+  it('flattens a nested array (with initial value)', function () {
     const evaluator = yatte.Engine.compileExpr('array|reduce:_result.concat(this):[]')
     const data = { array: [[0], [1, 2], [3, 4]] }
     const value = evaluator(data)
@@ -180,7 +186,9 @@ describe('reduce filter', function () {
   it('flattens a nested array in an object array', function () {
     const evaluator = yatte.Engine.compileExpr('array|reduce:_result.concat(nested):[]')
     const data = { array: [ { nested: [0] }, { nested: [1, 2] }, { nested: [3, 4] } ] }
-    const value = evaluator(data)
+    let value = evaluator(data)
+    // todo: figure out how not to have to do this massaging prior to testing the value:
+    value = value.map(item => (item && ('__value' in item)) ? (item.__value && item.__value.valueOf()) : item)
     assert.deepEqual(value, [0, 1, 2, 3, 4])
   })
 })

@@ -211,7 +211,7 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble object lists that filter on a computed value', function () {
-    const template = '{[list Children|filter:Birthdate<=Date.parse("01/01/1960")]}{[Name]} was born on {[Birthdate|format:"MM/DD/YYYY"]}.\n{[endlist]}'
+    const template = '{[list Children|filter:Birthdate<=Date.parse("01/01/1960")]}{[Name]} was born on {[Birthdate|format:"MM/dd/yyyy"]}.\n{[endlist]}'
     let scope = Scope.pushObject({ Date })
     scope = Scope.pushObject(TestData.TV_Family_Data.Families[0], scope)
     const result = yatte.assembleText(template, scope).value
@@ -219,9 +219,10 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble object lists that filter on a computed value (2)', function () {
-    const template = '{[list Children|filter:Age<60]}{[Name]} was born on {[Birthdate|format:"MM/DD/YYYY"]}.\n{[endlist]}'
+    const template = '{[list Children|filter:Age<60]}{[Name]} was born on {[Birthdate|format:"MM/dd/yyyy"]}.\n{[endlist]}'
     let data = Scope.pushObject({ neverMind: true })
-    data = Scope.pushObject({ Children: TestData.TV_Family_Data.Families[0].Children.map(c => new Child(c)) }, data)
+    let children = TestData.TV_Family_Data.Families[0].Children
+    data = Scope.pushObject({ Children: children.map(c => new Child(c)) }, data)
     const result = yatte.assembleText(template, data).value
     assert.equal(result, 'Bobby was born on 12/19/1960.\nCindy was born on 08/14/1961.\n')
   })
@@ -260,6 +261,26 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'John Smith is 10 characters long (yes 10)')
   })
 
+  it('should assemble template based on nested objects with primitive lists', function () {
+    const template = '{[SingleEntity.FullName]}\'s children are {[list ChildNames|punc:"1, 2 and 3"]}{[this]}{[endlist]}.'
+    const obj = {
+      SingleEntity: {
+        FirstName: "John",
+        LastName: "Smith",
+        Children: ["Susan", "Margaret", "Edward"],
+        _virtuals: {
+          FullName: yatte.compileText('{[FirstName]} {[LastName]}')
+        }
+      },
+      _virtuals: {
+        ChildNames: yatte.Engine.compileExpr('SingleEntity.Children|map:this + " " + LastName'),
+      }
+    }
+    const scope = Scope.pushObject(obj, null, obj._virtuals)
+    const result = yatte.assembleText(template, scope).value
+    assert.equal(result, 'John Smith\'s children are Susan Smith, Margaret Smith and Edward Smith.')
+  })
+
   it('should assemble a compiled template against a proxied context stack (handle properly)', function () {
     const objContext = { a: 'global' }
     const objLocals = { b: 'local', c: [{ d: 'one' }, { d: 'two' }, { d: 'three' }] }
@@ -267,7 +288,7 @@ describe('Assembly of text template via exported API', function () {
     stack = Scope.pushObject(objLocals, stack)
     stack = Scope.pushList(objLocals.c, stack)
     stack = Scope.pushListItem(1, stack)
-    const proxy = stack._getScopeProxy()
+    const proxy = stack.scopeProxy
     const compiledTemplate = yatte.compileText('{[d]} is the {[_index]}{[_index|ordsuffix]} of {[c.length]} in {[a]}')
     const result = compiledTemplate(proxy).value
     assert.strictEqual(result, 'two is the 2nd of 3 in global')

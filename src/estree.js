@@ -227,7 +227,7 @@ function serializeAstNode (astNode) {
       )
     case AST.ListFilterExpression:
       return serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.ListFilterExpression, astNode.rtl)
-        + '|' + serializeAstNode(astNode.filter) + ':this'
+        + '|' + serializeAstNode(astNode.filter) // + ':this' // starting with yatte 1.2 beta 5, this is obsolete
         + astNode.arguments.map(
           (arg, i) => (
             astNode.immediateArgs && astNode.immediateArgs.includes(i)

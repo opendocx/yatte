@@ -66,4 +66,4 @@ function assembleMeta (metaTemplate, scope) {
 exports.assembleMeta = assembleMeta
 
 exports.FieldTypes = require('./fieldtypes')
-exports.Scope = require('./yobject')
+exports.Scope = require('./yobj')

@@ -2,35 +2,35 @@ const assert = require('assert')
 const yatte = require('../src/index')
 const templater = require('../src/text-templater')
 const TextEvaluator = require('../src/text-evaluator')
-const Scope = require('../src/yobject')
+const Scope = require('../src/yobj')
 const { TV_Family_Data } = require('./test-data')
 
 describe('Assembling text templates', function () {
   it('prelim: call valueOf() on a scope proxy', function () {
     const data = new String('Testing 1... 2... 3...')
     const context = Scope.pushObject(data)
-    const proxy = context._getScopeProxy()
+    const proxy = context.scopeProxy
     const value = proxy.valueOf()
     assert.equal(value, 'Testing 1... 2... 3...')
   })
   it('prelim: call toString() on a scope proxy', function () {
     const data = new String('Testing 1... 2... 3...')
     const context = Scope.pushObject(data)
-    const proxy = context._getScopeProxy()
+    const proxy = context.scopeProxy
     const value = proxy.toString()
     assert.equal(value, 'Testing 1... 2... 3...')
   })
   it('prelim: call valueOf() on a property of an object proxy', function () {
     const data = { test: new String('Testing 1... 2... 3...') }
     const context = Scope.pushObject(data)
-    const proxy = context._getScopeProxy()
+    const proxy = context.scopeProxy
     const value = proxy.test.valueOf()
     assert.equal(value, 'Testing 1... 2... 3...')
   })
   it('prelim: call toString() on a property of an object proxy', function () {
     const data = { test: new String('Testing 1... 2... 3...') }
     const context = Scope.pushObject(data)
-    const proxy = context._getScopeProxy()
+    const proxy = context.scopeProxy
     const value = proxy.test.toString()
     assert.equal(value, 'Testing 1... 2... 3...')
   })
@@ -39,29 +39,28 @@ describe('Assembling text templates', function () {
     const mars = { hello: 'mars' }
     let context = Scope.pushObject(earth)
     context = Scope.pushObject(mars, context)
-    const proxy = context._getScopeProxy()
+    const proxy = context.scopeProxy
     const parent = proxy._parent
-    assert.strictEqual(parent.__object, earth)
+    assert.strictEqual(parent.__value, earth)
   })
   it('prelim: unqualified _parent yields appropriate object (in list)', function () {
     const sol = { star: 'Sol', planets: [{name: 'Mercury'}, {name: 'Venus'}, {name: 'Earth'}, {name: 'Mars'}] }
     let context = Scope.pushObject(sol)
-    // const proxy = context._getScopeProxy()
+    // const proxy = context.scopeProxy
     // const earth = proxy.planets[2]
-    // assert.strictEqual(earth.__object, sol.planets[2])
+    // assert.strictEqual(earth.__value, sol.planets[2])
     context = Scope.pushList(sol.planets, context)
     context = Scope.pushListItem(2, context)
-    const proxy = context._getScopeProxy()
+    const proxy = context.scopeProxy
     const prelimTest = proxy.name + ' orbits ' + proxy.star
     assert.strictEqual(prelimTest, 'Earth orbits Sol')
     const parent = proxy._parent
-    assert.strictEqual(parent.__object, sol)
+    assert.strictEqual(parent.__value, sol)
   })
   it('should assemble a simple template', function () {
     const template = 'Hello {[planet]}!'
     const compiled = templater.parseTemplate(template)
     const data = { planet: 'World' }
-    debugger
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Hello World!')
   })
@@ -120,7 +119,7 @@ describe('Assembling text templates', function () {
     assert.equal(result, 'Oceans are:\n\n * Pacific (Average depth 3970 m)\n * Atlantic (Average depth 3646 m)\n * Indian (Average depth 3741 m)\n * Southern (Average depth 3270 m)\n * Arctic (Average depth 1205 m)\n')
   })
   it('should assemble a filtered list', function () {
-    const template = 'Continents containing u:\n\n{[list Continents.WithU]}\n * {[.]}\n{[endlist]}'
+    const template = 'Continents containing u:\n\n{[list ContinentsWithU]}\n * {[.]}\n{[endlist]}'
     const compiled = templater.parseTemplate(template)
     const data = {
       Planet: 'Earth',
@@ -133,9 +132,12 @@ describe('Assembling text templates', function () {
         { Name: 'Arctic', AverageDepth: 1205 }
       ],
       IsHome: true,
-      Lifeless: false
+      Lifeless: false,
     }
-    Object.defineProperty(data.Continents, 'WithU', { get: function () { return this.filter(item => item.includes('u')) } })
+    //Object.defineProperty(data.Continents, 'WithU', { get: function () { return this.filter(item => item.includes('u')) } })
+    data._virtuals = {
+      ContinentsWithU: yatte.Engine.compileExpr('Continents|filter:this.includes("u")')
+    }
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Continents containing u:\n\n * Europe\n * South America\n * Australia/Oceania\n')
   })
@@ -255,7 +257,8 @@ describe('Assembling text templates', function () {
     // "Any family has any children with a birthdate in the future" ... true for our data set (at least until 2050 or so)
     const testDate = new Date(2019, 11, 6)
     let scope = Scope.pushObject({ testDate })
-    const result = (new TextEvaluator(Scope.pushObject(TV_Family_Data, scope))).assemble(compiled)
+    scope = Scope.pushObject(TV_Family_Data, scope)
+    const result = (new TextEvaluator(scope)).assemble(compiled)
     assert.equal(result, 'Future families: true')
     const compiled2 = templater.parseTemplate('Past families: {[Families|filter:Surname!="Robinson"|any:Children|any:Birthdate>testDate]}')
     // "Any family (other than the Robinsons!) has any children with a birthdate in the future"... false for our data set, since the Robinsons are the only future-family included.

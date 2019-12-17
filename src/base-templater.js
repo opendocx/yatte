@@ -640,7 +640,7 @@ const convertCallNodeToFilterNode = function (node) {
     if (isNormalizedListFilterNode(node)) {
       // the node is a list filter that had formerly been normalized
       //   -- re-parse the string argument into the original AST
-      node.arguments.shift() // discard AST's extra "this" (added during normalization)
+      // node.arguments.shift() // discard AST's extra "this" (added during normalization) UPDATE: no longer added
       const parsedArg = compileExpr(unEscapeQuotes(node.arguments[0].value))
       node.arguments[0] = parsedArg.ast
       return false // existing compiled behavior was already based on the normalized form,
@@ -661,11 +661,11 @@ function isNormalizedListFilterNode (node) {
   if (!node || node.type !== AST.ListFilterExpression) return false
   const args = node.arguments
   if (
-    args.length > 1
-    && args[0].type === AST.ThisExpression
-    && args[1].type === AST.Literal
+    args.length > 0 // 1
+    // && args[0].type === AST.ThisExpression
+    && args[0/* 1 */].type === AST.Literal
   ) {
-    if (args.length !== 2 && node.filter.name !== 'sort' && node.filter.name !== 'reduce') {
+    if (args.length !== 1 /* 2 */ && node.filter.name !== 'sort' && node.filter.name !== 'reduce') {
       console.log(`Warning: ListFilterExpression with multiple arguments: ${AST.serialize(node)}`)
     }
     return true
