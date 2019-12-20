@@ -120,6 +120,22 @@ describe('Compiling expressions via exported API', function () {
     assert.deepStrictEqual(evaluator.toString(), evaluator2.toString())
   })
 
+  it('allows lookup of/access to an object in a list using the find filter', function () {
+    const evaluator = yatte.Engine.compileExpr('(table|find:col1==value).col2')
+    const data = {
+      value: 'b',
+      table: [
+        { col1: 'a', col2: 'A' },
+        { col1: 'b', col2: 'B' },
+        { col1: 'c', col2: 'C' },
+      ],
+    }
+    //const scope = Scope.pushObject(data)
+    //const result = scope.evaluate(evaluator)
+    const result = evaluator(data)
+    assert.strictEqual(result, 'B')
+  })
+
   const nestedAny_AST = {
     type: 'ListFilterExpression',
     rtl: true,
