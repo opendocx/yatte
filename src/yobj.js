@@ -252,7 +252,16 @@ class YObject {
     const p1 = example.indexOf('1')
     const p2 = example.indexOf('2')
     const p3 = example.indexOf('3')
-    if (p1 >= 0 && p2 > p1) { // at least 1 & 2 are present and in the right order
+    if (p1 >= 0 && p2 > p1) { // at least 1 & 2 are present and in the right order (minimum for valid example)
+      // const prefix = example.slice(0, p1)
+      // you may wonder why we don't bother remembering the stuff prior to the "1" token (if any)
+      // It's because right now, this stuff only gets merged into assembled content at the location where
+      // the template compiler has placed a {[_punc]} field, and no _punc field gets added at the beginning
+      // of a list item.  In fact, it kinda raises the question of how appropriate it is to support the suffix,
+      // as we do, because if there are NO items in the list, you might expect the suffix to be merged anyway,
+      // but it's not -- it only gets merged as a suffix to the last item in the list.  If we wanted to add a
+      // prefix, but still be consistent, we'd need the prefix to only be merged as a prefix to the first item,
+      // and if there were no items, you'd get neither prefix nor suffix.
       const between = example.slice(p1 + 1, p2)
       if (p3 > p2) { // 3 is also present and in the expected order
         const last2 = example.slice(p2 + 1, p3)
