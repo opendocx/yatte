@@ -3,26 +3,43 @@ const EvaluationResult = require('./eval-result')
 const { AST } = require('./estree')
 
 class YObject {
-  constructor (value, parent = null, virtuals = null) {
-    if (value && (value.__yobj || (value instanceof YObject))) throw new Error('Cannot nest YObjects')
+  constructor (value, parent = null) {
+    // value can be:
+    //   - null
+    //   - a string or String object
+    //   - a number or Number object
+    //   - a boolean or Boolean object
+    //   - a Date object                 (frameType=YObject.PRIMITIVE for this and all of the above)
+    //   - any other single object       (frameType=YObject.OBJECT)
+    //   - an array of any of the above  (frameType=YObject.LIST)
+    if (value && (value.__yobj || (value instanceof YObject))) throw new Error('Cannot nest a YObject inside another')
     if (parent) {
-      if (!(parent instanceof YObject)) throw new Error('Invalid context')
+      if (!(parent instanceof YObject)) throw new Error('Parent must be an instance of YObject')
     }
     this.parent = parent
-    this.frameType = isPrimitive(value) ? YObject.PRIMITIVE : YObject.isArray(value) ? YObject.LIST : YObject.OBJECT
+    this.frameType = (isPrimitive(value) || value === null)
+      ? YObject.PRIMITIVE
+      : YObject.isArray(value)
+        ? YObject.LIST
+        : YObject.OBJECT
     this.valueType = typeof value
     switch (this.valueType) {
       case 'object':
         if (!value) {
-          this.value = value
+          this.value = null
           this.valueType = 'null'
-        } else if (this.frameType === YObject.PRIMITIVE) {
-          this.value = value
-          this.valueType = value.constructor.name.toLowerCase()
         } else {
-          this.value = value
-          this.virtuals = virtuals || ((parent instanceof YList) && parent.virtuals)
-          if (this.frameType === YObject.LIST) this.valueType = 'array'
+          if (this.frameType === YObject.PRIMITIVE) {
+            this.valueType = value.constructor.name.toLowerCase()
+            this.value = value
+          } else if (this.frameType === YObject.LIST) {
+            this.valueType = 'array'
+            // array may contain proxy objects; if so, extract raw values from proxies
+            this.value = value.map(element => (element && element.__yobj) ? element.__value : element)
+          } else {
+            // valueType is already correct
+            this.value = value
+          }
         }
         break
       case 'string':
@@ -43,11 +60,13 @@ class YObject {
   }
 
   hasProperty (property) {
-    return (typeof this.value === 'object') && this.value && (property in this.value)
+    return this.value && (typeof this.value === 'object') && (property in this.value)
   }
 
   getProperty (property) {
+    // a caller is fetching some property of the YObject. Check the items cache or the value object
     const val = this.items[property] || this.value[property]
+    // if it's a primitive OR it's already a YObject cached in the items array, just return it
     if (
       !val
       || val instanceof YObject
@@ -59,28 +78,26 @@ class YObject {
     ) {
       return val
     }
+    // else check if it's a virtual, and if so, evaluate it
+    if (typeof val === 'function' && (val.ast || val.logic)) {
+      let newVal = this.evaluate(val)
+      if (newVal instanceof EvaluationResult) {
+        newVal = newVal.value
+      }
+      // I believe newVal, at this point, may be either a primitive or an object proxy
+      return newVal
+      // note that the above returns a proxy, but below we return a YObject
+    }
     // else create a YObject wrapper for the item, and cache it in items
     // (original item still availabe in value/__value)
     let newVal
     if (YObject.isIterable(val)) {
-      newVal = new YList(val, this, val._virtuals)
+      newVal = new YList(val, this)
     } else {
-      newVal = new YObject(val, this, val._virtuals)
+      newVal = new YObject(val, this)
     }
     this.items[property] = newVal
-    return newVal
-  }
-
-  hasVirtual (property) {
-    return this.virtuals && (property in this.virtuals)
-  }
-
-  callVirtual (property) {
-    /* const virtualScope = (yobj.frameType === YObject.PRIMITIVE)
-      ? yobj.parent
-      : yobj */
-    const val = this.evaluate(this.virtuals[property])
-    return (val instanceof EvaluationResult) ? val.value : val
+    return newVal // the caller currently decides whether to wrap this in a proxy, a scopeProxy, or unwrap the value
   }
 
   evaluate (compiledVirtual) {
@@ -88,13 +105,17 @@ class YObject {
       if (compiledVirtual.ast) {
         // appears to be a compiled angular expression; it expects a scope object (proxy)
         const result = compiledVirtual(this.scopeProxy)
+        if (result && result.__scope && result.__yobj.frameType === YObject.LIST) {
+          // it's an array proxy of scope proxies; just return it
+          return result
+        }
         // check for array return values, wrap them in a YList, and return a proxy
         if (Array.isArray(result) && !(this instanceof YReducerItem)) {
           return (new YList(result, this)).scopeProxy
         }
         // else check for proxied primitives we may need to unwrap
-        const t = result && result.__yobj && result.__yobj.frameType
-        if (t === YObject.PRIMITIVE) {
+        const frameType = result && result.__yobj && result.__yobj.frameType
+        if (frameType === YObject.PRIMITIVE) {
           return result.__yobj.bareValue
         }
         // else just return the value
@@ -210,15 +231,15 @@ class YObject {
     return thatScope.parent
   }
 
-  static pushObject (value, parent = null, virtuals = null) {
+  static pushObject (value, parent = null) {
     let obj = value.__value // in case it's a proxy
     if (!obj) {
       obj = (value instanceof YObject) ? value.value : value
     }
-    return new YObject(obj, parent, virtuals || ((value instanceof YObject) && value.virtuals))
+    return new YObject(obj, parent)
   }
 
-  static pushList (iterable, parent, virtuals = null) {
+  static pushList (iterable, parent) {
     let array
     if (iterable && iterable.__yobj) { // it's a list proxy (result of evaluating an expression)
       if (iterable.__yobj.parent === parent) { // it already has the correct/desired context
@@ -237,7 +258,7 @@ class YObject {
         array = iterable.value
       }
     }
-    return new YList(array || iterable, parent, virtuals || ((iterable instanceof YList) && iterable.virtuals))
+    return new YList(array || iterable, parent)
   }
 
   static pushListItem (index0, parentList) {
@@ -286,23 +307,31 @@ YObject.LIST = 'list'
 module.exports = YObject
 
 class YList extends YObject {
-  constructor (iterable, parent, virtuals = null) {
-    super([], parent, virtuals)
-    this.punc = iterable ? iterable.punc : null
+  constructor (iterable, parent) {
     let array
     if (iterable) {
-      array = Array.isArray(iterable) ? iterable : Array.from(iterable) // we used to always make a copy of the array
-      // so we're not modifying the original, but that may no longer be necessary
+      array = Array.isArray(iterable) ? iterable : Array.from(iterable)
+      // we used to make a copy of the array always so as not to modify the original,
+      // but that may no longer be necessary
     } else {
       array = []
     }
-    // array may contain proxy objects; if so, extract raw values from proxies
-    this.value = array.map(element => (element && element.__yobj) ? element.__value : element) // raw objects
-    this.items = this.value.map((item, index0) => new YListItem(index0, this)) // array of YListItems
+    super(array, parent)
+    this.punc = iterable ? iterable.punc : null
+    // for YLists, items needs to be an array instead of an object:
+    this.items = this.indices.map(index0 => new YListItem(index0, this)) // array of YListItems
+  }
+
+  getListValue (index) {
+    return this.value[index]
+  }
+
+  getListItem (index) {
+    return this.items[index]
   }
 
   get indices () {
-    return indices(this.items.length)
+    return indices((this.value && this.value.length) || 0)
   }
 
   get proxy () {
@@ -318,21 +347,23 @@ class YList extends YObject {
 
 class YListItem extends YObject {
   constructor (index0, parentList) {
+    // this is either called from the YList constructor (directly)
+    // OR from the YReducerItem constructor, which is called from pushReducerItem.
     if (!parentList || !(parentList instanceof YList)) {
       throw new Error('List context expected')
     }
-    const element = parentList.value[index0]
+    const element = parentList.getListValue(index0)
     if (element instanceof YObject) {
       throw new Error('Unexpected YObject in list value')
     }
-    super(element, parentList, parentList._virtuals)
+    super(element, parentList)
     this.index0 = index0
-    // this.rresult = undefined // needed when a reducer is used on the list
   }
 
   get _parent () {
+    // _parent, in the scope of a list item, needs to return the scope proxy of the parent list's parent object.
+    // It must be a scope object (rather than a regular proxy object) so _index will be available on it (for nesting)
     return this.parent.parent && this.parent.parent.scopeProxy
-    // note: _parent needs to return a scopeProxy (rather than a regular proxy) so _index will be available on it
   }
 
   get index () {
@@ -370,6 +401,7 @@ class ProxyArrayHandler {
 
   get (/* target */ array, property, receiver /* proxy */) {
     switch (property) {
+      case '__scope': return this.scopeProxies
       case '__yobj': return this.ylist
       case '__value': return this.ylist.value
       case '_parent': return this.ylist._parent
@@ -401,16 +433,13 @@ class YObjectHandler {
       case '_parent': return yobj._parent // object proxy
       case 'toString': return (...args) => yobj.value.toString.apply(yobj.value, args)
       case 'valueOf': return () => yobj.value.valueOf()
-      case Symbol.toPrimitive: return (/* hint */) => {throw 'Symbol.toPrimitive'} // targetYObject.valueOf()
+      case Symbol.toPrimitive: return (/* hint */) => { throw 'Symbol.toPrimitive' } // targetYObject.valueOf()
       case Symbol.isConcatSpreadable: return yobj.valueType === 'array'
     } // else
     return this.getMember(yobj, property, receiver)
   }
 
   getMember (/* target */ yobj, property, receiver /* proxy */) {
-    if (yobj.hasVirtual(property)) {
-      return yobj.callVirtual(property)
-    } // else
     if (yobj.hasProperty(property)) {
       const prop = yobj.getProperty(property)
       if (prop instanceof YObject) {
@@ -428,9 +457,6 @@ class YObjectHandler {
     if (proxyMethodNames.includes(property)) {
       return true
     }
-    if (yobj.hasVirtual(property)) {
-      return true
-    } // else
     if (yobj.hasProperty(property)) {
       return true
     }
@@ -503,7 +529,7 @@ function isPrimitive (value) {
     case 'boolean':
       return true
     case 'object':
-      if (!value || (value.constructor && primitiveConstructors.includes(value.constructor))) {
+      if (value && value.constructor && primitiveConstructors.includes(value.constructor)) {
         return true
       }
   }

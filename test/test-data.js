@@ -1,38 +1,55 @@
 const yatte = require('../src/index')
 
-const Earth_Data = {
-  Planet: 'Earth',
-  Continents: [
-    { Name: 'Africa', SurfaceArea: 30370000, Lakes: ['Victoria', 'Tanganyika', 'Malawi', 'Turkana', 'Albert', 'Mweru'] },
-    { Name: 'Asia', SurfaceArea: 44579000, Lakes: ['Baikal', 'Balkhash', 'Taymyr', 'Issyk-Kul', 'Urmia', 'Qinghai'] },
-    { Name: 'Europe', SurfaceArea: 10180000, Lakes: ['Ladoga', 'Onega', 'Vänern', 'Saimaa', 'Peipus'] },
-    { Name: 'North America', SurfaceArea: 24709000, Lakes: ['Superior', 'Huron', 'Michigan', 'Great Bear', 'Great Slave'] },
-    { Name: 'South America', SurfaceArea: 17840000, Lakes: ['Titicaca', 'Junín', 'Sarococha', 'Poopó'] },
-    { Name: 'Antarctica', SurfaceArea: 14000000, Lakes: ['Vostok'] },
-    { Name: 'Australia/Oceania', SurfaceArea: 8600000, Lakes: ['Eyre', 'Torrens', 'Carnegie', 'Mackay', 'Frome'] },
-  ],
-  Oceans: [
-    { Name: 'Pacific', AverageDepth: 3970, Islands: ['New Guinea', 'Honshu', 'Sulawesi', 'Te Waipounamu'] },
-    { Name: 'Atlantic', AverageDepth: 3646, Islands: ['Greenland', 'Great Britain', 'Bahamas', 'Newfoundland'] },
-    { Name: 'Indian', AverageDepth: 3741, Islands: ['Sri Lanka', 'Madagascar', 'Comoros'] },
-    { Name: 'Southern', AverageDepth: 3270, Islands: ['Alexander', 'Berkner', 'Antipodes', 'Tierra del Fuego'] },
-    { Name: 'Arctic', AverageDepth: 1205, Islands: ['Kaffeklubben', 'Bjarnarey', 'Svalbard', 'Severnaya'] },
-  ],
-  Corners: ['North', 'East', 'South', 'West'],
+function simVirtuals (virtuals) {
+  for (let key in virtuals) {
+    let v = virtuals[key]
+    if (typeof v === 'function' && !v.ast) {
+      v.ast = true // add this property to the function so it looks like a compiled expression
+    }
+  }
+  return virtuals
 }
-Earth_Data.Continents._virtuals = {
+exports.simVirtuals = simVirtuals
+
+function makeObject (proto, obj) {
+  return Object.assign(Object.create(proto), obj)
+}
+exports.makeObject = makeObject
+
+const cont_proto = {
   Description: yatte.compileText('{[Name]} has at least {[LakeCount]} lakes across its {[Corners.length]} corners'),
   LakeCount: yatte.Engine.compileExpr('Lakes.length'),
 }
-Earth_Data.Oceans._virtuals = {
+const ocean_proto = {
   Description: yatte.compileText('The {[Name]} Ocean has at least {[IslandCount]} islands'),
   IslandCount: yatte.Engine.compileExpr('Islands.length'),
 }
-Earth_Data._virtuals = {
+const plan_proto = {
   Description: yatte.compileText('Planet {[Planet]} has {[Corners.length]} corners: {[list Corners|punc:"1, 2, and 3"]}some of its {[ContinentCount]} continents and {[OceanCount]} oceans are in the {[this]}{[endlist]}.'),
   ContinentCount: yatte.Engine.compileExpr('Continents.length'),
   OceanCount: yatte.Engine.compileExpr('Oceans.length'),
 }
+
+const Earth_Data = makeObject(plan_proto, {
+  Planet: 'Earth',
+  Continents: [
+    makeObject(cont_proto, { Name: 'Africa', SurfaceArea: 30370000, Lakes: ['Victoria', 'Tanganyika', 'Malawi', 'Turkana', 'Albert', 'Mweru'] }),
+    makeObject(cont_proto, { Name: 'Asia', SurfaceArea: 44579000, Lakes: ['Baikal', 'Balkhash', 'Taymyr', 'Issyk-Kul', 'Urmia', 'Qinghai'] }),
+    makeObject(cont_proto, { Name: 'Europe', SurfaceArea: 10180000, Lakes: ['Ladoga', 'Onega', 'Vänern', 'Saimaa', 'Peipus'] }),
+    makeObject(cont_proto, { Name: 'North America', SurfaceArea: 24709000, Lakes: ['Superior', 'Huron', 'Michigan', 'Great Bear', 'Great Slave'] }),
+    makeObject(cont_proto, { Name: 'South America', SurfaceArea: 17840000, Lakes: ['Titicaca', 'Junín', 'Sarococha', 'Poopó'] }),
+    makeObject(cont_proto, { Name: 'Antarctica', SurfaceArea: 14000000, Lakes: ['Vostok'] }),
+    makeObject(cont_proto, { Name: 'Australia/Oceania', SurfaceArea: 8600000, Lakes: ['Eyre', 'Torrens', 'Carnegie', 'Mackay', 'Frome'] }),
+  ],
+  Oceans: [
+    makeObject(ocean_proto, { Name: 'Pacific', AverageDepth: 3970, Islands: ['New Guinea', 'Honshu', 'Sulawesi', 'Te Waipounamu'] }),
+    makeObject(ocean_proto, { Name: 'Atlantic', AverageDepth: 3646, Islands: ['Greenland', 'Great Britain', 'Bahamas', 'Newfoundland'] }),
+    makeObject(ocean_proto, { Name: 'Indian', AverageDepth: 3741, Islands: ['Sri Lanka', 'Madagascar', 'Comoros'] }),
+    makeObject(ocean_proto, { Name: 'Southern', AverageDepth: 3270, Islands: ['Alexander', 'Berkner', 'Antipodes', 'Tierra del Fuego'] }),
+    makeObject(ocean_proto, { Name: 'Arctic', AverageDepth: 1205, Islands: ['Kaffeklubben', 'Bjarnarey', 'Svalbard', 'Severnaya'] }),
+  ],
+  Corners: ['North', 'East', 'South', 'West'],
+})
 exports.Earth_Data = Earth_Data
 
 const TV_Family_Data = {

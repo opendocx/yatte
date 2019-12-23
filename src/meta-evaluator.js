@@ -10,7 +10,7 @@ class MetaEvaluator {
       ? scope.__yobj
       : (scope instanceof Scope)
         ? scope
-        : Scope.pushObject(scope, null, scope._virtuals)
+        : Scope.pushObject(scope)
   }
 
   assemble (contentArray) {

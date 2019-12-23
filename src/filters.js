@@ -4,7 +4,7 @@ const numeral = require('numeral')
 const numWords = require('number-to-words-en')
 const base = require('./base-templater')
 const Scope = require('./yobj')
-const { AST, unEscapeQuotes } = require('./estree')
+const { unEscapeQuotes } = require('./estree')
 const deepEqual = require('fast-deep-equal')
 
 module.exports = expressions.filters
@@ -291,7 +291,7 @@ function Reduce (input, reducerStr, initValue = undefined) {
   // input should now be an array of scope proxy objects (or other plain objects or primitive values)
   const reducer = base.compileExpr(unEscapeQuotes(reducerStr))
   const yobj0 = input[0].__yobj
-  const list = Scope.pushList(input, yobj0 && yobj0.parent, yobj0 && yobj0.virtuals)
+  const list = Scope.pushList(input, yobj0 && yobj0.parent)
   const reduced = list.items.reduce(
     (result, itemFrame, index) => {
       if (index === 0 && initValue === undefined) {

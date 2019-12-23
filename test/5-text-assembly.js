@@ -114,40 +114,34 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble the (simple) full name template, then another template which uses that one', function () {
-    const fullName = '{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}'
-    const evaluator = yatte.compileText(fullName)
-    const data = {
+    const proto = {
+      FullName: yatte.compileText('{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}')
+    }
+    const data = TestData.makeObject(proto, {
       FirstName: 'John',
       MiddleName: 'Jacob',
       LastName: 'Smith'
-    }
-    const virtuals = {
-      FullName: evaluator
-    }
+    })
     const template2 = 'Who is {[FullName]}?'
-    const result = yatte.assembleText(template2, Scope.pushObject(data, null, virtuals))
+    const result = yatte.assembleText(template2, data)
     assert.equal(result, 'Who is John Jacob Smith?')
   })
 
   it('should assemble a template using local AND global contexts', function () {
-    const FullNameCompiled = yatte.compileText('{[First]} {[Middle ? Middle + " ":""]}{[Last]}')
-    let virtuals = {
-      FullName: FullNameCompiled
+    const proto = {
+      FullName: yatte.compileText('{[First]} {[Middle ? Middle + " ":""]}{[Last]}')
     }
     let data = Scope.pushObject(
-      {
+      TestData.makeObject(proto, {
         Last: 'Smith',
         First: 'Gerald'
-      },
-      null,
-      virtuals
+      })
     )
     data = Scope.pushObject(
-      {
+      TestData.makeObject(proto, {
         First: 'John'
-      },
-      data,
-      virtuals
+      }),
+      data
     )
     const template2 = 'Who is {[FullName]}?'
     const result = yatte.assembleText(template2, data)
@@ -248,21 +242,17 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble template based on nested objects with virtuals', function () {
-    const template = '{[SingleEntity.FullName]} is {[SingleEntityLength1]} characters long (yes {[SingleEntityLength2]})'
     const obj = {
       SingleEntity: {
         FirstName: "John",
         LastName: "Smith",
-        _virtuals: {
-          FullName: yatte.compileText('{[FirstName]} {[LastName]}')
-        }
+        FullName: yatte.compileText('{[FirstName]} {[LastName]}')
       },
-      _virtuals: {
-        SingleEntityLength1: yatte.Engine.compileExpr('SingleEntity.FirstName.length + SingleEntity.LastName.length + 1'),
-        SingleEntityLength2: yatte.Engine.compileExpr('SingleEntity.FullName.length'),
-      }
+      SingleEntityLength1: yatte.Engine.compileExpr('SingleEntity.FirstName.length + SingleEntity.LastName.length + 1'),
+      SingleEntityLength2: yatte.Engine.compileExpr('SingleEntity.FullName.length'),
     }
-    const scope = Scope.pushObject(obj, null, obj._virtuals)
+    const scope = Scope.pushObject(obj)
+    const template = '{[SingleEntity.FullName]} is {[SingleEntityLength1]} characters long (yes {[SingleEntityLength2]})'
     const result = yatte.assembleText(template, scope)
     assert.equal(result, 'John Smith is 10 characters long (yes 10)')
   })
@@ -274,15 +264,11 @@ describe('Assembly of text template via exported API', function () {
         FirstName: "John",
         LastName: "Smith",
         Children: ["Susan", "Margaret", "Edward"],
-        _virtuals: {
-          FullName: yatte.compileText('{[FirstName]} {[LastName]}')
-        }
+        FullName: yatte.compileText('{[FirstName]} {[LastName]}')
       },
-      _virtuals: {
-        ChildNames: yatte.Engine.compileExpr('SingleEntity.Children|map:this + " " + LastName'),
-      }
+      ChildNames: yatte.Engine.compileExpr('SingleEntity.Children|map:this + " " + LastName'),
     }
-    const scope = Scope.pushObject(obj, null, obj._virtuals)
+    const scope = Scope.pushObject(obj)
     const result = yatte.assembleText(template, scope)
     assert.equal(result, 'John Smith\'s children are Susan Smith, Margaret Smith and Edward Smith.')
   })

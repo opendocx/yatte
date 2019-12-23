@@ -1,6 +1,6 @@
 const Scope = require('../src/yobj')
 const Engine = require('../src/base-templater')
-const { Earth_Data } = require('./test-data')
+const { Earth_Data, simVirtuals, makeObject } = require('./test-data')
 const assert = require('assert')
 
 describe('Proper operation of the context stack', function () {
@@ -22,14 +22,28 @@ describe('Proper operation of the context stack', function () {
 
   it('should build and properly use a nested context stack', function () {
     //
-    const objContext = { a: 'global', t: [ 3, 1, 4, 1, 5, 9, 2, 6 ]}
-    const virtuals1 = { pi: function (obj) { return obj.t.reduce((prev, curr, idx) => prev + curr * Math.pow(10,-idx), 0)}}
-    const objLocals = { b: 'local', c: [{ d: 'one' }, { d: 'two' }, { d: 'three' }] }
-    const virtuals2 = { cpi: function (obj) { return (obj.c.length * obj.pi).toFixed(8) } }
-    const virtuals3 = { up: function (obj) { return obj.d.toUpperCase() } }
-    let stack = Scope.pushObject(objContext, null, virtuals1)
-    stack = Scope.pushObject(objLocals, stack, virtuals2)
-    stack = Scope.pushList(objLocals.c, stack, virtuals3)
+    const objContext = simVirtuals({
+      a: 'global',
+      t: [ 3, 1, 4, 1, 5, 9, 2, 6 ],
+      pi: function (obj) { return obj.t.reduce((prev, curr, idx) => prev + curr * Math.pow(10,-idx), 0) }
+    })
+    const lProto = simVirtuals({
+      cpi: function (obj) { return (obj.c.length * obj.pi).toFixed(8) }
+    })
+    const cProto = simVirtuals({
+      up: function (obj) { return obj.d.toUpperCase() }
+    })
+    const objLocals = makeObject(lProto, {
+      b: 'local',
+      c: [
+        makeObject(cProto, { d: 'one' }),
+        makeObject(cProto, { d: 'two' }),
+        makeObject(cProto, { d: 'three' })
+      ],
+    })
+    let stack = Scope.pushObject(objContext)
+    stack = Scope.pushObject(objLocals, stack)
+    stack = Scope.pushList(objLocals.c, stack)
     stack = Scope.pushListItem(1, stack)
     const evaluator = Engine.compileExpr('up + "." + b + "." + a + " + " + cpi')
     const value = stack.evaluate(evaluator)
@@ -45,15 +59,15 @@ describe('Proper operation of the context stack', function () {
   })
 
   it('should evaluate an expression against an object proxy', function () {
-    let stack = Scope.pushObject(Earth_Data, null, Earth_Data._virtuals)
+    let stack = Scope.pushObject(Earth_Data)
     let p = stack.proxy
     assert.strictEqual(p.ContinentCount, 7)
     assert.strictEqual(p._parent, null)
   })
 
   it('should evaluate an expression against a nested object proxy', function () {
-    let stack = Scope.pushObject(Earth_Data, null, Earth_Data._virtuals) // start on Earth
-    stack = Scope.pushList(Earth_Data.Continents, stack, Earth_Data.Continents._virtuals) // List Continents
+    let stack = Scope.pushObject(Earth_Data) // start on Earth
+    stack = Scope.pushList(Earth_Data.Continents, stack) // List Continents
     stack = Scope.pushListItem(3, stack) // we're on continent #4 (North America)
     let p = stack.proxy
     assert.strictEqual(p.SurfaceArea, 24709000) // property of North America

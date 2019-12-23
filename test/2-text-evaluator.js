@@ -124,6 +124,7 @@ describe('Assembling text templates', function () {
     const data = {
       Planet: 'Earth',
       Continents: ['Africa', 'Asia', 'Europe', 'North America', 'South America', 'Antarctica', 'Australia/Oceania'],
+      ContinentsWithU: yatte.Engine.compileExpr('Continents|filter:this.includes("u")'),
       Oceans: [
         { Name: 'Pacific', AverageDepth: 3970 },
         { Name: 'Atlantic', AverageDepth: 3646 },
@@ -133,10 +134,6 @@ describe('Assembling text templates', function () {
       ],
       IsHome: true,
       Lifeless: false,
-    }
-    //Object.defineProperty(data.Continents, 'WithU', { get: function () { return this.filter(item => item.includes('u')) } })
-    data._virtuals = {
-      ContinentsWithU: yatte.Engine.compileExpr('Continents|filter:this.includes("u")')
     }
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Continents containing u:\n\n * Europe\n * South America\n * Australia/Oceania\n')
