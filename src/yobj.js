@@ -14,7 +14,11 @@ class YObject {
     //   - an array of any of the above  (frameType=YObject.LIST)
     if (value && (value.__yobj || (value instanceof YObject))) throw new Error('Cannot nest a YObject inside another')
     if (parent) {
-      if (!(parent instanceof YObject)) throw new Error('Parent must be an instance of YObject')
+      if (typeof parent === 'function') {
+        // the function needs to return an instanceof YObject!
+      } else {
+        if (!(parent instanceof YObject)) throw new Error('Parent must be an instance of YObject')
+      }
     }
     this.parent = parent
     this.frameType = (isPrimitive(value) || value === null)
@@ -218,7 +222,8 @@ class YObject {
   }
 
   get _parent () {
-    return this.parent && this.parent.scopeProxy
+    const parent = (typeof this.parent === 'function') ? this.parent() : this.parent
+    return parent && parent.scopeProxy
     // note: _parent needs to return a scopeProxy (rather than a regular proxy) so _index will be available on it
   }
 
@@ -228,7 +233,7 @@ class YObject {
 
   static pop (thatScope) {
     if (YObject.empty(thatScope)) return null
-    return thatScope.parent
+    return (typeof thatScope.parent === 'function') ? thatScope.parent() : thatScope.parent
   }
 
   static pushObject (value, parent = null) {
@@ -262,7 +267,8 @@ class YObject {
   }
 
   static pushListItem (index0, parentList) {
-    return parentList.items[index0] // YListItems have already been created, we just return the existing ones
+    const parent = (typeof parentList === 'function') ? parentList() : parentList
+    return parent.items[index0] // YListItems have already been created, we just return the existing ones
   }
 
   static pushReducerItem (index0, parentList, result) {
@@ -322,10 +328,18 @@ class YList extends YObject {
     this.items = this.indices.map(index0 => new YListItem(index0, this)) // array of YListItems
   }
 
+  /**
+   * returns a plain value (no evaluation context)
+   * @param {number} index
+   */
   getListValue (index) {
     return this.value[index]
   }
 
+  /**
+   * returns a YListItem (value + evaluation context)
+   * @param {number} index
+   */
   getListItem (index) {
     return this.items[index]
   }
@@ -349,10 +363,11 @@ class YListItem extends YObject {
   constructor (index0, parentList) {
     // this is either called from the YList constructor (directly)
     // OR from the YReducerItem constructor, which is called from pushReducerItem.
-    if (!parentList || !(parentList instanceof YList)) {
+    if (!parentList || !((parentList instanceof YList) || (typeof parentList === 'function'))) {
       throw new Error('List context expected')
     }
-    const element = parentList.getListValue(index0)
+    const parent = (typeof parentList === 'function') ? parentList() : parentList
+    const element = parent.getListValue(index0)
     if (element instanceof YObject) {
       throw new Error('Unexpected YObject in list value')
     }
@@ -363,7 +378,9 @@ class YListItem extends YObject {
   get _parent () {
     // _parent, in the scope of a list item, needs to return the scope proxy of the parent list's parent object.
     // It must be a scope object (rather than a regular proxy object) so _index will be available on it (for nesting)
-    return this.parent.parent && this.parent.parent.scopeProxy
+    const parent = (typeof this.parent === 'function') ? this.parent() : this.parent
+    const grandParent = (typeof parent.parent === 'function') ? parent.parent() : parent.parent
+    return grandParent && grandParent.scopeProxy
   }
 
   get index () {
@@ -372,8 +389,9 @@ class YListItem extends YObject {
 
   get punc () {
     const index0 = this.index0
-    const lastItem = this.parent.value.length - 1
-    const punc = this.parent.punc
+    const parent = (typeof this.parent === 'function') ? this.parent() : this.parent
+    const lastItem = parent.value.length - 1
+    const punc = parent.punc
     return punc                     // if punctuation was specified
       ? (index0 === lastItem)       //   (then) if index0 is the last item
         ? punc.suffix               //     (then) get the list suffix (if any)
@@ -433,7 +451,7 @@ class YObjectHandler {
       case '_parent': return yobj._parent // object proxy
       case 'toString': return (...args) => yobj.value.toString.apply(yobj.value, args)
       case 'valueOf': return () => yobj.value.valueOf()
-      case Symbol.toPrimitive: return (/* hint */) => { throw 'Symbol.toPrimitive' } // targetYObject.valueOf()
+      case Symbol.toPrimitive: return (hint) => yobj[Symbol.toPrimitive](hint)
       case Symbol.isConcatSpreadable: return yobj.valueType === 'array'
     } // else
     return this.getMember(yobj, property, receiver)
@@ -495,6 +513,9 @@ class ScopeHandler extends YObjectHandler {
       }
       // else keep walking the stack...
       thisFrame = thisFrame.parent
+      if (typeof thisFrame === 'function') {
+        thisFrame = thisFrame()
+      }
     }
   }
 
@@ -510,6 +531,9 @@ class ScopeHandler extends YObjectHandler {
       }
       // else keep walking the stack...
       thisFrame = thisFrame.parent
+      if (typeof thisFrame === 'function') {
+        thisFrame = thisFrame()
+      }
     }
   }
 }

@@ -15,6 +15,18 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(parent.__value, sol)
   })
 
+  it('prelim: this._parent yields appropriate object (in object list with virtualized stack)', function () {
+    const sol = { star: 'Sol', planets: [{name: 'Mercury'}, {name: 'Venus'}, {name: 'Earth'}, {name: 'Mars'}] }
+    const context1 = Scope.pushObject(sol)
+    const link1 = () => context1
+    const context2 = Scope.pushList(sol.planets, link1)
+    const link2 = () => context2
+    const context3 = Scope.pushListItem(2, link2)
+    const compiled = yatte.Engine.compileExpr('this._parent')
+    const parent = context3.evaluate(compiled)
+    assert.strictEqual(parent.__value, sol)
+  })
+
   it('prelim: this._parent yields appropriate object (in primitive list)', function () {
     const sol = { star: 'Sol', planets: ['Mercury', 'Venus', 'Earth', 'Mars'] }
     let context = Scope.pushObject(sol)
@@ -99,6 +111,47 @@ describe('Executing expressions compiled via exported API', function () {
     const test2 = context.evaluate(compiled2)
     assert.strictEqual(test2.star, 'Sol')
     assert.strictEqual(test2.planets.length, 4)
+  })
+
+  it('prelim: _parent._parent yields appropriate object on virtualized stack', function () {
+    const sol = {
+      star: 'Sol',
+      planets: [
+        {name: 'Mercury'},
+        {name: 'Venus'},
+        {
+          name: 'Earth',
+          oceans: ['Atlantic', 'Pacific'],
+        },
+        {name: 'Mars'}
+      ]
+    }
+    let context1 = Scope.pushObject(sol)
+    let link1 = () => context1
+    let context2 = Scope.pushList(sol.planets, link1)
+    let link2 = () => context2
+    let context3 = Scope.pushListItem(2, link2)
+    let link3 = () => context3
+    let context4 = Scope.pushList(sol.planets[2].oceans, link3)
+    let link4 = () => context4
+    let context5 = Scope.pushListItem(1, link4)
+    const compiled1 = yatte.Engine.compileExpr('_parent._index')
+    const test1 = context5.evaluate(compiled1)
+    assert.strictEqual(test1, 3)
+    // add some data, which will result in a new Sol system but with the existing planets
+    const newSol = {
+      ...sol,
+      planets: [...sol.planets, {name: 'Jupiter'}],
+    }
+    assert.strictEqual(sol.planets[2], newSol.planets[2])
+    assert.notStrictEqual(sol.planets, newSol.planets)
+    context1 = Scope.pushObject(newSol)
+    context2 = Scope.pushList(newSol.planets, link1)
+    const compiled2 = yatte.Engine.compileExpr('_parent._parent')
+    const test2 = context5.evaluate(compiled2)
+    assert.strictEqual(test2.star, 'Sol')
+    assert.strictEqual(test2.planets[2].oceans.length, 2)
+    assert.strictEqual(test2.planets.length, 5)
   })
 
   it('should correctly categorize the outcomes of a conditional expression', function () {
