@@ -38,8 +38,13 @@ class YObject {
             this.value = value
           } else if (this.frameType === YObject.LIST) {
             this.valueType = 'array'
-            // array may contain proxy objects; if so, extract raw values from proxies
-            this.value = value.map(element => (element && element.__yobj) ? element.__value : element)
+            if (value && value.length > 0 && value[0] && value[0].__yobj) {
+              // the array contains proxy objects -- extract raw values from them
+              this.value = value.map(element => (element && element.__yobj) ? element.__value : element)
+              // (because items in the list will get a new context from the list & its parents)
+            } else {
+              this.value = value
+            }
           } else {
             // valueType is already correct
             this.value = value
@@ -67,7 +72,7 @@ class YObject {
     return this.value && (typeof this.value === 'object') && (property in this.value)
   }
 
-  getProperty (property) {
+  getProperty (property, curriedParent = undefined) {
     // a caller is fetching some property of the YObject. Check the items cache or the value object
     const val = this.items[property] || this.value[property]
     // if it's a primitive OR it's already a YObject cached in the items array, just return it
@@ -96,9 +101,9 @@ class YObject {
     // (original item still availabe in value/__value)
     let newVal
     if (YObject.isIterable(val)) {
-      newVal = new YList(val, this)
+      newVal = new YList(val, curriedParent || this)
     } else {
-      newVal = new YObject(val, this)
+      newVal = new YObject(val, curriedParent || this)
     }
     this.items[property] = newVal
     return newVal // the caller currently decides whether to wrap this in a proxy, a scopeProxy, or unwrap the value
@@ -267,8 +272,17 @@ class YObject {
   }
 
   static pushListItem (index0, parentList) {
-    const parent = (typeof parentList === 'function') ? parentList() : parentList
-    return parent.items[index0] // YListItems have already been created, we just return the existing ones
+    // YListItems have already been created, we just return the existing ones
+    if (typeof parentList === 'function') {
+      const parent = parentList()
+      const item = parent.items[index0]
+      // however, we fix up the parent reference if necessary
+      if (item.parent !== parentList) {
+        item.parent = parentList
+      }
+      return item
+    } // else
+    return parentList.items[index0]
   }
 
   static pushReducerItem (index0, parentList, result) {
