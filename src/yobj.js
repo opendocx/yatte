@@ -243,11 +243,20 @@ class YObject {
   }
 
   static pushObject (value, parent = null) {
-    let obj = value.__value // in case it's a proxy
-    if (!obj) {
-      obj = (value instanceof YObject) ? value.value : value
+    let yobj
+    if (parent) { // replace value's evaluation context (if it has any) with explicitly-supplied parent
+      let obj = value && value.__value // in case it's a proxy
+      if (!obj) {
+        obj = (value instanceof YObject) ? value.value : value
+      }
+      yobj = new YObject(obj, parent)
+    } else { // no parent passed in... so preserve value's parents (evaluation context) if available
+      yobj = value && value.__yobj
+      if (!yobj) {
+        yobj = (value instanceof YObject) ? value : new YObject(value)
+      }
     }
-    return new YObject(obj, parent)
+    return yobj
   }
 
   static pushList (iterable, parent) {
