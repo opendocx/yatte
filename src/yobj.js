@@ -38,7 +38,8 @@ class YObject {
             this.value = value
           } else if (this.frameType === YObject.LIST) {
             this.valueType = 'array'
-            if (value && value.length > 0 && value[0] && value[0].__yobj) {
+            const len = value && value.length
+            if (len && value[len - 1] && value[len - 1].__yobj) {
               // the array contains proxy objects -- extract raw values from them
               this.value = value.map(element => (element && element.__yobj) ? element.__value : element)
               // (because items in the list will get a new context from the list & its parents)
@@ -381,7 +382,10 @@ class YListItem extends YObject {
       throw new Error('List context expected')
     }
     const parent = (typeof parentList === 'function') ? parentList() : parentList
-    const element = parent.getListValue(index0)
+    let element = parent.getListValue(index0)
+    if (element && element.__yobj) { // oops, a proxy object made its way to here
+      element = element.__value // strip the proxy, as this list item will inherit new context from its parent
+    }
     if (element instanceof YObject) {
       throw new Error('Unexpected YObject in list value')
     }
