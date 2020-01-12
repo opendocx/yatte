@@ -2,6 +2,7 @@ const yatte = require('../src/index')
 const Scope = yatte.Scope
 const assert = require('assert')
 const TestData = require('./test-data')
+const CreateKeyedObject = TestData.createKeyedObject
 
 describe('Assembly of text template via exported API', function () {
 
@@ -287,14 +288,6 @@ describe('Assembly of text template via exported API', function () {
   })
 
 })
-
-function CreateKeyedObject(obj, keyPropName) {
-  let result = new String(obj[keyPropName])
-  for (const [k, v] of Object.entries(obj)) {
-    Object.defineProperty(result, k, { value: v })
-  }
-  return result
-}
 
 class Child {
   constructor (instance) {

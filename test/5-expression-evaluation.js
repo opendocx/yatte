@@ -1,7 +1,7 @@
 const yatte = require('../src/index')
 const Scope = require('../src/yobj')
 const assert = require('assert')
-const { TV_Family_Data } = require('./test-data')
+const { TV_Family_Data, createKeyedObject } = require('./test-data')
 
 describe('Executing expressions compiled via exported API', function () {
 
@@ -238,6 +238,68 @@ describe('Executing expressions compiled via exported API', function () {
     const scope = Scope.pushObject(data)
     const result = scope.evaluate(evaluator)
     assert.strictEqual(result, 'B')
+  })
+
+  it('allows fetching of hybrid objects (directly)', function () {
+    const evaluator = yatte.Engine.compileExpr('MyObject.NewYork')
+    const states = [
+      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
+      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
+      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
+      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+    ]
+    const data1 = Scope.pushObject({ states })
+    const data2 = Scope.pushObject({ MyObject: { NewYork: yatte.Engine.compileExpr('states[2]') } }, data1)
+    const result = evaluator(data2.scopeProxy)
+    assert.equal(result, 'New York')
+    assert.notStrictEqual(result, 'New York')
+  })
+
+  it('allows fetching of hybrid objects (indirectly)', function () {
+    const states = [
+      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
+      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
+      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
+      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+    ]
+    const data1 = Scope.pushObject({ states })
+    const evaluator1 = yatte.Engine.compileExpr('states|find:Name=="New York"')
+    const result1 = evaluator1(data1.scopeProxy)
+    const data2 = Scope.pushObject({ MyObject: { State: result1 } }, data1)
+    const evaluator2 = yatte.Engine.compileExpr('MyObject.State')
+    const result2 = evaluator2(data2.scopeProxy)
+    assert.equal(result2, 'New York')
+    assert.notStrictEqual(result2, 'New York')
+  })
+
+  it('allows fetching chained values from hybrid objects (directly)', function () {
+    const states = [
+      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
+      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
+      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
+      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+    ]
+    const data1 = Scope.pushObject({ states })
+    const data2 = Scope.pushObject({ MyObject: { Michigan: yatte.Engine.compileExpr('states[1]') } }, data1)
+    const evaluator = yatte.Engine.compileExpr('MyObject.Michigan.Abbreviation')
+    const result = evaluator(data2.scopeProxy)
+    assert.strictEqual(result, 'MI')
+  })
+
+  it('allows fetching chained values from hybrid objects (indirectly)', function () {
+    const states = [
+      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
+      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
+      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
+      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+    ]
+    const data1 = Scope.pushObject({ states })
+    const evaluator1 = yatte.Engine.compileExpr('states|find:Name=="Michigan"')
+    const result1 = evaluator1(data1.scopeProxy)
+    const data2 = Scope.pushObject({ MyObject: { State: result1 } }, data1)
+    const evaluator2 = yatte.Engine.compileExpr('MyObject.State.Abbreviation')
+    const result2 = evaluator2(data2.scopeProxy)
+    assert.strictEqual(result2, 'MI')
   })
 
   // it('correctly compiles & executes expressions using the flat() function', function () {

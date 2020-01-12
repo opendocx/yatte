@@ -115,7 +115,9 @@ class YObject {
       if (compiledVirtual.ast) {
         // appears to be a compiled angular expression; it expects a scope object (proxy)
         const result = compiledVirtual(this.scopeProxy)
-        if (result && result.__scope && result.__yobj.frameType === YObject.LIST) {
+        const yobj = result  && result.__scope && result.__yobj
+        const frameType = yobj && yobj.frameType
+        if (frameType === YObject.LIST) {
           // it's an array proxy of scope proxies; just return it
           return result
         }
@@ -124,9 +126,10 @@ class YObject {
           return (new YList(result, this)).scopeProxy
         }
         // else check for proxied primitives we may need to unwrap
-        const frameType = result && result.__yobj && result.__yobj.frameType
         if (frameType === YObject.PRIMITIVE) {
-          return result.__yobj.bareValue
+          return yobj.valueType === 'null'
+            ? yobj.bareValue // nothing else can be done with a null
+            : yobj.proxy // but we may still need to look up properties of other "hybrid" objects!
         }
         // else just return the value
         return result
@@ -485,9 +488,10 @@ class YObjectHandler {
   }
 
   getMember (/* target */ yobj, property, receiver /* proxy */) {
+    // always returns a proxy object, i.e., suitable for further evaluation
     if (yobj.hasProperty(property)) {
       const prop = yobj.getProperty(property)
-      if (prop instanceof YObject) {
+      if ((prop instanceof YObject) && !prop.__yobj) {
         if (prop instanceof YList) return prop.scopeProxy
         if (prop.frameType === 'primitive' || prop.valueType === 'function') return prop.value
         return prop.proxy

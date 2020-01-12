@@ -16,6 +16,15 @@ function makeObject (proto, obj) {
 }
 exports.makeObject = makeObject
 
+function createKeyedObject(obj, keyPropName) {
+  let result = new String(obj[keyPropName])
+  for (const [k, v] of Object.entries(obj)) {
+    Object.defineProperty(result, k, { value: v })
+  }
+  return result
+}
+exports.createKeyedObject = createKeyedObject
+
 const cont_proto = {
   Description: yatte.compileText('{[Name]} has at least {[LakeCount]} lakes across its {[Corners.length]} corners'),
   LakeCount: yatte.Engine.compileExpr('Lakes.length'),
