@@ -262,10 +262,28 @@ class YObject {
     return yobj
   }
 
+  static parentMatch (parent1, parent2) {
+    let match = parent1 === parent2
+    if (!match) {
+      if (typeof parent1 === 'function') {
+        parent1 = parent1()
+        match = parent1 === parent2
+      }
+      if (!match) {
+        if (typeof parent2 === 'function') {
+          parent2 = parent2()
+          match = parent1 === parent2
+        }
+      }
+    }
+    return match
+  }
+
   static pushList (iterable, parent) {
     let array
-    if (iterable && iterable.__yobj) { // it's a list proxy (result of evaluating an expression)
-      if (iterable.__yobj.parent === parent) { // it already has the correct/desired context
+    const yobj = iterable && iterable.__yobj
+    if (yobj) { // it's a list proxy (result of evaluating an expression)
+      if (YObject.parentMatch(yobj.parent, parent)) { // it already has the correct/desired context
         return iterable.__yobj // just go with what we've already got
       }
       // else
@@ -274,7 +292,7 @@ class YObject {
     }
     if (!array) {
       if (iterable instanceof YList) {
-        if (iterable.parent === parent) {
+        if (YObject.parentMatch(iterable.parent, parent)) {
           return iterable
         }
         console.log('pushList called with out-of-context list')
