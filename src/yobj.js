@@ -74,18 +74,19 @@ class YObject {
   }
 
   getProperty (property, curriedParent = undefined) {
-    // a caller is fetching some property of the YObject. Check the items cache or the value object
-    const val = this.items[property] || this.value[property]
-    // if it's a primitive OR it's already a YObject cached in the items array, just return it
-    if (
-      !val
-      || val instanceof YObject
-      || typeof val === 'string'
-      || typeof val === 'number'
-      || typeof val === 'boolean'
-      || val instanceof Date
-      // || val instanceof EvaluationResult
-    ) {
+    // a caller is fetching some property of the YObject. Check the items cache for child YObjects/YLists
+    let val = this.items[property]
+    if (val) {
+      return (val instanceof YList
+        ? val.scopeProxy
+        : val.proxy
+      )
+    } else {
+      // else get the value
+      val = this.value[property]
+    }
+    // if it's null or a primitive or a proxy, simply return it
+    if (!val || isPrimitive(val, false) || val.__value) {
       return val
     }
     // else check if it's a virtual, and if so, evaluate it
@@ -96,18 +97,19 @@ class YObject {
       }
       // I believe newVal, at this point, may be either a primitive or an object proxy
       return newVal
-      // note that the above returns a proxy, but below we return a YObject
     }
     // else create a YObject wrapper for the item, and cache it in items
     // (original item still availabe in value/__value)
-    let newVal
-    if (YObject.isIterable(val)) {
-      newVal = new YList(val, curriedParent || this)
-    } else {
-      newVal = new YObject(val, curriedParent || this)
-    }
+    const isList = YObject.isIterable(val)
+    const newVal = isList
+      ? new YList(val, curriedParent || this)
+      : new YObject(val, curriedParent || this)
     this.items[property] = newVal
-    return newVal // the caller currently decides whether to wrap this in a proxy, a scopeProxy, or unwrap the value
+    // always return a proxy object suitable for immediate evaluation
+    return (isList
+      ? newVal.scopeProxy
+      : newVal.proxy
+    )
   }
 
   evaluate (compiledVirtual) {
@@ -158,11 +160,19 @@ class YObject {
   }
 
   get proxy () {
-    return this._proxy || (this._proxy = new Proxy(this, yobjectHandler))
+    return (
+      this.valueType === 'function'
+        ? this.value
+        : this._proxy || (this._proxy = new Proxy(this, yobjectHandler))
+    )
   }
 
   get scopeProxy () {
-    return this._scopeProxy || (this._scopeProxy = new Proxy(this, scopeChainHandler))
+    return (
+      this.valueType === 'function'
+        ? this.value
+        : this._scopeProxy || (this._scopeProxy = new Proxy(this, scopeChainHandler))
+    )
   }
 
   static isTruthy (value) {
@@ -507,15 +517,9 @@ class YObjectHandler {
 
   getMember (/* target */ yobj, property, receiver /* proxy */) {
     // always returns a proxy object, i.e., suitable for further evaluation
-    if (yobj.hasProperty(property)) {
-      const prop = yobj.getProperty(property)
-      if ((prop instanceof YObject) && !prop.__yobj) {
-        if (prop instanceof YList) return prop.scopeProxy
-        if (prop.frameType === 'primitive' || prop.valueType === 'function') return prop.value
-        return prop.proxy
-      } // else
-      return prop
-    } // else
+    // if (yobj.hasProperty(property)) {
+    return yobj.getProperty(property)
+    // } // else
     // return undefined
   }
 
@@ -595,14 +599,18 @@ function indices (length) {
   return new Array(length).fill(undefined).map((value, index) => index)
 }
 
-function isPrimitive (value) {
+function isPrimitive (value, includeWrapped = true) {
   switch (typeof value) {
     case 'string':
     case 'number':
     case 'boolean':
       return true
     case 'object':
-      if (value && value.constructor && primitiveConstructors.includes(value.constructor)) {
+      if (includeWrapped) {
+        if (value && value.constructor && primitiveConstructors.includes(value.constructor)) {
+          return true
+        }
+      } else if (value && (value instanceof Date)) {
         return true
       }
   }
