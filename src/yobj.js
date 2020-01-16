@@ -258,6 +258,9 @@ class YObject {
   static pushObject (value, parent = null) {
     let yobj
     if (parent) { // replace value's evaluation context (if it has any) with explicitly-supplied parent
+      if (parent.__yobj) {
+        throw new Error('parent must not be a proxy')
+      }
       let obj = value && value.__value // in case it's a proxy
       if (!obj) {
         obj = (value instanceof YObject) ? value.value : value
@@ -290,6 +293,9 @@ class YObject {
   }
 
   static pushList (iterable, parent) {
+    if (parent && parent.__yobj) {
+      throw new Error('parent must be a YObject, not a proxy')
+    }
     let array
     const yobj = iterable && iterable.__yobj
     if (yobj) { // it's a list proxy (result of evaluating an expression)
@@ -316,6 +322,9 @@ class YObject {
     // YListItems have already been created, we just return the existing ones
     if (typeof parentList === 'function') {
       const parent = parentList()
+      if (parentList.__yobj) {
+        throw new Error('parentList must be a YList, not a proxy')
+      }
       const item = parent.items[index0]
       // however, we fix up the parent reference if necessary
       if (item.parent !== parentList) {
@@ -323,6 +332,9 @@ class YObject {
       }
       return item
     } // else
+    if (parentList.__yobj) {
+      throw new Error('parentList must be a YList, not a proxy')
+    }
     return parentList.items[index0]
   }
 
