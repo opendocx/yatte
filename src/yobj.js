@@ -74,22 +74,15 @@ class YObject {
   }
 
   getProperty (property, curriedParent = undefined) {
-    // a caller is fetching some property of the YObject. Check the items cache for child YObjects/YLists
-    let val = this.items[property]
-    if (val) {
-      return (val instanceof YList
-        ? val.scopeProxy
-        : val.proxy
-      )
-    } else {
-      // else get the value
-      val = this.value[property]
+    // a caller is fetching some property value of the YObject, typically during evaluation.
+    // first check for child YObjects
+    const yobj = this.getChildYObject(property, curriedParent)
+    if (yobj) {
+      return (yobj instanceof YList) ? yobj.scopeProxy : yobj.proxy
     }
-    // if it's null or a primitive or a proxy, simply return it
-    if (!val || isPrimitive(val, false) || val.__value) {
-      return val
-    }
-    // else check if it's a virtual, and if so, evaluate it
+    // else get the value
+    const val = this.value[property]
+    // check if it's a virtual, and if so, evaluate it
     if (typeof val === 'function' && (val.ast || val.logic)) {
       let newVal = this.evaluate(val)
       if (newVal instanceof EvaluationResult) {
@@ -98,18 +91,34 @@ class YObject {
       // I believe newVal, at this point, may be either a primitive or an object proxy
       return newVal
     }
-    // else create a YObject wrapper for the item, and cache it in items
+    // else just return it
+    return val
+  }
+
+  getChildYObject (property, curriedParent = undefined) {
+    // a caller is fetching the YObject for a child scope
+    let val = this.items[property]
+    if (val) { // we already have a cached YObject; return it
+      return val
+    }
+    // else get the value
+    val = this.value[property]
+    // if it's empty, a raw primitive or a function, return nothing
+    if (!val || isPrimitive(val, false) || (typeof val === 'function')) {
+      return
+    }
+    // if it's already a proxy, return its underlying YObject
+    let yobj = val.__yobj
+    if (yobj) {
+      return yobj
+    }
+    // create a YObject wrapper for the item, and cache it in items
     // (original item still availabe in value/__value)
-    const isList = YObject.isIterable(val)
-    const newVal = isList
+    yobj = YObject.isIterable(val)
       ? new YList(val, curriedParent || this)
       : new YObject(val, curriedParent || this)
-    this.items[property] = newVal
-    // always return a proxy object suitable for immediate evaluation
-    return (isList
-      ? newVal.scopeProxy
-      : newVal.proxy
-    )
+    this.items[property] = yobj
+    return yobj
   }
 
   evaluate (compiledVirtual) {
@@ -322,7 +331,7 @@ class YObject {
     // YListItems have already been created, we just return the existing ones
     if (typeof parentList === 'function') {
       const parent = parentList()
-      if (parentList.__yobj) {
+      if (parent.__yobj) {
         throw new Error('parentList must be a YList, not a proxy')
       }
       const item = parent.items[index0]
