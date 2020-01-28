@@ -302,6 +302,22 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(result2, 'MI')
   })
 
+  // it('throws when list filters have no arguments', function () {
+  //   const states = [
+  //     createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
+  //     createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
+  //     createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
+  //     createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+  //   ]
+  //   const scope = Scope.pushObject({ states })
+  //   const evaluator = yatte.Engine.compileExpr('states|any')
+  //   assert.throws(() => evaluator(scope.scopeProxy), // no argument on filter
+  //     {
+  //       name: 'Error',
+  //       message: 'Invalid argument passed to the Any filter: undefined'
+  //     })
+  // })
+
   // it('correctly compiles & executes expressions using the flat() function', function () {
   //   const evaluator = yatte.Engine.compileExpr('(Families | map: (Children | map: Name)).flat()') // .flat only works for Node 11 or later
   //   let stack = Scope.pushObject(TV_Family_Data)

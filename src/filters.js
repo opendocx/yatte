@@ -315,6 +315,14 @@ function callArrayFunc (func, array, predicateStr) {
   if (!Array.isArray(array) || !array.length || arguments.length < 2) {
     return array
   }
+  if (typeof predicateStr !== 'string') {
+    let filter = 'a list'
+    if (callArrayFunc.caller) {
+      filter = 'the ' + callArrayFunc.caller.name
+    }
+    console.log(`Invalid argument passed to ${filter} filter: ${predicateStr}`)
+    predicateStr = '' // we should probably throw an error here instead...
+  }
   const evaluator = base.compileExpr(unEscapeQuotes(predicateStr))
   // const justThis = evaluator.ast.type === AST.ThisExpression // no scope lookup necessary -- we just want raw value
   // predicateStr can refer to built-in properties _index, _index0, or _parent.

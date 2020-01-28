@@ -1,6 +1,6 @@
 {
   "name": "yatte",
-  "version": "1.4.0-beta.11",
+  "version": "1.4.0-beta.12",
   "description": "Yet Another Text Templating Engine",
   "files": [
     "/LICENSE",
@@ -38,7 +38,7 @@
     "standard": "^13.1.0"
   },
   "dependencies": {
-    "angular-expressions": "^1.0.0",
+    "angular-expressions": "1.0.0",
     "date-fns": "^2.7.0",
     "fast-deep-equal": "^2.0.1",
     "number-to-words-en": "^1.2.5",

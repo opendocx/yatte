@@ -1,6 +1,7 @@
 const yatte = require('../src/index')
 const assert = require('assert')
 const { TV_Family_Data } = require('./test-data')
+const AST = yatte.Engine.AST
 
 describe('Compiling expressions via exported API', function () {
   it('should reuse a compiled expression rather than re-compiling it', function () {
@@ -164,5 +165,21 @@ describe('Compiling expressions via exported API', function () {
         name: 'SyntaxError',
         message: 'Syntax Error: did you refer to a non-existant filter?\nName|UPPER'
       })
+  })
+
+  it('correctly serializes a simple AST as an expression', function () {
+    const evaluator = yatte.Engine.compileExpr('!test')
+    assert.deepStrictEqual(evaluator.ast, {
+      type: AST.UnaryExpression,
+      prefix: true,
+      operator: '!',
+      argument: {
+        type: AST.Identifier,
+        name: 'test',
+        constant: false
+      },
+      constant: false
+    })
+    assert.deepStrictEqual(evaluator.normalized, '!test')
   })
 })
