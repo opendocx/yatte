@@ -7,6 +7,10 @@ const Scope = require('./yobj')
 const { unEscapeQuotes } = require('./estree')
 const deepEqual = require('fast-deep-equal')
 
+if (dateFns.format.__esModule) {
+  dateFns.format = dateFns.format.default
+}
+
 module.exports = expressions.filters
 
 // define built-in filters
