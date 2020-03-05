@@ -302,6 +302,20 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(result2, 'MI')
   })
 
+  it('preserve child context when fetching a list from a parent context for evaluation', function () {
+    const states = [
+      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
+      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
+      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
+      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+    ]
+    const data1 = Scope.pushObject({ states })
+    const data2 = Scope.pushObject({ State: 'Michigan' }, data1)
+    const evaluator = yatte.Engine.compileExpr('states|filter:Name==State')
+    const result = evaluator(data2.scopeProxy)
+    assert.strictEqual(result.length, 1)
+  })
+
   // it('throws when list filters have no arguments', function () {
   //   const states = [
   //     createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),

@@ -69,6 +69,20 @@ class YObject {
     this._scopeProxy = undefined
   }
 
+  hasParent (yobj) {
+    let thisFrame = this.parent
+    if (typeof thisFrame === 'function') {
+      thisFrame = thisFrame()
+    }
+    while (thisFrame && (thisFrame !== yobj)) {
+      thisFrame = thisFrame.parent
+      if (typeof thisFrame === 'function') {
+        thisFrame = thisFrame()
+      }
+    }
+    return thisFrame === yobj
+  }
+
   hasProperty (property) {
     return this.value && (typeof this.value === 'object') && (property in this.value)
   }
@@ -583,7 +597,22 @@ class ScopeHandler extends YObjectHandler {
     let thisFrame = yobj
     while (thisFrame) {
       if (super.has(thisFrame, property)) {
-        return super.getMember(thisFrame, property, receiver)
+        const member = super.getMember(thisFrame, property, receiver)
+        if (member) {
+          const yo = member.__yobj
+          if (yo) {
+            // we need to return its value, but retain the full, originial context
+            // check if the context we need (yobj) is already part of member's context!
+            if (!yo.hasParent(yobj)) {
+              if (yo instanceof YList) {
+                return (new YList(yo.value, yobj)).scopeProxy
+              } else {
+                return (new YObject(yo.value, yobj)).scopeProxy
+              }
+            }
+          }
+        }
+        return member
       }
       // else keep walking the stack...
       thisFrame = thisFrame.parent
