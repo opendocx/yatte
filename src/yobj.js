@@ -161,7 +161,8 @@ class YObject {
       } // else
       if (compiledVirtual.logic) {
         // appears to be a compiled template; it expects a scope frame (not a proxy)
-        return compiledVirtual(this).valueOf()
+        const result = compiledVirtual(this)
+        return result && result.valueOf()
       } // else
       return compiledVirtual(this.scopeProxy)
     }
@@ -250,7 +251,7 @@ class YObject {
   }
 
   valueOf () {
-    return this.value.valueOf()
+    return this.value && this.value.valueOf()
   }
 
   get bareValue () { // for "unwrapping" wrapped primitives. Differs from valueOf in handling of dates.
@@ -258,7 +259,7 @@ class YObject {
       case 'string':
       case 'number':
       case 'boolean':
-        return this.value.valueOf()
+        return this.value && this.value.valueOf()
     }
     return this.value
   }
@@ -543,7 +544,7 @@ class YObjectHandler {
       case '__value': return yobj.value // raw value
       case '_parent': return yobj._parent // object proxy
       case 'toString': return (...args) => yobj.value.toString.apply(yobj.value, args)
-      case 'valueOf': return () => yobj.value.valueOf()
+      case 'valueOf': return () => yobj.value && yobj.value.valueOf()
       case Symbol.toPrimitive: return (hint) => yobj[Symbol.toPrimitive](hint)
       case Symbol.isConcatSpreadable: return yobj.valueType === 'array'
     } // else
@@ -589,7 +590,7 @@ class ScopeHandler extends YObjectHandler {
       case '_punc': return yobj.punc
       case '_result': return yobj.result
       case 'toString': return (...args) => yobj.value.toString.apply(yobj.value, args)
-      case 'valueOf': return () => yobj.value.valueOf()
+      case 'valueOf': return () => yobj.value && yobj.value.valueOf()
       case Symbol.toPrimitive: return (hint) => yobj[Symbol.toPrimitive](hint)
       case Symbol.isConcatSpreadable: return yobj.valueType === 'array'
     }
