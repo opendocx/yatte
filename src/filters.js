@@ -267,9 +267,14 @@ function Group (input, groupStr) {
       // lScope = Scope.pushListItem(index, lScope)
       /* const key = lScope.evaluate(evaluator).toString() */
       const yobj = itemScopeProxy && itemScopeProxy.__yobj
-      const key = yobj
-        ? yobj.evaluate(evaluator) // includes correct handling of primitive values, etc.
+      let key = yobj
+        ? yobj.evaluate(evaluator)
         : evaluator(itemScopeProxy) // just evaluate item directly
+      const keyobj = key && key.__yobj // check if the key is a proxy
+      if (keyobj) { // if so, get the underlying value
+        key = keyobj.bareValue
+      }
+      key = key && key.valueOf() // ensure wrapped primitives and dates are unwrapped too
       let bucket = result.find(b => b._key === key)
       if (!bucket) {
         bucket = { _key: key, _values: [] }

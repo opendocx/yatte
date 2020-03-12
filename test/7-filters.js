@@ -158,6 +158,42 @@ describe('contains filter', function () {
   // array of wrapped primitive string contains object???
 })
 
+// for purposes of the group filter's _key, wrapped strings must be simplified, so include wrapped strings...
+const surnameData = {
+  surnames: [
+    'Jones',
+    'McGillicutty',
+    'Jones',
+    new String('Jones'),
+    'Smith',
+    new String('Jones'),
+    'Smith',
+    'Johnson'
+  ]
+}
+// give one of the string objects a property (to test whether it is correctly ignored)
+surnameData.surnames[5].firstName = 'Ken'
+
+describe('group filter', function () {
+  it('groups a list of strings', function () {
+    const evaluator = yatte.Engine.compileExpr('surnames|group:this')
+    const value = evaluator(surnameData)
+    const v = surnameData.surnames
+    assert.deepEqual(value, [
+      { _key: 'Jones',        _values: [v[0], v[2], v[3], v[5]] },
+      { _key: 'McGillicutty', _values: [v[1]] },
+      { _key: 'Smith',        _values: [v[4], v[6]] },
+      { _key: 'Johnson',      _values: [v[7]] },
+    ])
+  })
+
+  it('simplifies a list of strings to unique values and alphabetizes them', function () {
+    const evaluator = yatte.Engine.compileExpr('surnames|group:this|map:_key|sort:this')
+    const value = evaluator(surnameData)
+    assert.deepEqual(value, ['Johnson', 'Jones', 'McGillicutty', 'Smith'])
+  })
+})
+
 describe('reduce filter', function () {
   it('sums a series of numbers (no initial value)', function () {
     const evaluator = yatte.Engine.compileExpr('array|reduce:_result+this')
