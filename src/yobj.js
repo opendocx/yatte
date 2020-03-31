@@ -83,6 +83,14 @@ class YObject {
     return thisFrame === yobj
   }
 
+  getParent () {
+    return (typeof this.parent === 'function') ? this.parent() : this.parent
+  }
+
+  getParentEffective () {
+    return this.getParent()
+  }
+
   hasProperty (property) {
     return this.value && (typeof this.value === 'object') && (property in this.value)
   }
@@ -265,7 +273,7 @@ class YObject {
   }
 
   get _parent () {
-    const parent = (typeof this.parent === 'function') ? this.parent() : this.parent
+    const parent = this.getParentEffective()
     return parent && parent.scopeProxy
     // note: _parent needs to return a scopeProxy (rather than a regular proxy) so _index will be available on it
   }
@@ -276,7 +284,7 @@ class YObject {
 
   static pop (thatScope) {
     if (YObject.empty(thatScope)) return null
-    return (typeof thatScope.parent === 'function') ? thatScope.parent() : thatScope.parent
+    return thatScope.getParent()
   }
 
   static pushObject (value, parent = null) {
@@ -469,12 +477,9 @@ class YListItem extends YObject {
     this.index0 = index0
   }
 
-  get _parent () {
-    // _parent, in the scope of a list item, needs to return the scope proxy of the parent list's parent object.
-    // It must be a scope object (rather than a regular proxy object) so _index will be available on it (for nesting)
-    const parent = (typeof this.parent === 'function') ? this.parent() : this.parent
-    const grandParent = (typeof parent.parent === 'function') ? parent.parent() : parent.parent
-    return grandParent && grandParent.scopeProxy
+  getParentEffective () {
+    // A list item's "effective" parent is the parent list's parent.
+    return this.getParent().getParent()
   }
 
   get index () {
@@ -483,7 +488,7 @@ class YListItem extends YObject {
 
   get punc () {
     const index0 = this.index0
-    const parent = (typeof this.parent === 'function') ? this.parent() : this.parent
+    const parent = this.getParent()
     const lastItem = parent.value.length - 1
     const punc = parent.punc
     return punc                     // if punctuation was specified
