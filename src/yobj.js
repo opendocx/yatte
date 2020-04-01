@@ -70,15 +70,9 @@ class YObject {
   }
 
   hasParent (yobj) {
-    let thisFrame = this.parent
-    if (typeof thisFrame === 'function') {
-      thisFrame = thisFrame()
-    }
+    let thisFrame = this.getParent()
     while (thisFrame && (thisFrame !== yobj)) {
-      thisFrame = thisFrame.parent
-      if (typeof thisFrame === 'function') {
-        thisFrame = thisFrame()
-      }
+      thisFrame = thisFrame.getParent()
     }
     return thisFrame === yobj
   }
@@ -307,32 +301,16 @@ class YObject {
     return yobj
   }
 
-  static parentMatch (parent1, parent2) {
-    let match = parent1 === parent2
-    if (!match) {
-      if (typeof parent1 === 'function') {
-        parent1 = parent1()
-        match = parent1 === parent2
-      }
-      if (!match) {
-        if (typeof parent2 === 'function') {
-          parent2 = parent2()
-          match = parent1 === parent2
-        }
-      }
-    }
-    return match
-  }
-
   static pushList (iterable, parent) {
     if (parent && parent.__yobj) {
       throw new Error('parent must be a YObject, not a proxy')
     }
     let array
+    const parentObj = (typeof parent === 'function') ? parent() : parent
     const yobj = iterable && iterable.__yobj
     if (yobj) { // it's a list proxy (result of evaluating an expression)
-      if (YObject.parentMatch(yobj.parent, parent)) { // it already has the correct/desired context
-        return iterable.__yobj // just go with what we've already got
+      if (yobj.getParent() === parentObj) { // it already has the correct/desired context
+        return yobj // just go with what we've already got
       }
       // else
       console.log('pushList called with out-of-context proxy')
@@ -340,7 +318,7 @@ class YObject {
     }
     if (!array) {
       if (iterable instanceof YList) {
-        if (YObject.parentMatch(iterable.parent, parent)) {
+        if (iterable.getParent() === parentObj) {
           return iterable
         }
         console.log('pushList called with out-of-context list')
@@ -353,11 +331,11 @@ class YObject {
   static pushListItem (index0, parentList) {
     // YListItems have already been created, we just return the existing ones
     if (typeof parentList === 'function') {
-      const parent = parentList()
-      if (parent.__yobj) {
+      const parentObj = parentList()
+      if (parentObj.__yobj) {
         throw new Error('parentList must be a YList, not a proxy')
       }
-      const item = parent.items[index0]
+      const item = parentObj.items[index0]
       // however, we fix up the parent reference if necessary
       if (item.parent !== parentList) {
         item.parent = parentList
@@ -621,10 +599,7 @@ class ScopeHandler extends YObjectHandler {
         return member
       }
       // else keep walking the stack...
-      thisFrame = thisFrame.parent
-      if (typeof thisFrame === 'function') {
-        thisFrame = thisFrame()
-      }
+      thisFrame = thisFrame.getParent()
     }
   }
 
@@ -639,10 +614,7 @@ class ScopeHandler extends YObjectHandler {
         return true
       }
       // else keep walking the stack...
-      thisFrame = thisFrame.parent
-      if (typeof thisFrame === 'function') {
-        thisFrame = thisFrame()
-      }
+      thisFrame = thisFrame.getParent()
     }
   }
 }
