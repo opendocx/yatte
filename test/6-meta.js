@@ -1,5 +1,4 @@
 const yatte = require('../src/index')
-//const yatte = require('../lib/yatte.min')
 const assert = require('assert')
 
 describe('Assembly of meta template via exported API', function () {
@@ -24,18 +23,18 @@ describe('Assembly of meta template via exported API', function () {
         }
       ]
     }
-    const result = yatte.assembleMeta(metaTemplate, data, null)
+    const result = yatte.assembleMeta(metaTemplate, data)
     assert(typeof result === 'object')
     assert(typeof result.value === 'object')
     assert.strictEqual(result.value.type, 'Program')
     assert(Array.isArray(result.value.body))
     assert.strictEqual(result.value.body.length, 6)
+
     assert.deepStrictEqual(result.value.body[0], {
       type: 'ExpressionStatement',
       expression: { type: 'Identifier', name: 'ident1', constant: false },
       text: 'ident1',
-      scope: data,
-      locals: null
+      data: result.value.body[0].data
     })
     assert.deepStrictEqual(result.value.body[1], {
       type: 'ExpressionStatement',
@@ -47,36 +46,31 @@ describe('Assembly of meta template via exported API', function () {
         constant: false
       },
       text: 'ident2.ident3',
-      scope: data,
-      locals: null
+      data: result.value.body[0].data
     })
     assert.deepStrictEqual(result.value.body[2], {
       type: 'ExpressionStatement',
       expression: { type: 'Identifier', name: 'ident4', constant: false },
       text: 'ident4',
-      scope: data,
-      locals: null
+      data: result.value.body[0].data
     })
     assert.deepStrictEqual(result.value.body[3], {
       type: 'ExpressionStatement',
       expression: { type: 'Identifier', name: 'ident6', constant: false },
       text: 'ident6',
-      scope: data,
-      locals: null
+      data: result.value.body[0].data
     })
     assert.deepStrictEqual(result.value.body[4], {
       type: 'ExpressionStatement',
       expression: { type: 'Identifier', name: 'ident7', constant: false },
       text: 'ident7',
-      scope: data,
-      locals: data.z[0]
+      data: result.value.body[4].data
     })
     assert.deepStrictEqual(result.value.body[5], {
       type: 'ExpressionStatement',
       expression: { type: 'Identifier', name: 'ident7', constant: false },
       text: 'ident7',
-      scope: data,
-      locals: data.z[1]
+      data: result.value.body[5].data
     })
   })
 })

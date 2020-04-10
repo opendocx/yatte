@@ -451,7 +451,7 @@ describe('Parsing and normalization of list filters', function () {
     assert.deepStrictEqual(compiled, [
       {
         type: 'List',
-        expr: 'Oceans|filter:this:"AverageDepth>3500"',
+        expr: 'Oceans|filter:"AverageDepth>3500"',
         exprAst: {
           type: 'ListFilterExpression',
           rtl: false,

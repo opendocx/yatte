@@ -1,7 +1,8 @@
 const yatte = require('../src/index')
-//const yatte = require('../lib/yatte.min')
+const Scope = yatte.Scope
 const assert = require('assert')
 const TestData = require('./test-data')
+const CreateKeyedObject = TestData.createKeyedObject
 
 describe('Assembly of text template via exported API', function () {
 
@@ -114,17 +115,13 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble the (simple) full name template, then another template which uses that one', function () {
-    const fullName = '{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}'
-    const evaluator = yatte.compileText(fullName)
-    const data = {
+    const proto = {
+      FullName: yatte.compileText('{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}')
+    }
+    const data = TestData.makeObject(proto, {
       FirstName: 'John',
       MiddleName: 'Jacob',
       LastName: 'Smith'
-    }
-    Object.defineProperty(data, 'FullName', {
-      get () {
-        return evaluator(this)
-      }
     })
     const template2 = 'Who is {[FullName]}?'
     const result = yatte.assembleText(template2, data)
@@ -132,22 +129,23 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble a template using local AND global contexts', function () {
-    const fullName = '{[First]} {[Middle ? Middle + " ":""]}{[Last]}'
-    const evaluator = yatte.compileText(fullName)
-    const data = {
-      Last: 'Smith',
-      First: 'Gerald'
+    const proto = {
+      FullName: yatte.compileText('{[First]} {[Middle ? Middle + " ":""]}{[Last]}')
     }
-    const localData = {
-      First: 'John'
-    }
-    Object.defineProperty(data, 'FullName', {
-      get () {
-        return evaluator(data, localData)
-      }
-    })
+    let data = Scope.pushObject(
+      TestData.makeObject(proto, {
+        Last: 'Smith',
+        First: 'Gerald'
+      })
+    )
+    data = Scope.pushObject(
+      TestData.makeObject(proto, {
+        First: 'John'
+      }),
+      data
+    )
     const template2 = 'Who is {[FullName]}?'
-    const result = yatte.assembleText(template2, data, localData)
+    const result = yatte.assembleText(template2, data)
     assert.equal(result, 'Who is John Smith?')
   })
 
@@ -163,73 +161,145 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'My favorite colors are Red, Yellow and Blue.')
   })
 
+  it('should assemble a list based on an array of keyed objects with conditionals', function () {
+    const template = 'My favorite colors are {[list Colors|punc:"1, 2 and 3"]}{[if _index==3]}(lastly) {[endif]}{[Description]}{[if this == "RGB(255,0,0)"]} (of course){[endif]}{[endlist]}.'
+    const evaluator = yatte.compileText(template)
+    const data = { Colors: [] }
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(255,0,0)', Description: 'Red'}, 'Name'))
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(255,255,0)', Description: 'Yellow'}, 'Name'))
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(0,0,255)', Description: 'Blue'}, 'Name'))
+
+    const result = evaluator(data)
+    assert.equal(result, 'My favorite colors are Red (of course), Yellow and (lastly) Blue.')
+  })
+
   it('should assemble object list that explicitly refers to _parent', function () {
     const template = '{[list items|punc:"1, 2"]}{[FieldName]} plus {[_parent.FieldName]}{[endlist]}.'
     const data = {
       FieldName: "ZERO",
       items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" } ]
     }
-    const result = yatte.assembleText(template, data).value
+    const result = yatte.assembleText(template, data)
     assert.equal(result, 'ONE plus ZERO, TWO plus ZERO, THREE plus ZERO.')
   })
 
   it('should assemble primitive list that filters on _index0', function () {
     const template = 'The first item is {[Names[0]]}, followed by {[list Names|filter:_index0>0|punc:"1, 2, and 3"]}{[this]}{[endlist]}.'
     const data = { Names: [ 'ONE', 'TWO', 'THREE', 'FOUR' ] }
-    const result = yatte.assembleText(template, data).value
+    const result = yatte.assembleText(template, data)
     assert.equal(result, 'The first item is ONE, followed by TWO, THREE, and FOUR.')
   })
 
   it('should assemble object lists that filter on _index and .length', function () {
     const template = '{[list items|filter:_index == 1]}The first item is {[FieldName]}{[endlist]}{[list items|filter:_index > 1 && _index < items.length]}, followed by {[FieldName]}{[endlist]}{[if items.length > 1]}, and lastly {[items[items.length-1].FieldName]}{[endif]}.'
     const data = { items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" }, { FieldName: "FOUR" } ] }
-    const result = yatte.assembleText(template, data).value
+    const result = yatte.assembleText(template, data)
     assert.equal(result, 'The first item is ONE, followed by TWO, followed by THREE, and lastly FOUR.')
   })
 
   it('should assemble LOCAL object lists that filter on _index and .length', function () {
     const template = '{[list items|filter:_index == 1]}The first item is {[FieldName]}{[endlist]}{[list items|filter:_index > 1 && _index < items.length]}, followed by {[FieldName]}{[endlist]}{[if items.length > 1]}, and lastly {[items[items.length-1].FieldName]}{[endif]}.'
-    const global = { neverMind: true }
-    const data = { items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" }, { FieldName: "FOUR" } ] }
-    const result = yatte.assembleText(template, global, data).value
+    let data = Scope.pushObject({ neverMind: true })
+    data = Scope.pushObject({ items: [ { FieldName: "ONE" }, { FieldName: "TWO" }, { FieldName: "THREE" }, { FieldName: "FOUR" } ] }, data)
+    const result = yatte.assembleText(template, data)
     assert.equal(result, 'The first item is ONE, followed by TWO, followed by THREE, and lastly FOUR.')
+  })
+
+  it('should assemble a template without any data', function () {
+    const template = '{[list items|filter:_index == 1]}The first item is {[FieldName]}{[endlist]}{[list items|filter:_index > 1 && _index < items.length]}, followed by {[FieldName]}{[endlist]}{[if items.length > 1]}, and lastly {[items[items.length-1].FieldName]}{[endif]}.'
+    const result = yatte.assembleText(template, {})
+    assert.equal(result, '.')
   })
 
   it('should assemble object lists that filter on an item in the list', function () {
     const template = '{[list children | filter: Age >= 18 | punc:"1, 2"]}{[Name]}{[endlist]}'
-    const global = { neverMind: true }
-    const data = { children: [ { Name: "John", Age: 20 }, { Name: "Mary", Age: 18 }, { Name: "Carl", Age: 16 } ] }
-    const result = yatte.assembleText(template, global, data).value
+    let data = Scope.pushObject({ neverMind: true })
+    data = Scope.pushObject({ children: [ { Name: "John", Age: 20 }, { Name: "Mary", Age: 18 }, { Name: "Carl", Age: 16 } ] }, data)
+    const result = yatte.assembleText(template, data)
     assert.equal(result, 'John, Mary')
 
     const template2 = '{[list children | filter: Age < 18 | punc:"1, 2"]}{[Name]}{[endlist]}'
-    const result2 = yatte.assembleText(template2, global, data).value
+    const result2 = yatte.assembleText(template2, data)
     assert.equal(result2, 'Carl')
   })
 
   it('should assemble object lists that filter on a computed value', function () {
-    const template = '{[list Children|filter:Birthdate<=Date.parse("01/01/1960")]}{[Name]} was born on {[Birthdate|format:"MM/DD/YYYY"]}.\n{[endlist]}'
-    const global = { Date }
-    const result = yatte.assembleText(template, global, TestData.TV_Family_Data.Families[0]).value
+    const template = '{[list Children|filter:Birthdate<=Date.parse("01/01/1960")]}{[Name]} was born on {[Birthdate|format:"MM/dd/yyyy"]}.\n{[endlist]}'
+    let scope = Scope.pushObject({ Date })
+    scope = Scope.pushObject(TestData.TV_Family_Data.Families[0], scope)
+    const result = yatte.assembleText(template, scope)
     assert.equal(result, 'Greg was born on 09/30/1954.\nMarcia was born on 08/05/1956.\nPeter was born on 11/07/1957.\nJan was born on 04/29/1958.\n')
   })
 
   it('should assemble object lists that filter on a computed value (2)', function () {
-    const template = '{[list Children|filter:Age<60]}{[Name]} was born on {[Birthdate|format:"MM/DD/YYYY"]}.\n{[endlist]}'
-    const global = { neverMind: true }
-    const result = yatte.assembleText(template, global, { Children: TestData.TV_Family_Data.Families[0].Children.map(c => new Child(c)) }).value
+    const template = '{[list Children|filter:Age<60]}{[Name]} was born on {[Birthdate|format:"MM/dd/yyyy"]}.\n{[endlist]}'
+    let data = Scope.pushObject({ neverMind: true })
+    let children = TestData.TV_Family_Data.Families[0].Children
+    data = Scope.pushObject({ Children: children.map(c => new Child(c)) }, data)
+    const result = yatte.assembleText(template, data)
     assert.equal(result, 'Bobby was born on 12/19/1960.\nCindy was born on 08/14/1961.\n')
   })
 
-})
+  it('should assemble template based on nested objects', function () {
+    const template = '{[B.B2.B52]} is {[B.B2.B52.length]} characters long'
+    const global = Scope.pushObject(nested_object)
+    const result = yatte.assembleText(template, global)
+    assert.equal(result, 'awesome is 7 characters long')
+  })
 
-function CreateKeyedObject(obj, keyPropName) {
-  let result = new String(obj[keyPropName])
-  for (const [k, v] of Object.entries(obj)) {
-    Object.defineProperty(result, k, { value: v })
-  }
-  return result
-}
+  it('should assemble references to _index, _parent, and _parent._index', function () {
+    const template = '{[list D]}{[list D3]}{[_parent.D1]}\'s D3 no. {[_index]} is {[d4]} ({[_parent._index]}.{[_index]})\n{[endlist]}{[endlist]}'
+    const global = Scope.pushObject(nested_object)
+    const result = yatte.assembleText(template, global)
+    assert.equal(result, 'd1\'s D3 no. 1 is d3-0 (1.1)\nd1\'s D3 no. 2 is d3-1 (1.2)\nd1\'s D3 no. 3 is d3-2 (1.3)\nd3\'s D3 no. 1 is d5-0 (2.1)\nd3\'s D3 no. 2 is d5-1 (2.2)\n')
+  })
+
+  it('should assemble template based on nested objects with virtuals', function () {
+    const obj = {
+      SingleEntity: {
+        FirstName: "John",
+        LastName: "Smith",
+        FullName: yatte.compileText('{[FirstName]} {[LastName]}')
+      },
+      SingleEntityLength1: yatte.Engine.compileExpr('SingleEntity.FirstName.length + SingleEntity.LastName.length + 1'),
+      SingleEntityLength2: yatte.Engine.compileExpr('SingleEntity.FullName.length'),
+    }
+    const scope = Scope.pushObject(obj)
+    const template = '{[SingleEntity.FullName]} is {[SingleEntityLength1]} characters long (yes {[SingleEntityLength2]})'
+    const result = yatte.assembleText(template, scope)
+    assert.equal(result, 'John Smith is 10 characters long (yes 10)')
+  })
+
+  it('should assemble template based on nested objects with primitive lists', function () {
+    const template = '{[SingleEntity.FullName]}\'s children are {[list ChildNames|punc:"1, 2 and 3"]}{[this]}{[endlist]}.'
+    const obj = {
+      SingleEntity: {
+        FirstName: "John",
+        LastName: "Smith",
+        Children: ["Susan", "Margaret", "Edward"],
+        FullName: yatte.compileText('{[FirstName]} {[LastName]}')
+      },
+      ChildNames: yatte.Engine.compileExpr('SingleEntity.Children|map:this + " " + LastName'),
+    }
+    const scope = Scope.pushObject(obj)
+    const result = yatte.assembleText(template, scope)
+    assert.equal(result, 'John Smith\'s children are Susan Smith, Margaret Smith and Edward Smith.')
+  })
+
+  it('should assemble a compiled template against a proxied context stack (handle properly)', function () {
+    const objContext = { a: 'global' }
+    const objLocals = { b: 'local', c: [{ d: 'one' }, { d: 'two' }, { d: 'three' }] }
+    let stack = Scope.pushObject(objContext)
+    stack = Scope.pushObject(objLocals, stack)
+    stack = Scope.pushList(objLocals.c, stack)
+    stack = Scope.pushListItem(1, stack)
+    const proxy = stack.scopeProxy
+    const compiledTemplate = yatte.compileText('{[d]} is the {[_index]}{[_index|ordsuffix]} of {[c.length]} in {[a]}')
+    const result = compiledTemplate(proxy)
+    assert.equal(result, 'two is the 2nd of 3 in global')
+  })
+
+})
 
 class Child {
   constructor (instance) {
@@ -250,4 +320,24 @@ class Child {
 
 function copyProperties (fromObj, toObj) {
   Object.getOwnPropertyNames(fromObj).filter(n => isNaN(n)).forEach(name => Object.defineProperty(toObj, name, Object.getOwnPropertyDescriptor(fromObj, name)))
+}
+
+const nested_object = {
+  A: 'a',
+  B: {
+    B1: 'b1',
+    B2: {
+      B52: 'awesome'
+    }
+  },
+  C: [ 'c1', 'c2', 'c3'],
+  D: [{
+    D1: 'd1',
+    D2: 'd2',
+    D3: [{d4: 'd3-0'}, {d4: 'd3-1'}, {d4: 'd3-2'}]
+  },{
+    D1: 'd3',
+    D2: 'd4',
+    D3: [{d4: 'd5-0'}, {d4: 'd5-1'}]
+  }]
 }

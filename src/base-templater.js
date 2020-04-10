@@ -1,6 +1,6 @@
 const expressions = require('angular-expressions')
 require('url')
-require('./filters') // ensure filters are loaded into (shared) expressions object
+exports.filters = require('./filters') // ensure filters are loaded into (shared) expressions object
 const OD = require('./fieldtypes')
 const { AST, astMutateInPlace, escapeQuotes, unEscapeQuotes } = require('./estree')
 exports.AST = AST
@@ -11,21 +11,24 @@ exports.serializeAST = AST.serialize // this export is redundant and deprecated,
 const parseContentArray = function (contentArray, bIncludeExpressions = true, bIncludeListPunctuation = true) {
   // contentArray can be either an array of strings (as from a text template split via regex)
   // or an array of objects with field text and field IDs (as extracted from a DOCX template)
-  // In the latter case (array of objects), sub-arrays indicate discreet blocks of content (paragraphs, table cells, etc.)??
+  // In the latter case (array of objects), sub-arrays indicate discreet blocks of content
+  // (paragraphs, table cells, etc.)??
   const astBody = []
   let i = 0
   while (i < contentArray.length) { // we use a 'while' because contentArray gets shorter as we go!
-    let parsedContentItem = parseContentItem(i, contentArray, bIncludeExpressions, bIncludeListPunctuation)
-    if (parsedContentItem.length == 1) {
-      let parsedContent = parsedContentItem[0]
+    const parsedContentItem = parseContentItem(i, contentArray, bIncludeExpressions, bIncludeListPunctuation)
+    if (parsedContentItem.length === 1) {
+      const parsedContent = parsedContentItem[0]
       if (typeof parsedContent === 'object' &&
-           (parsedContent.type == OD.EndList ||
-            parsedContent.type == OD.EndIf ||
-            parsedContent.type == OD.Else ||
-            parsedContent.type == OD.ElseIf
+           (parsedContent.type === OD.EndList ||
+            parsedContent.type === OD.EndIf ||
+            parsedContent.type === OD.Else ||
+            parsedContent.type === OD.ElseIf
            )
       ) {
-        throw new Error(`Encountered an ${parsedContent.type}${parsedContent.id ? ` (field ${parsedContent.id})` : ''} without a matching ${(parsedContent.type === OD.EndList) ? 'List' : 'If' }`)
+        throw new Error(`Encountered an ${parsedContent.type}${
+          parsedContent.id ? ` (field ${parsedContent.id})` : ''
+        } without a matching ${(parsedContent.type === OD.EndList) ? 'List' : 'If'}`)
       }
     }
     Array.prototype.push.apply(astBody, parsedContentItem)
@@ -41,7 +44,8 @@ const buildLogicTree = function (astBody) {
   // remove EndIf and EndList nodes
   // remove Content nodes that are already defined in the same logical/list scope
   // always process down all if branches & lists
-  // ~~~strip field ID metadata (for docx templates) since it no longer applies~~~ revised: leave it in so we know more about error location
+  // ~~~strip field ID metadata (for docx templates) since it no longer applies
+  // ~~~ revised: leave it in so we know more about error location
   const copy = reduceContentArray(astBody)
   simplifyContentArray2(copy)
   simplifyContentArray3(copy)
@@ -61,8 +65,7 @@ exports.buildLogicTree = buildLogicTree
  * The function also has a custom property called 'ast' containing the Abstract Syntax Tree for the parsed expression.
  *
  * @callback EvaluateExpression
- * @param {Object} scope - the (global) scope against which to evaluate the expression
- * @param {Object} locals - the local scope against which to evaluate the expression
+ * @param {Object} s - the scope against which to evaluate the expression
  * @returns {*} - the value resulting from the evaluation
  *
  * @property {Object} ast
@@ -83,7 +86,7 @@ const compileExpr = function (expr) {
   if (!expr) {
     throw new Error('Cannot compile empty or null expression')
   }
-  if (expr == '.') expr = '$locals'
+  if (expr === '.') expr = 'this'
   const cache = compileExpr.cache
   const cacheKey = expr
   let result = cache ? cache[cacheKey] : undefined
@@ -98,8 +101,8 @@ const compileExpr = function (expr) {
       // strip out the angular 'toWatch' array, etc., from the AST,
       // since I'm not entirely sure how to do anything useful with that stuff outside of Angular itself
       result.ast = reduceAstNode(result.ast.body[0].expression)
-      // extend AST with enhanced nodes for filters; change "this" to "$locals"
-      const modified = fixFilters(result.ast) | thisTo$locals(result.ast)
+      // extend AST with enhanced nodes for filters
+      const modified = fixFilters(result.ast)
       // normalize the expression
       const normalizedExpr = AST.serialize(result.ast)
       // recompile the expression if filter fixes changed its functionality
@@ -111,7 +114,7 @@ const compileExpr = function (expr) {
       // save the normalized expression as a property of the compiled expression
       result.normalized = normalizedExpr
       // fix problem with Angular AST -- reversal of terms 'consequent' and 'alternate' in conditionals
-      fixConditionalExpressions(result.ast) // (note: it serializes/normalizes the same whether this has been run or not)
+      fixConditionalExpressions(result.ast) // (it serializes/normalizes the same whether this has been run or not)
     }
     // cache the compiled expression under the original string
     if (cache) {
@@ -152,11 +155,12 @@ const angularExpressionErrorMessage = function (e, expr) {
 }
 
 const parseContentItem = function (idx, contentArray, bIncludeExpressions = true, bIncludeListPunctuation = true) {
-  let contentItem = contentArray[idx]
+  const contentItem = contentArray[idx]
   const parsedItems = []
   if (Array.isArray(contentItem)) {
-    // if there's a sub-array, that item must be its own valid sequence of fields with appropriately matched ifs/endifs and/or lists/endlists
-    let parsedBlockContent = parseContentArray(contentItem, bIncludeExpressions, bIncludeListPunctuation)
+    // if there's a sub-array, that item must be its own valid sequence of fields
+    // with appropriately matched ifs/endifs and/or lists/endlists
+    const parsedBlockContent = parseContentArray(contentItem, bIncludeExpressions, bIncludeListPunctuation)
     Array.prototype.push.apply(parsedItems, parsedBlockContent)
   } else {
     const parsedContent = parseField(contentArray, idx, bIncludeExpressions, bIncludeListPunctuation)
@@ -171,7 +175,7 @@ const parseField = function (contentArray, idx = 0, bIncludeExpressions = true, 
   const contentArrayItem = contentArray[idx]
   let content, fieldId
   if (typeof contentArrayItem === 'string') {
-    if (contentArrayItem.length == 0) return null // empty string == ignore (== null)
+    if (contentArrayItem.length === 0) return null // empty string == ignore (== null)
     content = getFieldContent(contentArrayItem)
     if (content === null) return contentArrayItem // not a field means it's static text
     fieldId = void 0
@@ -188,7 +192,8 @@ const parseField = function (contentArray, idx = 0, bIncludeExpressions = true, 
   if ((match = _ifRE.exec(content)) !== null) {
     node = createNode(OD.If, match[1], fieldId)
     if (bIncludeExpressions) parseFieldExpr(node)
-    node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndIf, fieldId, bIncludeExpressions, bIncludeListPunctuation)
+    node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndIf,
+      fieldId, bIncludeExpressions, bIncludeListPunctuation)
   } else if ((match = _elseifRE.exec(content)) !== null) {
     node = createNode(OD.ElseIf, match[1], fieldId)
     if (bIncludeExpressions) parseFieldExpr(node)
@@ -202,7 +207,8 @@ const parseField = function (contentArray, idx = 0, bIncludeExpressions = true, 
     if (bIncludeExpressions) {
       parseFieldExpr(node)
     }
-    node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndList, fieldId, bIncludeExpressions, bIncludeListPunctuation)
+    node.contentArray = parseContentUntilMatch(contentArray, idx + 1, OD.EndList,
+      fieldId, bIncludeExpressions, bIncludeListPunctuation)
   } else if (_endlistRE.test(content)) {
     node = createNode(OD.EndList, void 0, fieldId)
   } else {
@@ -224,7 +230,7 @@ const parseFieldExpr = function (fieldObj) {
   // fieldObj is an object with two properties:
   //   type (string): the field type
   //   expr (string): the expression within the field that wants to be parsed
-  const expectarray = (fieldObj.type == OD.List)
+  const expectarray = (fieldObj.type === OD.List)
   const compiledExpr = compileExpr(fieldObj.expr)
   fieldObj.exprAst = compiledExpr.ast
   if (expectarray) {
@@ -234,9 +240,11 @@ const parseFieldExpr = function (fieldObj) {
   return compiledExpr
 }
 
-const parseContentUntilMatch = function (contentArray, startIdx, targetType, originId, bIncludeExpressions, bIncludeListPunctuation) {
+const parseContentUntilMatch = function (
+  contentArray, startIdx, targetType, originId, bIncludeExpressions, bIncludeListPunctuation
+) {
   // parses WITHIN THE SAME CONTENT ARRAY (block) until it finds a field of the given targetType
-  // returns a content array 
+  // returns a content array
   let idx = startIdx
   const result = []
   let parentContent = result
@@ -244,10 +252,10 @@ const parseContentUntilMatch = function (contentArray, startIdx, targetType, ori
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const parsedContent = parseContentItem(idx, contentArray, bIncludeExpressions, bIncludeListPunctuation)
-    const isObj = (parsedContent.length == 1 && typeof parsedContent[0] === 'object' && parsedContent[0] !== null)
+    const isObj = (parsedContent.length === 1 && typeof parsedContent[0] === 'object' && parsedContent[0] !== null)
     idx++
-    if (isObj && parsedContent[0].type == targetType) {
-      if (parsedContent[0].type == OD.EndList && bIncludeListPunctuation) {
+    if (isObj && parsedContent[0].type === targetType) {
+      if (parsedContent[0].type === OD.EndList && bIncludeListPunctuation) {
         // future: possibly inject this only if we're in a list on which the "punc" filter was used
         // (because without the "punc" filter specifying list punctuation, this node will be a no-op)
         // However, that is a little more complicated than it might seem, because this
@@ -259,20 +267,29 @@ const parseContentUntilMatch = function (contentArray, startIdx, targetType, ori
       parentContent.push(parsedContent[0])
       break
     }
-    if (parsedContent) { parsedContent.forEach(pc => { if (pc) { parentContent.push(pc)} }) }
-    if (isObj && (parsedContent[0].type == OD.ElseIf || parsedContent[0].type == OD.Else)) {
-      if (targetType == OD.EndIf) {
-        if (elseEncountered) { throw new Error(`An ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${parsedContent[0].id})` : ''} cannot follow an Else`) }
-        if (parsedContent[0].type == OD.Else) { elseEncountered = true }
+    if (parsedContent) { parsedContent.forEach(pc => { if (pc) { parentContent.push(pc) } }) }
+    if (isObj && (parsedContent[0].type === OD.ElseIf || parsedContent[0].type === OD.Else)) {
+      if (targetType === OD.EndIf) {
+        if (elseEncountered) {
+          throw new Error(`An ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${
+            parsedContent[0].id})` : ''} cannot follow an Else`)
+        }
+        if (parsedContent[0].type === OD.Else) { elseEncountered = true }
         parentContent = parsedContent[0].contentArray
-      } else if (targetType == OD.EndList) {
-        throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${parsedContent[0].id})` : ''} when expecting ${originId ? `field ${originId}'s` : 'an'} EndList`)
+      } else if (targetType === OD.EndList) {
+        throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${
+          parsedContent[0].id})` : ''} when expecting ${originId ? `field ${originId}'s` : 'an'} EndList`)
       }
     }
-    if (isObj && (parsedContent[0].type == OD.EndIf || parsedContent[0].type == OD.EndList)) {
-      throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${parsedContent[0].id})` : ''} without a matching ${(parsedContent[0].type === OD.EndList) ? 'List' : 'If' }`)
+    if (isObj && (parsedContent[0].type === OD.EndIf || parsedContent[0].type === OD.EndList)) {
+      throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${
+        parsedContent[0].id})` : ''} without a matching ${(parsedContent[0].type === OD.EndList) ? 'List' : 'If'}`)
     }
-    if (idx >= contentArray.length) { throw new Error(`No ${targetType} found to match ${originId ? `field ${originId}'s` : (targetType === OD.EndList) ? 'a' : 'an'} ${(targetType === OD.EndList) ? 'List' : 'If' }`) }
+    if (idx >= contentArray.length) {
+      throw new Error(`No ${targetType} found to match ${originId
+        ? `field ${originId}'s`
+        : (targetType === OD.EndList) ? 'a' : 'an'} ${(targetType === OD.EndList) ? 'List' : 'If'}`)
+    }
   }
   // remove (consume) all parsed items from the contentArray before returning
   contentArray.splice(startIdx, idx - startIdx)
@@ -281,7 +298,8 @@ const parseContentUntilMatch = function (contentArray, startIdx, targetType, ori
 
 const injectListPunctuationNode = function (contentArray, bIncludeExpressions) {
   // synthesize list punctuation node
-  const puncNode = createNode(OD.Content, '_punc', void 0) // id==undefined because there is not (yet) a corresponding field in the template
+  const puncNode = createNode(OD.Content, '_punc', void 0)
+  // id==undefined because there is not (yet) a corresponding field in the template
   if (bIncludeExpressions) parseFieldExpr(puncNode)
   // find last non-empty node in the list
   let i = contentArray.length - 1
@@ -289,7 +307,8 @@ const injectListPunctuationNode = function (contentArray, bIncludeExpressions) {
     i--
   }
   const priorNode = (i >= 0) ? contentArray[i] : null
-  // if it's a text node, place the list punctuation node at its end but PRIOR to any line breaks; otherwise just place the list punctuation at the end
+  // if it's a text node, place the list punctuation node at its end but PRIOR to any line breaks;
+  // otherwise just place the list punctuation at the end
   if (typeof priorNode === 'string') {
     let ix = priorNode.length - 1
     let bInsert = false
@@ -324,7 +343,7 @@ const _curlyquotes = /[“”]/g
 const _zws = /[\u{200B}\u{200C}]/gu
 
 const getFieldContent = function (text) {
-  if (text.slice(0, 1) == '[' && text.slice(-1) == ']') {
+  if (text.slice(0, 1) === '[' && text.slice(-1) === ']') {
     return text.slice(1, -1).replace(_curlyquotes, '"').replace(_zws, '')
   }
   return null
@@ -332,11 +351,14 @@ const getFieldContent = function (text) {
 
 const reduceContentArray = function (astBody, newBody = null, scope = null, parentScope = null) {
   // prune plain text nodes (non-dynamic, so they don't affect logic)
-  // prune EndIf and EndList nodes (only important insofar as we need to match up nodes to fields -- which will not be the case with a reduced logic tree)
+  // prune EndIf and EndList nodes (only important insofar as we need to match up nodes to fields --
+  //   which will not be the case with a reduced logic tree)
   // prune redundant Content nodes that are already defined in the same logical & list scope
   // always process down all if branches & lists
-  //    but mark check whether each if expression is the first (in its scope) to refer to the expression, and if so, indicate it on the node
-  // future: compare logical & list scopes of each item, and eliminate logical branches and list iterations that are redundant
+  //    but mark check whether each if expression is the first (in its scope) to refer to the expression,
+  //    and if so, indicate it on the node
+  // future: compare logical & list scopes of each item, and eliminate logical branches
+  //    and list iterations that are redundant
   if (newBody === null) newBody = []
   if (scope === null) scope = {}
   for (const obj of astBody) {
@@ -349,24 +371,25 @@ const reduceContentArray = function (astBody, newBody = null, scope = null, pare
 }
 
 const reduceContentNode = function (astNode, scope, parentScope = null) {
-  if (typeof astNode === 'string') return null // plain text node -- boilerplate content in a text template (does not occur in other template types)
-  if (astNode.type == OD.EndList || astNode.type == OD.EndIf) return null
+  if (typeof astNode === 'string') return null // plain text node -- boilerplate content in a text template
+  if (astNode.type === OD.EndList || astNode.type === OD.EndIf) return null
 
-  if (astNode.type == OD.Content) {
+  if (astNode.type === OD.Content) {
     if (scope[astNode.expr]) return null // expression already defined in this scope
-    //eslint-disable-next-line no-unused-vars
+    // eslint-disable-next-line no-unused-vars
     const { id, ...copyOfNode } = astNode // strip field id if it's there // TODO: stop stripping the id!
     scope[astNode.expr] = copyOfNode
     return copyOfNode
   }
-  if (astNode.type == OD.List) {
+  if (astNode.type === OD.List) {
     let existingListNode
-    //eslint-disable-next-line no-cond-assign
-    if (existingListNode = scope[astNode.expr]) { // this list has already been added to the parent scope; revisit it to add more content members if necessary
+    // eslint-disable-next-line no-cond-assign
+    if (existingListNode = scope[astNode.expr]) {
+      // this list has already been added to the parent scope; revisit it to add more content members if necessary
       reduceContentArray(astNode.contentArray, existingListNode.contentArray, existingListNode.scope)
       return null
     } else {
-      //eslint-disable-next-line no-unused-vars
+      // eslint-disable-next-line no-unused-vars
       const { id, contentArray, ...copyOfNode } = astNode // TODO: stop stripping the id!
       copyOfNode.scope = {} // fresh new wholly separate scope for lists
       copyOfNode.contentArray = reduceContentArray(contentArray, null, copyOfNode.scope)
@@ -374,23 +397,27 @@ const reduceContentNode = function (astNode, scope, parentScope = null) {
       return copyOfNode
     }
   }
-  if (astNode.type == OD.If || astNode.type == OD.ElseIf || astNode.type == OD.Else) {
+  if (astNode.type === OD.If || astNode.type === OD.ElseIf || astNode.type === OD.Else) {
     // if's are always left in at this point (because of their importance to the logic;
     // a lot more work would be required to accurately optimize them out.)
     // HOWEVER, we can't add the expr to the parent scope by virtue of it having been referenced in a condition,
-    // because it means something different for the same expression to be evaluated in a Content node vs. an If/ElseIf node,
-    // and therefore an expression emitted/evaluated as part of a condition still needs to be emitted/evaluated as part of a merge/content node.
-    // AND VICE VERSA: an expression emitted as part of a content node STILL needs to be emitted as part of a condition, too.
+    // because it means something different for the same expression to be evaluated
+    // in a Content node vs. an If/ElseIf node, and therefore an expression emitted/evaluated as part of a condition
+    // still needs to be emitted/evaluated as part of a merge/content node.
+    // AND VICE VERSA: an expression emitted as part of a content node STILL needs to be emitted as part of a condition,
+    // too.
 
-    //eslint-disable-next-line no-unused-vars
+    // eslint-disable-next-line no-unused-vars
     const { id, contentArray, ...copyOfNode } = astNode // TODO: stop stripping the id!
-    // this 'parentScope' thing is a bit tricky.  The parentScope argument is only supplied when we're inside an If/ElseIf/Else block within the current scope.
+    // this 'parentScope' thing is a bit tricky.  The parentScope argument is only supplied
+    // when we're inside an If/ElseIf/Else block within the current scope.
     // If supplied, it INDIRECTLY refers to the actual scope -- basically, successive layers of "if" blocks
     // that each establish a new "mini" scope, that has the parent scope as its prototype.
-    // This means, a reference to an identifier in a parent scope, will prevent that identifier from appearing (redundantly) in a child;
-    // but a reference to an identifier in a child scope, will NOT prevent that identifier from appearing in a parent scope.
+    // This means, a reference to an identifier in a parent scope, will prevent that identifier from appearing
+    // (redundantly) in a child; but a reference to an identifier in a child scope,
+    // will NOT prevent that identifier from appearing in a parent scope.
     const pscope = (parentScope != null) ? parentScope : scope
-    if (copyOfNode.type == OD.If || copyOfNode.type == OD.ElseIf) {
+    if (copyOfNode.type === OD.If || copyOfNode.type === OD.ElseIf) {
       if (!(('if$' + astNode.expr) in pscope)) {
         pscope['if$' + astNode.expr] = copyOfNode
       }
@@ -416,7 +443,7 @@ const simplifyNode2 = function (astNode) {
 
 const simplifyContentArray3 = function (body, scope = {}) {
   // 3rd pass at simplifying scopes
-  let initialScope = { ...scope } // shallow-clone the scope to start with
+  const initialScope = { ...scope } // shallow-clone the scope to start with
   // first go through content fields
   let i = 0
   while (i < body.length) {
@@ -445,7 +472,8 @@ const simplifyContentArray3 = function (body, scope = {}) {
       // the content in an if block has everything in its parent scope
       simplifyContentArray3(field.contentArray, { ...scope }) // copy the parent scope
     } else if (field.type === OD.ElseIf || field.type === OD.Else) {
-      // elseif and else fields are (in the logic tree) children of ifs, but they do NOT have access to the parent scope, reset to initial scope for if
+      // elseif and else fields are (in the logic tree) children of ifs,
+      // but they do NOT have access to the parent scope, reset to initial scope for if
       simplifyContentArray3(field.contentArray, { ...initialScope })
     }
   }
@@ -455,7 +483,7 @@ const simplifyContentArray3 = function (body, scope = {}) {
 
 const reduceAstNode = function (astNode) {
   // prune endlessly recursive property
-  //eslint-disable-next-line no-unused-vars
+  // eslint-disable-next-line no-unused-vars
   const { toWatch, watchId, ...simplified } = astNode
   for (const prop in simplified) {
     switch (prop) {
@@ -482,8 +510,9 @@ const reduceAstNode = function (astNode) {
           for (let i = 0; i < thisArray.length; i++) {
             thisArray[i] = reduceAstNode(thisArray[i])
           }
-        }}
+        }
         break
+      }
       default:
                 // should not need to do anything else
     }
@@ -493,13 +522,14 @@ const reduceAstNode = function (astNode) {
 
 /**
  * Recursively processes the given AST node to determine if it contains any conditional expressions, and if it does,
- * it reverses the "alternate" and "consequent" properties to conform to the generally-understood meanings of those terms,
- * for consistency and compatibility with other AST node types (IfStatements in particular).
+ * it reverses the "alternate" and "consequent" properties to conform to the generally-understood meanings
+ * of those terms, for consistency and compatibility with other AST node types (IfStatements in particular).
  * See:
  *      https://github.com/estree/estree/blob/master/es5.md#conditionalexpression
  *          ... which does not say what is what, but gives the wrong idea by its ordering of the properties, and
  *      https://github.com/estree/estree/blob/master/es5.md#ifstatement
- *          ... which makes it clear that "consequent" is the "then", while "alternate" is the "else" (by virtue of it being optional)
+ *          ... which makes it clear that "consequent" is the "then", while "alternate" is the "else"
+ *          (by virtue of it being optional)
 
  * and all kinds of sources that make the intended meanings of "consequent" clear:
  *      https://www.gnu.org/software/mit-scheme/documentation/mit-scheme-ref/Conditionals.html
@@ -531,15 +561,17 @@ const fixConditionalExpressions = function (astNode) {
 }
 
 /**
- * Recursively processes the given AST node to determine if it contains any "filters", either typical angular-type filters
- * or yatte list filters. If it does, it modifies the AST to more explicitly and naturally represent these filters.
+ * Recursively processes the given AST node to determine if it contains any "filters",
+ * either typical angular-type filters or yatte list filters.
+ * If it does, it modifies the AST to more explicitly and naturally represent these filters.
  *
  * Note: if this function makes changes, it modifies the given ast *in place*. The return value indicates whether
  *       or not changes were made.
  *
  * @param {object} astNode
- * @returns {boolean} true means the AST was modified in such a way as to materially change how the expression should be evaluated;
- * false means the AST may or may not have been modified, but it should not require re-compilation by angular-expressions.
+ * @returns {boolean} true means the AST was modified in such a way as to materially change how the expression
+ * should be evaluated; false means the AST may or may not have been modified, but it should not require
+ * re-compilation by angular-expressions.
  */
 const fixFilters = function (astNode) {
   return astMutateInPlace(astNode, node => {
@@ -592,7 +624,8 @@ const convertCallNodeToFilterNode = function (node) {
   node.filter = node.callee
   delete node.callee
   node.input = node.arguments.shift()
-  if (['sort', 'filter', 'map', 'some', 'any', 'every', 'all', 'find', 'group'].includes(node.filter.name)) {
+  const filterFunc = expressions.filters[node.filter.name]
+  if (filterFunc && filterFunc.arrayFilter) {
     node.type = AST.ListFilterExpression
     // resolve aliases
     if (node.filter.name === 'some') { // alias for 'any'
@@ -600,16 +633,23 @@ const convertCallNodeToFilterNode = function (node) {
     } else if (node.filter.name === 'all') { // alias for 'every'
       node.filter.name = 'every'
     }
-    node.rtl = ['any', 'every'].includes(node.filter.name)
+    node.rtl = filterFunc.rtlFilter || false
+    if (filterFunc.immediateArgs) {
+      node.immediateArgs = filterFunc.immediateArgs
+    }
     if (isNormalizedListFilterNode(node)) {
-      // the node is a list filter that had formerly been normalized -- re-parse the string argument into the original AST
-      node.arguments.shift() // discard AST's extra "this" (added during normalization, when the param expression was stringified)
+      // the node is a list filter that had formerly been normalized
+      //   -- re-parse the string argument into the original AST
+      // node.arguments.shift() // discard AST's extra "this" (added during normalization) UPDATE: no longer added
       const parsedArg = compileExpr(unEscapeQuotes(node.arguments[0].value))
       node.arguments[0] = parsedArg.ast
-      return false // existing compiled behavior was already based on the normalized form, so return false to avoid recompilation (which would only be redundant)
+      return false // existing compiled behavior was already based on the normalized form,
+      // so return false to avoid recompilation (which would only be redundant)
     } else {
       // the node is a list filter that is just now being parsed & fixed up
-      return true // returning true means after we're done mutating the AST, we'll re-serialize to get the normalized form, and then recompile THAT with angular-expressions
+      return true
+      // returning true means after we're done mutating the AST, we'll re-serialize
+      // to get the normalized form, and then recompile THAT with angular-expressions
     }
   } else {
     node.type = AST.AngularFilterExpression
@@ -617,38 +657,15 @@ const convertCallNodeToFilterNode = function (node) {
   }
 }
 
-/**
- * Recursively processes the given AST node to convert any and all nodes representing the "this" token, to the "$locals" token instead
- *
- * Note: if this function makes changes, it modifies the given ast *in place*. The return value indicates whether
- *       or not changes were made.
- *
- * @param {object} astNode
- * @returns {boolean} whether or not the AST was modified
- */
-const thisTo$locals = function (astNode) {
-  return astMutateInPlace(astNode, node => {
-    if (isNormalizedListFilterNode(node)) {
-      // the one case where we LEAVE a ThisExpression in place, is when it's the first (implicit) argument to a ListFilterExpression that has already been fixed up
-      node.arguments[0].preserve = true
-      return false
-    }
-    if (node.type === AST.ThisExpression && !node.preserve) {
-      node.type = AST.LocalsExpression
-      return true
-    }
-    return false
-  })
-}
-
-function isNormalizedListFilterNode(node) {
+function isNormalizedListFilterNode (node) {
   if (!node || node.type !== AST.ListFilterExpression) return false
-  let args = node.arguments
-  if (args.length > 1
-    && args[0].type === AST.ThisExpression
-    && args[1].type === AST.Literal)
-  {
-    if (args.length !== 2 && node.filter.name !== 'sort') {
+  const args = node.arguments
+  if (
+    args.length > 0 // 1
+    // && args[0].type === AST.ThisExpression
+    && args[0/* 1 */].type === AST.Literal
+  ) {
+    if (args.length !== 1 /* 2 */ && node.filter.name !== 'sort' && node.filter.name !== 'reduce') {
       console.log(`Warning: ListFilterExpression with multiple arguments: ${AST.serialize(node)}`)
     }
     return true

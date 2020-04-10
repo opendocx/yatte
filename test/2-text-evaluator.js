@@ -1,9 +1,62 @@
 const assert = require('assert')
+const yatte = require('../src/index')
 const templater = require('../src/text-templater')
 const TextEvaluator = require('../src/text-evaluator')
+const Scope = require('../src/yobj')
 const { TV_Family_Data } = require('./test-data')
 
 describe('Assembling text templates', function () {
+  it('prelim: call valueOf() on a scope proxy', function () {
+    const data = new String('Testing 1... 2... 3...')
+    const context = Scope.pushObject(data)
+    const proxy = context.scopeProxy
+    const value = proxy.valueOf()
+    assert.equal(value, 'Testing 1... 2... 3...')
+  })
+  it('prelim: call toString() on a scope proxy', function () {
+    const data = new String('Testing 1... 2... 3...')
+    const context = Scope.pushObject(data)
+    const proxy = context.scopeProxy
+    const value = proxy.toString()
+    assert.equal(value, 'Testing 1... 2... 3...')
+  })
+  it('prelim: call valueOf() on a property of an object proxy', function () {
+    const data = { test: new String('Testing 1... 2... 3...') }
+    const context = Scope.pushObject(data)
+    const proxy = context.scopeProxy
+    const value = proxy.test.valueOf()
+    assert.equal(value, 'Testing 1... 2... 3...')
+  })
+  it('prelim: call toString() on a property of an object proxy', function () {
+    const data = { test: new String('Testing 1... 2... 3...') }
+    const context = Scope.pushObject(data)
+    const proxy = context.scopeProxy
+    const value = proxy.test.toString()
+    assert.equal(value, 'Testing 1... 2... 3...')
+  })
+  it('prelim: unqualified _parent yields appropriate object (non list)', function () {
+    const earth = { hello: 'earth' }
+    const mars = { hello: 'mars' }
+    let context = Scope.pushObject(earth)
+    context = Scope.pushObject(mars, context)
+    const proxy = context.scopeProxy
+    const parent = proxy._parent
+    assert.strictEqual(parent.__value, earth)
+  })
+  it('prelim: unqualified _parent yields appropriate object (in list)', function () {
+    const sol = { star: 'Sol', planets: [{name: 'Mercury'}, {name: 'Venus'}, {name: 'Earth'}, {name: 'Mars'}] }
+    let context = Scope.pushObject(sol)
+    // const proxy = context.scopeProxy
+    // const earth = proxy.planets[2]
+    // assert.strictEqual(earth.__value, sol.planets[2])
+    context = Scope.pushList(sol.planets, context)
+    context = Scope.pushListItem(2, context)
+    const proxy = context.scopeProxy
+    const prelimTest = proxy.name + ' orbits ' + proxy.star
+    assert.strictEqual(prelimTest, 'Earth orbits Sol')
+    const parent = proxy._parent
+    assert.strictEqual(parent.__value, sol)
+  })
   it('should assemble a simple template', function () {
     const template = 'Hello {[planet]}!'
     const compiled = templater.parseTemplate(template)
@@ -66,11 +119,12 @@ describe('Assembling text templates', function () {
     assert.equal(result, 'Oceans are:\n\n * Pacific (Average depth 3970 m)\n * Atlantic (Average depth 3646 m)\n * Indian (Average depth 3741 m)\n * Southern (Average depth 3270 m)\n * Arctic (Average depth 1205 m)\n')
   })
   it('should assemble a filtered list', function () {
-    const template = 'Continents containing u:\n\n{[list Continents.WithU]}\n * {[.]}\n{[endlist]}'
+    const template = 'Continents containing u:\n\n{[list ContinentsWithU]}\n * {[.]}\n{[endlist]}'
     const compiled = templater.parseTemplate(template)
     const data = {
       Planet: 'Earth',
       Continents: ['Africa', 'Asia', 'Europe', 'North America', 'South America', 'Antarctica', 'Australia/Oceania'],
+      ContinentsWithU: yatte.Engine.compileExpr('Continents|filter:this.includes("u")'),
       Oceans: [
         { Name: 'Pacific', AverageDepth: 3970 },
         { Name: 'Atlantic', AverageDepth: 3646 },
@@ -79,9 +133,8 @@ describe('Assembling text templates', function () {
         { Name: 'Arctic', AverageDepth: 1205 }
       ],
       IsHome: true,
-      Lifeless: false
+      Lifeless: false,
     }
-    Object.defineProperty(data.Continents, 'WithU', { get: function () { return this.filter(item => item.includes('u')) } })
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Continents containing u:\n\n * Europe\n * South America\n * Australia/Oceania\n')
   })
@@ -130,6 +183,48 @@ describe('Assembling text templates', function () {
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Pacific\nIndian\nAtlantic\nSouthern\nArctic\n')
   })
+  it('should assemble a dynamically filtered list of wrapped strings', function () {
+    const template = '{[list Oceans | filter: AverageDepth < 3500]}\n * {[this]}\n{[endlist]}'
+    const compiled = templater.parseTemplate(template)
+    const data = {
+      Oceans: [
+        new String('Pacific'),
+        new String('Atlantic'),
+        new String('Indian'),
+        new String('Southern'),
+        new String('Arctic'),
+      ]
+    }
+    data.Oceans[0].AverageDepth = 3970
+    data.Oceans[1].AverageDepth = 3646
+    data.Oceans[2].AverageDepth = 3741
+    data.Oceans[3].AverageDepth = 3270
+    data.Oceans[4].AverageDepth = 1205
+    const scope = Scope.pushObject(data)
+    const result = (new TextEvaluator(scope)).assemble(compiled)
+    assert.equal(result, ' * Southern\n * Arctic\n')
+  })
+  it('should assemble a dynamically filtered list of wrapped strings WITH filters', function () {
+    const template = '{[list Oceans | filter: AverageDepth < 3500]}\n * {[this|upper]}\n{[endlist]}'
+    const compiled = templater.parseTemplate(template)
+    const data = {
+      Oceans: [
+        new String('Pacific'),
+        new String('Atlantic'),
+        new String('Indian'),
+        new String('Southern'),
+        new String('Arctic'),
+      ]
+    }
+    data.Oceans[0].AverageDepth = 3970
+    data.Oceans[1].AverageDepth = 3646
+    data.Oceans[2].AverageDepth = 3741
+    data.Oceans[3].AverageDepth = 3270
+    data.Oceans[4].AverageDepth = 1205
+    const scope = Scope.pushObject(data)
+    const result = (new TextEvaluator(scope)).assemble(compiled)
+    assert.equal(result, ' * SOUTHERN\n * ARCTIC\n')
+  })
   it('should assemble a dynamically sorted list (descending by birth date, then ascending by name)', function () {
     const template = '{[list Children | sort:-Birth:+Name]}\n{[Name]}\n{[endlist]}'
     const compiled = templater.parseTemplate(template)
@@ -155,13 +250,16 @@ describe('Assembling text templates', function () {
     assert.equal(result, 'We found Yolanda!')
   })
   it('check if any nested lists meet a qualification by chaining the "any" filter', function () {
-    const compiled = templater.parseTemplate('Future families: {[Families|any:Children|any:Birthdate.valueOf()>Date.now()]}')
+    const compiled = templater.parseTemplate('Future families: {[Families|any:Children|any:Birthdate>testDate]}')
     // "Any family has any children with a birthdate in the future" ... true for our data set (at least until 2050 or so)
-    const result = (new TextEvaluator({ Date }, TV_Family_Data)).assemble(compiled)
+    const testDate = new Date(2019, 11, 6)
+    let scope = Scope.pushObject({ testDate })
+    scope = Scope.pushObject(TV_Family_Data, scope)
+    const result = (new TextEvaluator(scope)).assemble(compiled)
     assert.equal(result, 'Future families: true')
-    const compiled2 = templater.parseTemplate('Past families: {[Families|filter:Surname!="Robinson"|any:Children|any:Birthdate.valueOf()>Date.now()]}')
+    const compiled2 = templater.parseTemplate('Past families: {[Families|filter:Surname!="Robinson"|any:Children|any:Birthdate>testDate]}')
     // "Any family (other than the Robinsons!) has any children with a birthdate in the future"... false for our data set, since the Robinsons are the only future-family included.
-    const result2 = (new TextEvaluator({ Date }, TV_Family_Data)).assemble(compiled2)
+    const result2 = (new TextEvaluator(Scope.pushObject(TV_Family_Data, scope))).assemble(compiled2)
     assert.equal(result2, 'Past families: false')
   })
   it('check if all items in a list meet a criteria using the "every" filter', function () {
@@ -242,7 +340,7 @@ describe('Assembling text templates', function () {
     const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Asia\nAfrica\nNorth America\nSouth America\nAntarctica\nEurope\nAustralia/Oceania\n')
   })
-  it('should assemble a document with a filtered primitive list and a filter, nested (but unrelated) list, and then vice versa', function () {
+  it('should assemble a document with a filtered primitive list and an UNRELATED nested + filtered list, and then vice versa', function () {
     // const originalObjectPrototype = Object.prototype;
     // const originalStringPrototype = String.prototype;
     const template = 'Continents:\n{[list Continents|filter:!this.startsWith("A")]}\n * {[.]} ({[list Oceans|filter:Name.startsWith("A")]}{[_index]}. {[Name]} in {[_parent]}, {[endlist]})\n{[endlist]}'
@@ -258,7 +356,7 @@ describe('Assembling text templates', function () {
         { Name: 'Arctic', AverageDepth: 1205 }
       ]
     }
-    const result = (new TextEvaluator({}, data)).assemble(compiled)
+    const result = (new TextEvaluator(data)).assemble(compiled)
     assert.equal(result, 'Continents:\n * Europe (1. Atlantic in Europe, 2. Arctic in Europe, )\n * North America (1. Atlantic in North America, 2. Arctic in North America, )\n * South America (1. Atlantic in South America, 2. Arctic in South America, )\n')
     // ensure data context prototypes have not been messed with!
     // assert.strictEqual(String.prototype, originalStringPrototype, 'String.prototype has changed') // I doubt this works anyway
@@ -290,23 +388,13 @@ describe('Assembling text templates', function () {
   it('should assemble a simple template with local and global scopes', function () {
     const template = '{[First]} {[Middle ? Middle + " " : ""]}{[Last]}'
     const compiled = templater.parseTemplate(template)
-    const localData = {
+    const globalData = Scope.pushObject({
+      Last: 'Smith'
+    })
+    const localData = Scope.pushObject({
       First: 'John'
-    }
-    const globalData = {
-      Last: 'Smith'
-    }
-    const result = (new TextEvaluator(globalData, localData)).assemble(compiled)
-    assert.equal(result, 'John Smith')
-  })
-  it('should assemble a simple template with local scope but no global', function () {
-    const template = '{[First]} {[Middle ? Middle + " " : ""]}{[Last]}'
-    const compiled = templater.parseTemplate(template)
-    const localData = {
-      First: 'John',
-      Last: 'Smith'
-    }
-    const result = (new TextEvaluator(null, localData)).assemble(compiled)
+    }, globalData)
+    const result = (new TextEvaluator(localData)).assemble(compiled)
     assert.equal(result, 'John Smith')
   })
 })

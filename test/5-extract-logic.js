@@ -1,5 +1,4 @@
 const yatte = require('../src/index')
-//const yatte = require('../lib/yatte.min')
 const assert = require('assert')
 
 /*
@@ -229,7 +228,6 @@ The logic tree should include the if twice, but should call for the data only on
   })
 
   it('correctly parses & extracts logic from the ugly nested if/elseif template', function() {
-    debugger
     const result = yatte.extractLogic(ugly_nested_template)
     assert.deepStrictEqual(result, ugly_nested_contentArray)
   })

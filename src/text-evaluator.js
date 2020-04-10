@@ -1,20 +1,22 @@
 'use strict'
 
-const ContextStack = require('./context-stack')
+const Scope = require('./yobj')
 const OD = require('./fieldtypes')
 const base = require('./base-templater')
 
 class TextEvaluator {
-  constructor (context, locals = null) {
-    this.context = context
-    this.locals = locals
-    this.contextStack = new ContextStack()
+  constructor (scope) {
+    this.contextStack = (scope && scope.__yobj)
+      ? scope.__yobj
+      : (scope instanceof Scope)
+        ? scope
+        : Scope.pushObject(scope)
   }
 
   assemble (contentArray) {
-    this.contextStack.pushGlobal(this.context, this.locals)
     const text = contentArray.map(contentItem => ContentReplacementTransform(contentItem, this.contextStack)).join('')
-    this.contextStack.popGlobal()
+    // reset context stack (a TextEvaluator is a one-time-use sort of thing)
+    this.contextStack = null
     return text
   }
 }
@@ -24,12 +26,13 @@ function ContentReplacementTransform (contentItem, contextStack) {
   if (!contentItem) { return '' }
   if (typeof contentItem === 'string') { return contentItem }
   if (typeof contentItem !== 'object') { throw new Error(`Unexpected content '${contentItem}'`) }
-  const frame = contextStack.peek()
+  const frame = contextStack // .peek()
   switch (contentItem.type) {
     case OD.Content:
       try {
         const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
-        let value = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
+        // todo: make sure the following is memoized to avoid unnecessary re-evaluation
+        let value = frame.evaluate(evaluator)
         if (value === null || typeof value === 'undefined') {
           value = '[' + contentItem.expr + ']' // missing value placeholder
         }
@@ -41,42 +44,49 @@ function ContentReplacementTransform (contentItem, contextStack) {
       let iterable
       try {
         const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
-        iterable = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
+        // todo: make sure the following is memoized to avoid unnecessary re-evaluation
+        iterable = frame.evaluate(evaluator)
       } catch (err) {
         return CreateContextErrorMessage('EvaluationException: ' + err.message)
       }
-      const indices = contextStack.pushList(contentItem.expr, iterable)
-      const allContent = indices.map(index => {
-        contextStack.pushObject('o' + index, index)
-        const listItemContent = contentItem.contentArray.map(listContentItem => ContentReplacementTransform(listContentItem, contextStack))
-        contextStack.popObject()
+      contextStack = Scope.pushList(iterable, contextStack)
+      const allContent = contextStack.indices.map(index => {
+        contextStack = Scope.pushListItem(index, contextStack)
+        const listItemContent = contentItem.contentArray.map(
+          listContentItem => ContentReplacementTransform(listContentItem, contextStack))
+        contextStack = Scope.pop(contextStack)
         return listItemContent.join('')
       })
-      contextStack.popList()
+      contextStack = Scope.pop(contextStack)
       return allContent.join('')
     }
     case OD.If:
     case OD.ElseIf: {
       let bValue
       try {
-        if (frame.type != 'Object') {
-          throw new Error(`Internal error: cannot define a condition directly in a ${frame.type} context`)
+        if (frame.frameType === Scope.LIST) {
+          throw new Error(`Internal error: cannot define a condition directly in a ${frame.frameType} context`)
         }
         const evaluator = base.compileExpr(contentItem.expr) // these are cached so this should be fast
-        const value = frame.evaluate(evaluator) // we need to make sure this is memoized to avoid unnecessary re-evaluation
-        bValue = ContextStack.IsTruthy(value)
+        // todo: make sure the following is memoized to avoid unnecessary re-evaluation
+        const value = frame.evaluate(evaluator)
+        bValue = Scope.isTruthy(value)
       } catch (err) {
         return CreateContextErrorMessage('EvaluationException: ' + err.message)
       }
       if (bValue) {
         const content = contentItem.contentArray
-          .filter(item => (typeof item !== 'object') || (item == null) || (item.type != OD.ElseIf && item.type != OD.Else))
+          .filter(
+            item => (typeof item !== 'object') || (item == null) || (item.type !== OD.ElseIf && item.type !== OD.Else)
+          )
           .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, contextStack))
         return content.join('')
       }
-      const elseCond = contentItem.contentArray.find(item => (typeof item === 'object' && item != null && (item.type == OD.ElseIf || item.type == OD.Else)))
+      const elseCond = contentItem.contentArray.find(
+        item => (typeof item === 'object' && item != null && (item.type === OD.ElseIf || item.type === OD.Else))
+      )
       if (elseCond) {
-        if (elseCond.type == OD.ElseIf) { return ContentReplacementTransform(elseCond, contextStack) }
+        if (elseCond.type === OD.ElseIf) { return ContentReplacementTransform(elseCond, contextStack) }
         // else
         const content = elseCond.contentArray
           .map(conditionalContentItem => ContentReplacementTransform(conditionalContentItem, contextStack))

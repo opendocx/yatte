@@ -22,9 +22,12 @@ const AST = {
   ConditionalExpression: 'ConditionalExpression',
   CallExpression: 'CallExpression',
   // also includes some custom/proprietary node types:
-  LocalsExpression: 'LocalsExpression', // from angular-expressions -- like 'ThisExpression', but for the local scope (Angular equates "this" to the broader evaluation "scope")
-  AngularFilterExpression: 'AngularFilterExpression', // properties: input (node), filter (ident), arguments (node array)
-  ListFilterExpression: 'ListFilterExpression', // properties: input (node), filter (ident), arguments (node array), rtl (bool)
+  LocalsExpression: 'LocalsExpression', // from angular-expressions:
+  //   like 'ThisExpression', but for the local scope (Angular equates "this" to the broader evaluation "scope")
+  AngularFilterExpression: 'AngularFilterExpression',
+  //   properties: input (node), filter (ident), arguments (node array)
+  ListFilterExpression: 'ListFilterExpression',
+  //   properties: input (node), filter (ident), arguments (node array), rtl (bool)
   // also includes a utility method:
   serialize: serializeAstNode
 }
@@ -80,7 +83,10 @@ function astMutateInPlace (node, mutator) {
   var nodeModified = mutator(node)
   switch (node.type) {
     case AST.Program:
-      return nodeModified | node.body.reduce((accumulator, statementObj) => accumulator |= astMutateInPlace(statementObj, mutator), false)
+      return nodeModified | node.body.reduce(
+        (accumulator, statementObj) => (accumulator |= astMutateInPlace(statementObj, mutator)),
+        false
+      )
     case AST.ExpressionStatement:
       return nodeModified | astMutateInPlace(node.expression, mutator)
     case AST.Literal:
@@ -91,14 +97,27 @@ function astMutateInPlace (node, mutator) {
     case AST.MemberExpression:
       return nodeModified | astMutateInPlace(node.object, mutator) | astMutateInPlace(node.property, mutator)
     case AST.CallExpression:
-      return nodeModified | astMutateInPlace(node.callee, mutator) | node.arguments.reduce((accumulator, argObj) => accumulator |= astMutateInPlace(argObj, mutator), false)
+      return nodeModified | astMutateInPlace(node.callee, mutator) | node.arguments.reduce(
+        (accumulator, argObj) => (accumulator |= astMutateInPlace(argObj, mutator)),
+        false
+      )
     case AST.AngularFilterExpression:
     case AST.ListFilterExpression:
-      return nodeModified | astMutateInPlace(node.filter, mutator) | astMutateInPlace(node.input, mutator) | node.arguments.reduce((accumulator, argObj) => accumulator |= astMutateInPlace(argObj, mutator), false)
+      return nodeModified | astMutateInPlace(node.filter, mutator)
+        | astMutateInPlace(node.input, mutator) | node.arguments.reduce(
+        (accumulator, argObj) => (accumulator |= astMutateInPlace(argObj, mutator)),
+        false
+      )
     case AST.ArrayExpression:
-      return nodeModified | node.elements.reduce((accumulator, elem) => accumulator |= astMutateInPlace(elem, mutator), false)
+      return nodeModified | node.elements.reduce(
+        (accumulator, elem) => (accumulator |= astMutateInPlace(elem, mutator)),
+        false
+      )
     case AST.ObjectExpression:
-      return nodeModified | node.properties.reduce((accumulator, prop) => accumulator |= astMutateInPlace(prop, mutator), false)
+      return nodeModified | node.properties.reduce(
+        (accumulator, prop) => (accumulator |= astMutateInPlace(prop, mutator)),
+        false
+      )
     case AST.Property:
       return nodeModified | astMutateInPlace(node.key, mutator) | astMutateInPlace(node.value, mutator)
     case AST.BinaryExpression:
@@ -107,7 +126,8 @@ function astMutateInPlace (node, mutator) {
     case AST.UnaryExpression:
       return nodeModified | astMutateInPlace(node.argument, mutator)
     case AST.ConditionalExpression:
-      return nodeModified | astMutateInPlace(node.test, mutator) | astMutateInPlace(node.consequent, mutator) | astMutateInPlace(node.alternate, mutator)
+      return nodeModified | astMutateInPlace(node.test, mutator) | astMutateInPlace(node.consequent, mutator)
+        | astMutateInPlace(node.alternate, mutator)
     default:
       return false
   }
@@ -142,7 +162,9 @@ function expressionNeedsParentheses (node, parentNode, isRightHand) {
 }
 
 function serializeOptionallyWrapped (node, maxPrecedence, orEqual = false) {
-  const wrap = orEqual ? (getExpressionPrecedence(node) <= maxPrecedence) : (getExpressionPrecedence(node) < maxPrecedence)
+  const wrap = orEqual
+    ? (getExpressionPrecedence(node) <= maxPrecedence)
+    : (getExpressionPrecedence(node) < maxPrecedence)
   return wrap ? ('(' + serializeAstNode(node) + ')') : serializeAstNode(node)
 }
 
@@ -172,37 +194,57 @@ function serializeAstNode (astNode) {
     case AST.Identifier:
       return astNode.name
     case AST.MemberExpression:
-      return serializeOptionallyWrapped(astNode.object, EXPRESSIONS_PRECEDENCE.MemberExpression) +
-                (astNode.computed ? ('[' + serializeAstNode(astNode.property) + ']') : ('.' + serializeAstNode(astNode.property)))
+      return serializeOptionallyWrapped(astNode.object, EXPRESSIONS_PRECEDENCE.MemberExpression) + (
+        astNode.computed
+          ? ('[' + serializeAstNode(astNode.property) + ']')
+          : ('.' + serializeAstNode(astNode.property))
+      )
     case AST.CallExpression: {
       let str
       if (astNode.filter) {
-        str = serializeOptionallyWrapped(astNode.arguments[0], EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression], true) +
-                        '|' + serializeAstNode(astNode.callee)
+        str = serializeOptionallyWrapped(astNode.arguments[0],
+          EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression], true)
+          + '|' + serializeAstNode(astNode.callee)
         for (let i = 1; i < astNode.arguments.length; i++) {
-          str += ':' + serializeOptionallyWrapped(astNode.arguments[i], EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression], true)
+          str += ':' + serializeOptionallyWrapped(astNode.arguments[i],
+            EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression], true)
         }
       } else {
-        str = serializeAstNode(astNode.callee) + '(' + astNode.arguments.map(argObj => serializeAstNode(argObj)).join(',') + ')'
+        str = serializeAstNode(astNode.callee) + '('
+          + astNode.arguments.map(
+            argObj => serializeAstNode(argObj)
+          ).join(',') + ')'
       }
       return str
     }
     case AST.AngularFilterExpression:
-      return serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.AngularFilterExpression) + '|' + serializeAstNode(astNode.filter) +
-                astNode.arguments.map(arg => ':' + serializeOptionallyWrapped(arg, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)).join('')
+      return (
+        serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)
+        + '|' + serializeAstNode(astNode.filter)
+        + astNode.arguments.map(arg =>
+          ':' + serializeOptionallyWrapped(arg, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)
+        ).join('')
+      )
     case AST.ListFilterExpression:
-      return serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.ListFilterExpression, astNode.rtl) +
-                '|' + serializeAstNode(astNode.filter) + ':this' +
-                astNode.arguments.map(arg => `:"${escapeQuotes(serializeAstNode(arg))}"`).join('')
+      return serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.ListFilterExpression, astNode.rtl)
+        + '|' + serializeAstNode(astNode.filter) // + ':this' // starting with yatte 1.2 beta 5, this is obsolete
+        + astNode.arguments.map(
+          (arg, i) => (
+            astNode.immediateArgs && astNode.immediateArgs.includes(i)
+              ? `:${serializeAstNode(arg)}`
+              : `:"${escapeQuotes(serializeAstNode(arg))}"`
+          )).join('')
     case AST.ArrayExpression:
       return '[' + astNode.elements.map(elem => serializeAstNode(elem)).join(',') + ']'
     case AST.ObjectExpression:
       return '{' + astNode.properties.map(prop => serializeAstNode(prop)).join(',') + '}'
     case AST.Property:
-      return (astNode.computed ? '[' : '') + serializeAstNode(astNode.key) + (astNode.computed ? ']' : '') + ':' + serializeAstNode(astNode.value)
+      return (astNode.computed ? '[' : '') + serializeAstNode(astNode.key)
+        + (astNode.computed ? ']' : '') + ':' + serializeAstNode(astNode.value)
     case AST.BinaryExpression:
     case AST.LogicalExpression:
-      return serializeBinaryExpressionPart(astNode.left, astNode, false) + astNode.operator + serializeBinaryExpressionPart(astNode.right, astNode, true)
+      return serializeBinaryExpressionPart(astNode.left, astNode, false)
+        + astNode.operator + serializeBinaryExpressionPart(astNode.right, astNode, true)
     case AST.UnaryExpression:
       return astNode.prefix
         ? astNode.operator + serializeOptionallyWrapped(astNode.argument, EXPRESSIONS_PRECEDENCE.UnaryExpression)
@@ -210,9 +252,14 @@ function serializeAstNode (astNode) {
     case AST.ConditionalExpression:
       // angular expression parsing has alternate and consequent reversed from their standard meanings!
       // so serialize according to whether it's been fixed or not
-      return serializeOptionallyWrapped(astNode.test, EXPRESSIONS_PRECEDENCE.ConditionalExpression, true) +
-                    '?' + serializeOptionallyWrapped(astNode.fixed ? astNode.consequent : astNode.alternate, EXPRESSIONS_PRECEDENCE.ConditionalExpression) +
-                    ':' + serializeAstNode(astNode.fixed ? astNode.alternate : astNode.consequent)
+      return (
+        serializeOptionallyWrapped(astNode.test, EXPRESSIONS_PRECEDENCE.ConditionalExpression, true)
+        + '?' + serializeOptionallyWrapped(
+          astNode.fixed
+            ? astNode.consequent
+            : astNode.alternate,
+          EXPRESSIONS_PRECEDENCE.ConditionalExpression
+        ) + ':' + serializeAstNode(astNode.fixed ? astNode.alternate : astNode.consequent))
     case AST.ThisExpression:
       return 'this'
     case AST.LocalsExpression:
@@ -224,7 +271,8 @@ function serializeAstNode (astNode) {
 
 exports.escapeQuotes = escapeQuotes
 function escapeQuotes (str) {
-  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&apos;') // include ampersands so escaping is nestable AND reversable when nested
+  // include ampersands so escaping is nestable AND reversable when nested
+  return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&apos;')
 }
 
 exports.unEscapeQuotes = unEscapeQuotes

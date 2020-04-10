@@ -1,7 +1,7 @@
 const yatte = require('../src/index')
-//const yatte = require('../lib/yatte.min')
 const assert = require('assert')
 const { TV_Family_Data } = require('./test-data')
+const AST = yatte.Engine.AST
 
 describe('Compiling expressions via exported API', function () {
   it('should reuse a compiled expression rather than re-compiling it', function () {
@@ -12,8 +12,6 @@ describe('Compiling expressions via exported API', function () {
 
   it('should correctly categorize the outcomes of a conditional expression', function () {
     const evaluator = yatte.Engine.compileExpr('test ? consequent : alternative')
-    const data = { test: true, consequent: 'consequent', alternative: 'alternative' }
-    assert.deepStrictEqual(evaluator(data), 'consequent')
     assert.deepStrictEqual(evaluator.normalized, 'test?consequent:alternative')
     assert.deepStrictEqual(evaluator.ast, {
       type: 'ConditionalExpression',
@@ -40,10 +38,9 @@ describe('Compiling expressions via exported API', function () {
   it('re-compiling a normalized list filter expression produces the same normalization but does not go back to original AST', function () {
     // note: compiling a normalized list filter expression shoulod produce the same AST as the original (non-normalized) list filter expression
     // we do this so downline features that depend on the AST can reliably know what they're going to get.
-    const evaluator = yatte.Engine.compileExpr(' Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"') // space at beginning is intentional, to avoid cached expression AST
-    const result = evaluator({ Date }, TV_Family_Data)
-    assert.strictEqual(result, true)
-    assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
+    yatte.Engine.compileExpr.cache = {}
+    const evaluator = yatte.Engine.compileExpr(' Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"') // space at beginning is intentional, to avoid cached expression AST
+    assert.deepStrictEqual(evaluator.normalized, 'Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
   })
 
@@ -69,40 +66,13 @@ describe('Compiling expressions via exported API', function () {
           { type: 'Identifier', name: 'Children', constant: false }
         ]
       },
-      arguments: [{ type: 'LocalsExpression', constant: false }]
+      arguments: [{ type: 'ThisExpression', constant: false }]
     })
-
-    const data = {
-      Client: { name: 'John Smith' },
-      Children: [
-        { name: 'Ken Smith' },
-        null,
-        { name: 'Susan Smith' }
-      ]
-    }
-    const result = evaluator(data)
-    assert.deepStrictEqual(result, [{ name: 'John Smith' }, { name: 'Ken Smith' }, { name: 'Susan Smith' }])
-  })
-
-  // list Children|filter:this.LastName == _parent.LastName
-  // list Children|filter:LastName == _parent.LastName
-  // list WitnessNames|filter:this != Spouse.Name
-  it('handles list filters that refer both to "this" and stuff in the broader scope/context', function () {
-    const evaluator = yatte.Engine.compileExpr('WitnessNames|filter:this != Spouse.Name')
-    const data = {
-      Client: { Name: 'Jane' },
-      Spouse: { Name: 'Kevin' },
-      WitnessNames: ['Lucy', 'Kevin', 'Ed']
-    }
-    const result = evaluator(data)
-    assert.deepStrictEqual(result, ['Lucy', 'Ed'])
   })
 
   it('allow chaining of "any" filter (and/or its "some" alias)', function () {
-    const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate.valueOf() > Date.now()')
-    const result = evaluator({ Date }, TV_Family_Data)
-    assert.strictEqual(result, true)
-    assert.deepStrictEqual(evaluator.normalized, 'Families|any:this:"Children|any:this:&quot;Birthdate.valueOf()>Date.now()&quot;"')
+    const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate > currentDate')
+    assert.deepStrictEqual(evaluator.normalized, 'Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"')
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
   })
 
@@ -129,28 +99,8 @@ describe('Compiling expressions via exported API', function () {
           {
             type: 'BinaryExpression',
             operator: '>',
-            left: {
-              type: 'CallExpression',
-              callee: {
-                type: 'MemberExpression',
-                object: { type: 'Identifier', name: 'Birthdate' },
-                property: { type: 'Identifier', name: 'valueOf' },
-                computed: false
-              },
-              arguments: [],
-              constant: false
-            },
-            right: {
-              type: 'CallExpression',
-              callee: {
-                type: 'MemberExpression',
-                object: { type: 'Identifier', name: 'Date' },
-                property: { type: 'Identifier', name: 'now' },
-                computed: false
-              },
-              arguments: [],
-              constant: false
-            },
+            left: { type: 'Identifier', name: 'Birthdate', constant: false },
+            right: { type: 'Identifier', name: 'currentDate', constant: false },
             constant: false
           }
         ],
@@ -162,7 +112,7 @@ describe('Compiling expressions via exported API', function () {
 
   it('allow chaining of the "any" filter with nested objects', function () {
     const evaluator = yatte.Engine.compileExpr('obj1.list1|any:obj2.list2|any:prop3')
-    assert.deepStrictEqual(evaluator.normalized, 'obj1.list1|any:this:"obj2.list2|any:this:&quot;prop3&quot;"')
+    assert.deepStrictEqual(evaluator.normalized, 'obj1.list1|any:"obj2.list2|any:&quot;prop3&quot;"')
     assert.deepStrictEqual(evaluator.ast, nestedAny_AST)
     // ensure the normalized expression produces the same AST but does not get recompiled!
     const evaluator2 = yatte.Engine.compileExpr(' ' + evaluator.normalized)
@@ -231,5 +181,21 @@ describe('Compiling expressions via exported API', function () {
         name: 'SyntaxError',
         message: 'Syntax Error: did you refer to a non-existant filter?\nName|UPPER'
       })
+  })
+
+  it('correctly serializes a simple AST as an expression', function () {
+    const evaluator = yatte.Engine.compileExpr('!test')
+    assert.deepStrictEqual(evaluator.ast, {
+      type: AST.UnaryExpression,
+      prefix: true,
+      operator: '!',
+      argument: {
+        type: AST.Identifier,
+        name: 'test',
+        constant: false
+      },
+      constant: false
+    })
+    assert.deepStrictEqual(evaluator.normalized, '!test')
   })
 })
