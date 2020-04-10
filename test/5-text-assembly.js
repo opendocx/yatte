@@ -161,6 +161,18 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'My favorite colors are Red, Yellow and Blue.')
   })
 
+  it('should assemble a list based on an array of keyed objects with conditionals', function () {
+    const template = 'My favorite colors are {[list Colors|punc:"1, 2 and 3"]}{[if _index==3]}(lastly) {[endif]}{[Description]}{[if this == "RGB(255,0,0)"]} (of course){[endif]}{[endlist]}.'
+    const evaluator = yatte.compileText(template)
+    const data = { Colors: [] }
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(255,0,0)', Description: 'Red'}, 'Name'))
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(255,255,0)', Description: 'Yellow'}, 'Name'))
+    data.Colors.push(CreateKeyedObject({Name: 'RGB(0,0,255)', Description: 'Blue'}, 'Name'))
+
+    const result = evaluator(data)
+    assert.equal(result, 'My favorite colors are Red (of course), Yellow and (lastly) Blue.')
+  })
+
   it('should assemble object list that explicitly refers to _parent', function () {
     const template = '{[list items|punc:"1, 2"]}{[FieldName]} plus {[_parent.FieldName]}{[endlist]}.'
     const data = {

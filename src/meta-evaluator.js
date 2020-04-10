@@ -61,7 +61,7 @@ function ContentReplacementTransform (contentItem, contextStack) {
     case OD.ElseIf: {
       let bValue
       try {
-        if (frame.frameType !== Scope.OBJECT) {
+        if (frame.frameType === Scope.LIST) {
           throw new Error(`Internal error: cannot define a condition directly in a ${frame.frameType} context`)
         }
         const evaluator = base.compileExpr(contentItem.expr)
