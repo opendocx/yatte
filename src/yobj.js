@@ -91,24 +91,26 @@ class YObject {
 
   getProperty (property, curriedParent = undefined) {
     // a caller is fetching some property value of the YObject, typically during evaluation.
-    // first check for child YObjects
-    const yobj = this.getChildYObject(property, curriedParent)
-    if (yobj) {
-      return (yobj instanceof YList) ? yobj.scopeProxy : yobj.proxy
-    }
-    // else get the value
-    const val = this.value[property]
-    // check if it's a virtual, and if so, evaluate it
-    if (typeof val === 'function' && (val.ast || val.logic)) {
-      let newVal = this.evaluate(val)
-      if (newVal instanceof EvaluationResult) {
-        newVal = newVal.value
+    if (this.value) {
+      // first check for child YObjects
+      const yobj = this.getChildYObject(property, curriedParent)
+      if (yobj) {
+        return (yobj instanceof YList) ? yobj.scopeProxy : yobj.proxy
       }
-      // I believe newVal, at this point, may be either a primitive or an object proxy
-      return newVal
+      // else get the value
+      const val = this.value[property]
+      // check if it's a virtual, and if so, evaluate it
+      if (typeof val === 'function' && (val.ast || val.logic)) {
+        let newVal = this.evaluate(val)
+        if (newVal instanceof EvaluationResult) {
+          newVal = newVal.value
+        }
+        // I believe newVal, at this point, may be either a primitive or an object proxy
+        return newVal
+      }
+      // else just return it
+      return val
     }
-    // else just return it
-    return val
   }
 
   getChildYObject (property, curriedParent = undefined) {
@@ -118,7 +120,7 @@ class YObject {
       return val
     }
     // else get the value
-    val = this.value[property]
+    val = this.value && this.value[property]
     // if it's empty, a raw primitive or a function, return nothing
     if (!val || isPrimitive(val, false) || (typeof val === 'function')) {
       return
