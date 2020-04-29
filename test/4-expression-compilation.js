@@ -179,7 +179,7 @@ describe('Compiling expressions via exported API', function () {
     assert.throws(() => yatte.Engine.compileExpr('Name|UPPER'), // non-existing filter
       {
         name: 'SyntaxError',
-        message: 'Syntax Error: did you refer to a non-existant filter?\nName|UPPER'
+        message: 'Syntax Error: did you refer to a nonexistent filter?\nName|UPPER'
       })
   })
 

@@ -149,7 +149,7 @@ const angularExpressionErrorMessage = function (e, expr) {
     return `${msg} '${token}':\n${expr}\n${' '.repeat(position) + '^'.repeat(token.length)}`
   }
   if (e.message === 'Cannot read property \'$stateful\' of undefined') {
-    return 'Syntax Error: did you refer to a non-existant filter?\n' + expr
+    return 'Syntax Error: did you refer to a nonexistent filter?\n' + expr
   }
   return e.message
 }
