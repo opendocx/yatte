@@ -1,12 +1,14 @@
 /* eslint-disable no-prototype-builtins */
 const base = require('./base-templater')
+const OD = require('./fieldtypes')
 
 /* parseTemplate parses a text template (passed in as a string)
    into an object tree structure -- essentially a high-level AST for the template.
 
    CRLF handling:
-   any field that's alone on a line of text (preceded by either a CRLF or the beginning of the string, and followed by a CRLF),
-   needs to (during parsing) "consume" the CRLF that follows it, to avoid unexpected lines in the assembled output.
+   any field that's alone on a line of text (preceded by either a CRLF or the beginning of the string, and
+   followed by a CRLF), needs to (during parsing) "consume" the CRLF that follows it, to avoid unexpected lines
+   in the assembled output.
 */
 function parseTemplate (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
   const templateCache = parseTemplate.cache
@@ -14,8 +16,16 @@ function parseTemplate (template, bIncludeExpressions = true, bIncludeListPunctu
   // if any block-level paired fields are on a lines by themselves, remove the CR/LF following those fields
   // (but leave block-level content fields alone)
   const tweaked = template.replace(_blockFieldRE, _blockFieldReplacer)
-  const templateSplit = tweaked.split(_fieldRE) // TODO: improve this approach with something that captures & retains each field offset
-  let result = (templateSplit.length < 2) /* no fields */ ? [ template ] : base.parseContentArray(templateSplit, bIncludeExpressions, bIncludeListPunctuation)
+  // TODO: improve this approach with something that captures & retains each field offset
+  let result
+  const templateSplit = tweaked.split(_fieldRE)
+  if (templateSplit.length < 2) { // no fields
+    result = [template]
+  } else {
+    result = base.parseContentArray(templateSplit, bIncludeExpressions, bIncludeListPunctuation)
+    // number the fields after-the-fact
+    numberFields(result)
+  }
   if (templateCache) {
     templateCache[template] = result
   }
@@ -24,6 +34,20 @@ function parseTemplate (template, bIncludeExpressions = true, bIncludeListPunctu
 parseTemplate.cache = {}
 exports.parseTemplate = parseTemplate
 
+const numberFields = function (parsedContentArray, startAt = 0) {
+  for (const contentItem of parsedContentArray) {
+    if (contentItem && typeof contentItem === 'object') {
+      if (contentItem.type !== OD.Content || contentItem.expr !== '_punc') {
+        contentItem.id = (++startAt).toString()
+      }
+      if (Array.isArray(contentItem.contentArray) && contentItem.contentArray.length > 0) {
+        startAt = numberFields(contentItem.contentArray, startAt)
+      }
+    }
+  }
+  return startAt
+}
+
 const _blockFieldReplacer = function (match, fieldText, eol, offset, string) {
   var cleaned = `{[${fieldText}]}`
   if (!fieldText.match(/^if|\?|else|:|list|#|end|\//)) {
@@ -31,7 +55,8 @@ const _blockFieldReplacer = function (match, fieldText, eol, offset, string) {
   }
   return cleaned
 }
-//const _blockFieldRE = /(?<=\n|\r|^)\{\s*\[([^{}]*?)\]\s*\}(\r\n|\n|\r)/g // positive lookbehind breaks every browser but chrome! (as of mid 2019)
+// const _blockFieldRE = /(?<=\n|\r|^)\{\s*\[([^{}]*?)\]\s*\}(\r\n|\n|\r)/g
+// positive lookbehind breaks every browser but chrome! (as of mid 2019)
 const _blockFieldRE = /^\{\s*\[([^{}]*?)\]\s*\}(\r\n|\n|\r)/gm
 const _fieldRE = /\{\s*(\[.*?\])\s*\}/
 const _fieldsRE = /\{\s*\[(.*?)\]\s*\}/g
@@ -54,11 +79,12 @@ const _fieldsRE = /\{\s*\[(.*?)\]\s*\}/g
 
 // new-and-improved parsing of text templates... not yet fully implemented :-(
 function parseText (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
-  let templateCache = parseText.cache
+  const templateCache = parseText.cache
   if (templateCache && templateCache.hasOwnProperty(template)) { return templateCache[template] }
   // split template into lines (parallel to paragraphs in Word doc)
   const lines = []
-  // scan fields in text, embedding metadata in each field about its line no, character offset & chunk no. Each line is now an array of content items, and each field has a L:C:K id.
+  // scan fields in text, embedding metadata in each field about its line no, character offset & chunk no.
+  // Each line is now an array of content items, and each field has a L:C:K id.
   for (const line of template.split('\n')) {
     const items = []
     let match
@@ -84,7 +110,8 @@ function parseText (template, bIncludeExpressions = true, bIncludeListPunctuatio
     }
     lines.push(items)
   }
-  // perform some validation on content items as we go: make sure ifs & lists are either in same line as their matching end fields, or on lines by themselves
+  // perform some validation on content items as we go: make sure ifs & lists are either in same line as
+  // their matching end fields, or on lines by themselves
   // extract all the fields into one content array, in order, which we will pass to the base templater
   const contentArray = []
   lines.forEach((lineArray, lineIndex) => {
@@ -96,7 +123,7 @@ function parseText (template, bIncludeExpressions = true, bIncludeListPunctuatio
     })
   })
   // the base templater only gets a list of fields, it doesn't know whether they're from text or DOCX or PDF etc.
-  let result = base.parseContentArray(contentArray, bIncludeExpressions, bIncludeListPunctuation)
+  const result = base.parseContentArray(contentArray, bIncludeExpressions, bIncludeListPunctuation)
   if (templateCache) {
     templateCache[template] = result
   }
@@ -109,7 +136,8 @@ class ParsedTextTemplate {
   constructor (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
     // split template into lines (parallel to paragraphs in Word doc)
     const lines = []
-    // scan fields in text, embedding metadata in each field about its line no, character offset & chunk no. Each line is now an array of content items, and each field has a L:C:K id.
+    // scan fields in text, embedding metadata in each field about its line no, character offset & chunk no.
+    // Each line is now an array of content items, and each field has a L:C:K id.
     for (const line of template.split('\n')) {
       const items = []
       let match
@@ -135,7 +163,8 @@ class ParsedTextTemplate {
       }
       lines.push(items)
     }
-    // perform some validation on content items as we go: make sure ifs & lists are either in same line as their matching end fields, or on lines by themselves
+    // perform some validation on content items as we go: make sure ifs & lists are either in same line as
+    // their matching end fields, or on lines by themselves
     const errors = []
     NormalizeRepeatAndConditional(lines, errors)
     // extract all the fields into one content array, in order, which we will pass to the base templater

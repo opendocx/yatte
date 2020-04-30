@@ -7,18 +7,21 @@ describe('Field parsing of simple conditionals', function () {
     const template = '{[First]} {[if Middle]}{[Middle]} {[endif]}{[Last]}{[if Suffix]} {[Suffix]}{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
     assert.deepEqual(result, [
-      { type: 'Content', expr: 'First' },
+      { type: 'Content', expr: 'First', id: '1' },
       ' ',
-      { type: 'If', expr: 'Middle', contentArray: [{ type: 'Content', expr: 'Middle' }, ' ', { type: 'EndIf' }] },
-      { type: 'Content', expr: 'Last' },
-      { type: 'If', expr: 'Suffix', contentArray: [' ', { type: 'Content', expr: 'Suffix' }, { type: 'EndIf' }] }
+      { type: 'If', expr: 'Middle', id: '2', contentArray: [
+        { type: 'Content', expr: 'Middle', id: '3' }, ' ', { type: 'EndIf', id: '4' }
+      ] },
+      { type: 'Content', expr: 'Last', id: '5' },
+      { type: 'If', expr: 'Suffix', id: '6', contentArray: [
+        ' ', { type: 'Content', expr: 'Suffix', id: '7' }, { type: 'EndIf', id: '8' }] }
     ])
   })
   it('should parse the if/endif template', function () {
     const template = '{[if true]}A{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
     assert.deepEqual(result, [
-      { type: 'If', expr: 'true', contentArray: ['A', { type: 'EndIf' }] }
+      { type: 'If', expr: 'true', id: '1', contentArray: ['A', { type: 'EndIf', id: '2' }] }
     ])
   })
   it('should parse the if/else/endif template', function () {
@@ -27,9 +30,10 @@ describe('Field parsing of simple conditionals', function () {
     assert.deepEqual(result, [
       { type: 'If',
         expr: 'false',
+        id: '1',
         contentArray: [
           'A',
-          { type: 'Else', contentArray: ['B', { type: 'EndIf' }] }
+          { type: 'Else', id: '2', contentArray: ['B', { type: 'EndIf', id: '3' }] }
         ] }
     ])
   })
@@ -39,9 +43,10 @@ describe('Field parsing of simple conditionals', function () {
     assert.deepEqual(result, [
       { type: 'If',
         expr: 'false',
+        id: '1',
         contentArray: [
           'A',
-          { type: 'ElseIf', expr: 'true', contentArray: ['B', { type: 'EndIf' }] }
+          { type: 'ElseIf', expr: 'true', id: '2', contentArray: ['B', { type: 'EndIf', id: '3' }] }
         ] }
     ])
   })
@@ -51,13 +56,15 @@ describe('Field parsing of simple conditionals', function () {
     assert.deepEqual(result, [
       { type: 'If',
         expr: 'false',
+        id: '1',
         contentArray: [
           'A',
           { type: 'ElseIf',
             expr: 'false',
+            id: '2',
             contentArray: [
               'B',
-              { type: 'Else', contentArray: ['C', { type: 'EndIf' }] }
+              { type: 'Else', id: '3', contentArray: ['C', { type: 'EndIf', id: '4' }] }
             ] }
         ] }
     ])
@@ -68,17 +75,20 @@ describe('Field parsing of simple conditionals', function () {
     assert.deepEqual(result, [
       { type: 'If',
         expr: 'false',
+        id: '1',
         contentArray: [
           'A',
           { type: 'ElseIf',
             expr: 'false',
+            id: '2',
             contentArray: [
               'B',
               { type: 'ElseIf',
                 expr: 'false',
+                id: '3',
                 contentArray: [
                   'C',
-                  { type: 'Else', contentArray: ['D', { type: 'EndIf' }] }
+                  { type: 'Else', id: '4', contentArray: ['D', { type: 'EndIf', id: '5' }] }
                 ] }
             ] }
         ] }
@@ -163,16 +173,19 @@ describe('Field parsing of nested conditionals', function () {
     assert.deepEqual(result, [
       { type: 'If',
         expr: 'false',
+        id: '1',
         contentArray: [
-          { type: 'If', expr: 'true', contentArray: ['A', { type: 'EndIf' }] },
+          { type: 'If', expr: 'true', id: '2', contentArray: ['A', { type: 'EndIf', id: '3' }] },
           { type: 'ElseIf',
             expr: 'false',
+            id: '4',
             contentArray: [
-              { type: 'If', expr: 'true', contentArray: ['B', { type: 'EndIf' }] },
+              { type: 'If', expr: 'true', id: '5', contentArray: ['B', { type: 'EndIf', id: '6' }] },
               { type: 'Else',
+                id: '7',
                 contentArray: [
-                  { type: 'If', expr: 'true', contentArray: ['C', { type: 'EndIf' }] },
-                  { type: 'EndIf' }
+                  { type: 'If', expr: 'true', id: '8', contentArray: ['C', { type: 'EndIf', id: '9' }] },
+                  { type: 'EndIf', id: '10' }
                 ] }
             ] }
         ] }
@@ -184,46 +197,55 @@ describe('Field parsing of nested conditionals', function () {
     assert.deepEqual(result, [
       { type: 'If',
         expr: 'false',
+        id: '1',
         contentArray: [
           { type: 'If',
             expr: 'false',
+            id: '2',
             contentArray: [
               'A',
               { type: 'ElseIf',
                 expr: 'false',
+                id: '3',
                 contentArray: [
                   'B',
-                  { type: 'Else', contentArray: ['C', { type: 'EndIf' }] }
+                  { type: 'Else', id: '4', contentArray: ['C', { type: 'EndIf', id: '5' }] }
                 ] }
             ] },
           { type: 'ElseIf',
             expr: 'false',
+            id: '6',
             contentArray: [
               { type: 'If',
                 expr: 'true',
+                id: '7',
                 contentArray: [
                   'D',
                   { type: 'ElseIf',
                     expr: 'false',
+                    id: '8',
                     contentArray: [
                       'E',
-                      { type: 'Else', contentArray: ['F', { type: 'EndIf' }] }
+                      { type: 'Else', id: '9', contentArray: ['F', { type: 'EndIf', id: '10' }] }
                     ] }
                 ] },
               { type: 'Else',
+                id: '11',
                 contentArray: [
                   { type: 'If',
                     expr: 'false',
+                    id: '12', 
                     contentArray: [
                       'G',
                       { type: 'ElseIf',
                         expr: 'false',
+                        id: '13',
                         contentArray: [
                           'H',
-                          { type: 'Else', contentArray: ['I', { type: 'EndIf' }] }
+                          { type: 'Else', id: '14', contentArray: ['I', { type: 'EndIf', id: '15' }] }
                         ] }
                     ] },
-                  { type: 'EndIf' }
+                  { type: 'EndIf', id: '16' }
                 ] }
             ] }
         ] }
@@ -238,10 +260,11 @@ describe('Field parsing of lists and nested lists', function () {
     assert.deepEqual(result, [
       { type: 'List',
         expr: '[]',
+        id: '1',
         contentArray: [
-          { type: 'Content', expr: '.' },
+          { type: 'Content', expr: '.', id: '2' },
           { type: 'Content', expr: '_punc' },
-          { type: 'EndList' }
+          { type: 'EndList', id: '3' }
         ] }
     ])
   })
@@ -251,17 +274,19 @@ describe('Field parsing of lists and nested lists', function () {
     assert.deepEqual(result, [
       { type: 'List',
         expr: '[]',
+        id: '1',
         contentArray: [
           'A: ',
           { type: 'List',
             expr: 'inner',
+            id: '2',
             contentArray: [
-              { type: 'Content', expr: '.' },
+              { type: 'Content', expr: '.', id: '3' },
               { type: 'Content', expr: '_punc' },
-              { type: 'EndList' }
+              { type: 'EndList', id: '4' }
             ] },
           { type: 'Content', expr: '_punc' },
-          { type: 'EndList' }
+          { type: 'EndList', id: '5' }
         ] }
     ])
   })
@@ -310,21 +335,24 @@ describe('Parsing nested conditionals and lists', function () {
     assert.deepEqual(result, [
       { type: 'List',
         expr: '[]',
+        id: '1',
         contentArray: [
           { type: 'If',
             expr: 'false',
+            id: '2',
             contentArray: [
               'A',
               { type: 'ElseIf',
                 expr: '.',
+                id: '3',
                 contentArray: [
-                  { type: 'Content', expr: '.' },
-                  { type: 'Else', contentArray: ['C', { type: 'EndIf' }] }
+                  { type: 'Content', expr: '.', id: '4' },
+                  { type: 'Else', id: '5', contentArray: ['C', { type: 'EndIf', id: '6' }] }
                 ] }
             ] },
           ', ',
           { type: 'Content', expr: '_punc' },
-          { type: 'EndList' }
+          { type: 'EndList', id: '7' }
         ] }
     ])
   })
@@ -334,46 +362,53 @@ describe('Parsing nested conditionals and lists', function () {
     assert.deepEqual(result, [
       { type: 'If',
         expr: 'false',
+        id: '1',
         contentArray: [
           { type: 'List',
             expr: '[]',
+            id: '2',
             contentArray: [
-              { type: 'Content', expr: 'test' },
+              { type: 'Content', expr: 'test', id: '3' },
               { type: 'Content', expr: '_punc' },
-              { type: 'EndList' }
+              { type: 'EndList', id: '4' }
             ] },
           { type: 'ElseIf',
             expr: 'false',
+            id: '5',
             contentArray: [
               'A',
               { type: 'List',
                 expr: 'outer',
+                id: '6',
                 contentArray: [
                   'B',
                   { type: 'List',
                     expr: 'inner',
+                    id: '7',
                     contentArray: [
                       'C',
                       { type: 'Content', expr: '_punc' },
-                      { type: 'EndList' }
+                      { type: 'EndList', id: '8' }
                     ] },
                   'D',
                   { type: 'Content', expr: '_punc' },
-                  { type: 'EndList' }
+                  { type: 'EndList', id: '9' }
                 ] },
               'E',
               { type: 'Else',
+                id: '10',
                 contentArray: [
                   'F',
                   { type: 'List',
                     expr: 'another',
+                    id: '11',
                     contentArray: [
                       'G',
                       { type: 'Content', expr: '_punc' },
-                      { type: 'EndList' }
+                      { type: 'EndList', id: '12' }
                     ] },
                   'H',
-                  { type: 'EndIf' }
+                  { type: 'EndIf', id: '13' }
                 ] }
             ] }
         ] }
@@ -452,6 +487,7 @@ describe('Parsing and normalization of list filters', function () {
       {
         type: 'List',
         expr: 'Oceans|filter:"AverageDepth>3500"',
+        id: '1',
         exprAst: {
           type: 'ListFilterExpression',
           rtl: false,
@@ -487,6 +523,7 @@ describe('Parsing and normalization of list filters', function () {
           {
             type: 'Content',
             expr: 'Name',
+            id: '2',
             exprAst: {
               constant: false,
               name: 'Name',
@@ -503,7 +540,7 @@ describe('Parsing and normalization of list filters', function () {
             }
           },
           '\n',
-          { type: 'EndList' }
+          { type: 'EndList', id: '3' }
         ]
       }
     ])
@@ -526,6 +563,7 @@ describe('Parsing and normalization of expressions', function () {
       {
         type: 'Content',
         expr: 'a',
+        id: '1',
         exprAst: {
           type: 'Identifier',
           name: 'a',
@@ -536,6 +574,7 @@ describe('Parsing and normalization of expressions', function () {
       {
         type: 'Content',
         expr: 'b?b+" ":""',
+        id: '2',
         exprAst: {
           type: 'ConditionalExpression',
           test: {
@@ -570,6 +609,7 @@ describe('Parsing and normalization of expressions', function () {
       {
         type: 'Content',
         expr: 'c',
+        id: '3',
         exprAst: {
           type: 'Identifier',
           name: 'c',
