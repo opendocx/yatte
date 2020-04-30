@@ -49,6 +49,7 @@ The logic tree should include the if twice, but should call for the data only on
       {
         type: 'If',
         expr: 'x',
+        id: '1',
         exprAst: {
           type: 'Identifier',
           name: 'x',
@@ -57,6 +58,7 @@ The logic tree should include the if twice, but should call for the data only on
         contentArray: [{
           type: 'Content',
           expr: 'x',
+          id: '2',
           exprAst: {
             type: 'Identifier',
             name: 'x',
@@ -133,6 +135,7 @@ The logic tree should include the if twice, but should call for the data only on
       {
         type: 'If',
         expr: 'a',
+        id: '1',
         exprAst: {
           type: 'Identifier',
           name: 'a',
@@ -142,6 +145,7 @@ The logic tree should include the if twice, but should call for the data only on
           {
             type: 'If',
             expr: 'b',
+            id: '2',
             exprAst: {
               type: 'Identifier',
               name: 'b',
@@ -154,6 +158,8 @@ The logic tree should include the if twice, but should call for the data only on
       {
         type: 'Content',
         expr: 'x',
+        id: '7',
+        idd: ['5', '3'],
         exprAst: {
           type: 'Identifier',
           name: 'x',
@@ -170,6 +176,8 @@ The logic tree should include the if twice, but should call for the data only on
       {
         type: 'Content',
         expr: 'x',
+        id: '1',
+        idd: ['3'],
         exprAst: {
           type: 'Identifier',
           name: 'x',
@@ -178,6 +186,7 @@ The logic tree should include the if twice, but should call for the data only on
       }, {
         type: 'If',
         expr: 'a',
+        id: '2',
         exprAst: {
           type: 'Identifier',
           name: 'a',
@@ -195,6 +204,7 @@ The logic tree should include the if twice, but should call for the data only on
       {
         type: 'Content',
         expr: 'x',
+        id: '1',
         exprAst: {
           type: 'Identifier',
           name: 'x',
@@ -203,6 +213,7 @@ The logic tree should include the if twice, but should call for the data only on
       }, {
         type: 'If',
         expr: 'x',
+        id: '2',
         exprAst: {
           type: 'Identifier',
           name: 'x',
@@ -211,6 +222,7 @@ The logic tree should include the if twice, but should call for the data only on
         contentArray: [{
           type: 'Content',
           expr: 'y',
+          id: '3',
           exprAst: {
             type: 'Identifier',
             name: 'y',
@@ -319,10 +331,12 @@ can quickly & optimally determine the relevance and requiredness of any property
   //     assert(data.hasOwnProperty('_')) // because we passed it as the scope object rather than locals
   // })
 
+// 1{[if x]}2{[list []]}3{[test]}4{[endlist]}5{[elseif y]}6{[A]}7{[list outer]}8{[z?B:B2]}9{[list inner]}10{[C]}11{[endlist]}12{[D]}13{[endlist]}14{[E]}15{[else]}16{[F]}17{[list another]}18{[G]}19{[endlist]}20{[H]}21{[endif]}
 const TestNestLogicTree = [
   {
     type: 'If',
     expr: 'x',
+    id: '1',
     exprAst: {
       type: 'Identifier',
       name: 'x',
@@ -332,6 +346,7 @@ const TestNestLogicTree = [
       {
         type: 'List',
         expr: '[]',
+        id: '2',
         exprAst: {
           type: 'ArrayExpression',
           elements: [],
@@ -342,6 +357,7 @@ const TestNestLogicTree = [
           {
             type: 'Content',
             expr: 'test',
+            id: '3',
             exprAst: {
               type: 'Identifier',
               name: 'test',
@@ -362,6 +378,7 @@ const TestNestLogicTree = [
       {
         type: 'ElseIf',
         expr: 'y',
+        id: '5',
         exprAst: {
           type: 'Identifier',
           name: 'y',
@@ -371,6 +388,7 @@ const TestNestLogicTree = [
           {
             type: 'Content',
             expr: 'A',
+            id: '6',
             exprAst: {
               type: 'Identifier',
               name: 'A',
@@ -380,6 +398,7 @@ const TestNestLogicTree = [
           {
             type: 'List',
             expr: 'outer',
+            id: '7',
             exprAst: {
               type: 'Identifier',
               name: 'outer',
@@ -390,6 +409,7 @@ const TestNestLogicTree = [
               {
                 type: 'Content',
                 expr: 'z?B:B2',
+                id: '8',
                 exprAst: {
                   type: 'ConditionalExpression',
                   test: {
@@ -414,6 +434,7 @@ const TestNestLogicTree = [
               {
                 type: 'List',
                 expr: 'inner',
+                id: '9',
                 exprAst: {
                   type: 'Identifier',
                   name: 'inner',
@@ -424,6 +445,7 @@ const TestNestLogicTree = [
                   {
                     type: 'Content',
                     expr: 'C',
+                    id: '10',
                     exprAst: {
                       type: 'Identifier',
                       name: 'C',
@@ -444,6 +466,7 @@ const TestNestLogicTree = [
               {
                 type: 'Content',
                 expr: 'D',
+                id: '12',
                 exprAst: {
                   type: 'Identifier',
                   name: 'D',
@@ -464,6 +487,7 @@ const TestNestLogicTree = [
           {
             type: 'Content',
             expr: 'E',
+            id: '14',
             exprAst: {
               type: 'Identifier',
               name: 'E',
@@ -472,10 +496,12 @@ const TestNestLogicTree = [
           },
           {
             type: 'Else',
+            id: '15',
             contentArray: [
               {
                 type: 'Content',
                 expr: 'F',
+                id: '16',
                 exprAst: {
                   type: 'Identifier',
                   name: 'F',
@@ -485,6 +511,7 @@ const TestNestLogicTree = [
               {
                 type: 'List',
                 expr: 'another',
+                id: '17',
                 exprAst: {
                   type: 'Identifier',
                   name: 'another',
@@ -495,6 +522,7 @@ const TestNestLogicTree = [
                   {
                     type: 'Content',
                     expr: 'G',
+                    id: '18',
                     exprAst: {
                       type: 'Identifier',
                       name: 'G',
@@ -515,6 +543,7 @@ const TestNestLogicTree = [
               {
                 type: 'Content',
                 expr: 'H',
+                id: '20',
                 exprAst: {
                   type: 'Identifier',
                   name: 'H',
@@ -529,10 +558,12 @@ const TestNestLogicTree = [
   }
 ]
 
+// 1{[?x]}2{[adjective]}3{[:]}4{[/?]}5{[name]}6{[if x]}7{[else]}8{[endif]}
 const redundant_if_logic_tree = [
   {
     type: 'If',
     expr: 'x',
+    id: '1',
     exprAst: {
       type: 'Identifier',
       name: 'x',
@@ -541,6 +572,7 @@ const redundant_if_logic_tree = [
     contentArray: [{
       type: 'Content',
       expr: 'adjective',
+      id: '2',
       exprAst: {
         type: 'Identifier',
         name: 'adjective',
@@ -548,12 +580,14 @@ const redundant_if_logic_tree = [
       }
     }, {
       type: 'Else',
+      id: '3',
       contentArray: []
     }
     ]
   }, {
     type: 'Content',
     expr: 'name',
+    id: '5',
     exprAst: {
       type: 'Identifier',
       name: 'name',
@@ -562,6 +596,7 @@ const redundant_if_logic_tree = [
   }, {
     type: 'If',
     expr: 'x',
+    id: '6',
     exprAst: {
       type: 'Identifier',
       name: 'x',
@@ -569,16 +604,19 @@ const redundant_if_logic_tree = [
     },
     contentArray: [{
       type: 'Else',
+      id: '7',
       contentArray: []
     }
     ]
   }
 ]
 
+// 1{[if x]}2{[x]}3{[elseif y]}4{[y]}5{[else]}6{[z]}7{[endif]}
 const XYZLogicTree = [
   {
     type: 'If',
     expr: 'x',
+    id: '1',
     exprAst: {
       type: 'Identifier',
       name: 'x',
@@ -587,6 +625,7 @@ const XYZLogicTree = [
     contentArray: [{
       type: 'Content',
       expr: 'x',
+      id: '2',
       exprAst: {
         type: 'Identifier',
         name: 'x',
@@ -595,6 +634,7 @@ const XYZLogicTree = [
     }, {
       type: 'ElseIf',
       expr: 'y',
+      id: '3',
       exprAst: {
         type: 'Identifier',
         name: 'y',
@@ -603,6 +643,7 @@ const XYZLogicTree = [
       contentArray: [{
         type: 'Content',
         expr: 'y',
+        id: '4',
         exprAst: {
           type: 'Identifier',
           name: 'y',
@@ -610,9 +651,11 @@ const XYZLogicTree = [
         }
       }, {
         type: 'Else',
+        id: '5',
         contentArray: [{
           type: 'Content',
           expr: 'z',
+          id: '6',
           exprAst: {
             type: 'Identifier',
             name: 'z',
@@ -698,6 +741,7 @@ const ugly_nested_contentArray = [
   {
     type: "If",
     expr: "DocSelect==\"SelectAllPlan\"",
+    id: '1',
     exprAst: {
       type: "BinaryExpression",
       operator: "==",
@@ -717,6 +761,7 @@ const ugly_nested_contentArray = [
       {
         type: "Content",
         expr: "EngageLetter",
+        id: '2',
         exprAst: {
           type: "Identifier",
           name: "EngageLetter",
@@ -725,6 +770,7 @@ const ugly_nested_contentArray = [
       }, {
         type: "Content",
         expr: "DPOA",
+        id: '3',
         exprAst: {
           type: "Identifier",
           name: "DPOA",
@@ -733,6 +779,7 @@ const ugly_nested_contentArray = [
       }, {
         type: "Content",
         expr: "AdvCarePlan",
+        id: '4',
         exprAst: {
           type: "Identifier",
           name: "AdvCarePlan",
@@ -741,6 +788,7 @@ const ugly_nested_contentArray = [
       }, {
         type: "Content",
         expr: "SimpleWill",
+        id: '5',
         exprAst: {
           type: "Identifier",
           name: "SimpleWill",
@@ -749,6 +797,7 @@ const ugly_nested_contentArray = [
       }, {
         type: "Content",
         expr: "FinancialStatement",
+        id: '6',
         exprAst: {
           type: "Identifier",
           name: "FinancialStatement",
@@ -757,6 +806,7 @@ const ugly_nested_contentArray = [
       }, {
         type: "Content",
         expr: "CoverSheet",
+        id: '7',
         exprAst: {
           type: "Identifier",
           name: "CoverSheet",
@@ -765,6 +815,7 @@ const ugly_nested_contentArray = [
       }, {
         type: "If",
         expr: "Married",
+        id: '8',
         exprAst: {
           type: "Identifier",
           name: "Married",
@@ -773,6 +824,7 @@ const ugly_nested_contentArray = [
         contentArray: [{
             type: "Content",
             expr: "DPOASpouse",
+            id: '9',
             exprAst: {
               type: "Identifier",
               name: "DPOASpouse",
@@ -781,6 +833,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "Content",
             expr: "AdvCarePlanSpouse",
+            id: '10',
             exprAst: {
               type: "Identifier",
               name: "AdvCarePlanSpouse",
@@ -789,6 +842,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "Content",
             expr: "SimpleWillSpouse",
+            id: '11',
             exprAst: {
               type: "Identifier",
               name: "SimpleWillSpouse",
@@ -799,6 +853,7 @@ const ugly_nested_contentArray = [
       }, {
         type: "ElseIf",
         expr: "DocSelect==\"SelectAllLivingWill\"",
+        id: '13',
         exprAst: {
           type: "BinaryExpression",
           operator: "==",
@@ -818,6 +873,7 @@ const ugly_nested_contentArray = [
           {
             type: "Content",
             expr: "EngageLetter",
+            id: '14',
             exprAst: {
               type: "Identifier",
               name: "EngageLetter",
@@ -826,6 +882,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "Content",
             expr: "DPOA",
+            id: '15',
             exprAst: {
               type: "Identifier",
               name: "DPOA",
@@ -834,6 +891,7 @@ const ugly_nested_contentArray = [
           },{
             type: "Content",
             expr: "LivingWill",
+            id: '16',
             exprAst: {
               type: "Identifier",
               name: "LivingWill",
@@ -842,6 +900,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "Content",
             expr: "AdvHealthDirective",
+            id: '17',
             exprAst: {
               type: "Identifier",
               name: "AdvHealthDirective",
@@ -850,6 +909,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "Content",
             expr: "SimpleWill",
+            id: '18',
             exprAst: {
               type: "Identifier",
               name: "SimpleWill",
@@ -858,6 +918,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "Content",
             expr: "FinancialStatement",
+            id: '19',
             exprAst: {
               type: "Identifier",
               name: "FinancialStatement",
@@ -866,6 +927,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "Content",
             expr: "CoverSheet",
+            id: '20',
             exprAst: {
               type: "Identifier",
               name: "CoverSheet",
@@ -874,6 +936,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "If",
             expr: "Married",
+            id: '21',
             exprAst: {
               type: "Identifier",
               name: "Married",
@@ -882,6 +945,7 @@ const ugly_nested_contentArray = [
             contentArray: [{
                 type: "Content",
                 expr: "DPOASpouse",
+                id: '22',
                 exprAst: {
                   type: "Identifier",
                   name: "DPOASpouse",
@@ -890,6 +954,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "Content",
                 expr: "LivingWillSpouse",
+                id: '23',
                 exprAst: {
                   type: "Identifier",
                   name: "LivingWillSpouse",
@@ -898,6 +963,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "Content",
                 expr: "AdvHCDirSpouse",
+                id: '24',
                 exprAst: {
                   type: "Identifier",
                   name: "AdvHCDirSpouse",
@@ -906,6 +972,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "Content",
                 expr: "SimpleWillSpouse",
+                id: '25',
                 exprAst: {
                   type: "Identifier",
                   name: "SimpleWillSpouse",
@@ -916,6 +983,7 @@ const ugly_nested_contentArray = [
           }, {
             type: "ElseIf",
             expr: "DocSelect==\"SelectDocs\"",
+            id: '27',
             exprAst: {
               type: "BinaryExpression",
               operator: "==",
@@ -934,6 +1002,7 @@ const ugly_nested_contentArray = [
             contentArray: [{
                 type: "If",
                 expr: "Documents|contains:\"Engagement Letter\"",
+                id: '28',
                 exprAst: {
                   type: "AngularFilterExpression",
                   arguments: [{
@@ -956,6 +1025,7 @@ const ugly_nested_contentArray = [
                 contentArray: [{
                   type: "Content",
                   expr: "EngageLetter",
+                  id: '29',
                   exprAst: {
                     type: "Identifier",
                     name: "EngageLetter",
@@ -965,6 +1035,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "If",
                 expr: "Documents|contains:\"Living Will\"",
+                id: '31',
                 exprAst: {
                   type: "AngularFilterExpression",
                   arguments: [{
@@ -987,6 +1058,7 @@ const ugly_nested_contentArray = [
                 contentArray: [{
                     type: "Content",
                     expr: "LivingWill",
+                    id: '32',
                     exprAst: {
                       type: "Identifier",
                       name: "LivingWill",
@@ -995,6 +1067,7 @@ const ugly_nested_contentArray = [
                   }, {
                     type: "If",
                     expr: "Married",
+                    id: '33',
                     exprAst: {
                       type: "Identifier",
                       name: "Married",
@@ -1003,6 +1076,7 @@ const ugly_nested_contentArray = [
                     contentArray: [{
                         type: "Content",
                         expr: "LivingWillSpouse",
+                        id: '34',
                         exprAst: {
                           type: "Identifier",
                           name: "LivingWillSpouse",
@@ -1015,6 +1089,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "If",
                 expr: "Documents|contains:\"Power of Attorney\"",
+                id: '37',
                 exprAst: {
                   type: "AngularFilterExpression",
                   arguments: [{
@@ -1038,6 +1113,7 @@ const ugly_nested_contentArray = [
                   {
                     type: "Content",
                     expr: "DPOA",
+                    id: '38',
                     exprAst: {
                       type: "Identifier",
                       name: "DPOA",
@@ -1046,6 +1122,7 @@ const ugly_nested_contentArray = [
                   }, {
                     type: "If",
                     expr: "Married",
+                    id: '39',
                     exprAst: {
                       type: "Identifier",
                       name: "Married",
@@ -1054,6 +1131,7 @@ const ugly_nested_contentArray = [
                     contentArray: [{
                         type: "Content",
                         expr: "DPOASpouse",
+                        id: '40',
                         exprAst: {
                           type: "Identifier",
                           name: "DPOASpouse",
@@ -1066,6 +1144,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "If",
                 expr: "Documents|contains:\"Advanced Care Plan\"",
+                id: '43',
                 exprAst: {
                   type: "AngularFilterExpression",
                   arguments: [{
@@ -1089,6 +1168,7 @@ const ugly_nested_contentArray = [
                   {
                     type: "Content",
                     expr: "AdvCarePlan",
+                    id: '44',
                     exprAst: {
                       type: "Identifier",
                       name: "AdvCarePlan",
@@ -1097,6 +1177,7 @@ const ugly_nested_contentArray = [
                   }, {
                     type: "If",
                     expr: "Married",
+                    id: '45',
                     exprAst: {
                       type: "Identifier",
                       name: "Married",
@@ -1105,6 +1186,7 @@ const ugly_nested_contentArray = [
                     contentArray: [{
                         type: "Content",
                         expr: "AdvCarePlanSpouse",
+                        id: '46',
                         exprAst: {
                           type: "Identifier",
                           name: "AdvCarePlanSpouse",
@@ -1117,6 +1199,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "If",
                 expr: "Documents|contains:\"Advance Health Care Directive\"",
+                id: '49',
                 exprAst: {
                   type: "AngularFilterExpression",
                   arguments: [{
@@ -1140,6 +1223,7 @@ const ugly_nested_contentArray = [
                   {
                     type: "Content",
                     expr: "AdvHealthDirective",
+                    id: '50',
                     exprAst: {
                       type: "Identifier",
                       name: "AdvHealthDirective",
@@ -1148,6 +1232,7 @@ const ugly_nested_contentArray = [
                   },{
                     type: "If",
                     expr: "Married",
+                    id: '51',
                     exprAst: {
                       type: "Identifier",
                       name: "Married",
@@ -1156,6 +1241,7 @@ const ugly_nested_contentArray = [
                     contentArray: [{
                         type: "Content",
                         expr: "AdvHCDirSpouse",
+                        id: '52',
                         exprAst: {
                           type: "Identifier",
                           name: "AdvHCDirSpouse",
@@ -1168,6 +1254,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "If",
                 expr: "Documents|contains:\"Financial Statement\"",
+                id: '55',
                 exprAst: {
                   type: "AngularFilterExpression",
                   arguments: [{
@@ -1190,6 +1277,7 @@ const ugly_nested_contentArray = [
                 contentArray: [{
                   type: "Content",
                   expr: "FinancialStatement",
+                  id: '56',
                   exprAst: {
                     type: "Identifier",
                     name: "FinancialStatement",
@@ -1199,6 +1287,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "If",
                 expr: "Documents|contains:\"Will\"",
+                id: '58',
                 exprAst: {
                   type: "AngularFilterExpression",
                   arguments: [{
@@ -1222,6 +1311,7 @@ const ugly_nested_contentArray = [
                   {
                     type: "Content",
                     expr: "SimpleWill",
+                    id: '59',
                     exprAst: {
                       type: "Identifier",
                       name: "SimpleWill",
@@ -1230,6 +1320,7 @@ const ugly_nested_contentArray = [
                   }, {
                     type: "If",
                     expr: "Married",
+                    id: '60',
                     exprAst: {
                       type: "Identifier",
                       name: "Married",
@@ -1238,6 +1329,7 @@ const ugly_nested_contentArray = [
                     contentArray: [{
                         type: "Content",
                         expr: "SimpleWillSpouse",
+                        id: '61',
                         exprAst: {
                           type: "Identifier",
                           name: "SimpleWillSpouse",
@@ -1250,6 +1342,7 @@ const ugly_nested_contentArray = [
               }, {
                 type: "If",
                 expr: "Documents|contains:\"Cover Sheet\"",
+                id: '64',
                 exprAst: {
                   type: "AngularFilterExpression",
                   arguments: [{
@@ -1272,6 +1365,7 @@ const ugly_nested_contentArray = [
                 contentArray: [{
                   type: "Content",
                   expr: "CoverSheet",
+                  id: '65',
                   exprAst: {
                     type: "Identifier",
                     name: "CoverSheet",

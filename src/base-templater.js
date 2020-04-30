@@ -372,25 +372,39 @@ const reduceContentArray = function (astBody, newBody = null, scope = null, pare
 
 const reduceContentNode = function (astNode, scope, parentScope = null) {
   if (typeof astNode === 'string') return null // plain text node -- boilerplate content in a text template
-  if (astNode.type === OD.EndList || astNode.type === OD.EndIf) return null
-
+  if (astNode.type === OD.EndList) {
+    // can we find the matching List field, to set its .endid = astNode.id before returning?
+    return null
+  }
+  if (astNode.type === OD.EndIf) {
+    // can we find the initial matching If field (not ElseIf or Else), to set its .endid = astNode.id before returning?
+    return null
+  }
   if (astNode.type === OD.Content) {
-    if (scope[astNode.expr]) return null // expression already defined in this scope
-    // eslint-disable-next-line no-unused-vars
-    const { id, ...copyOfNode } = astNode // strip field id if it's there // TODO: stop stripping the id!
+    const existing = scope[astNode.expr]
+    if (existing) { // expression already defined in this scope
+      if (astNode.id && typeof existing === 'object') {
+        const idd = existing.idd || (existing.idd = [])
+        idd.push(astNode.id)
+      }
+      return null
+    }
+    const { /* id, */ ...copyOfNode } = astNode // stopped stripping field id
     scope[astNode.expr] = copyOfNode
     return copyOfNode
   }
   if (astNode.type === OD.List) {
-    let existingListNode
-    // eslint-disable-next-line no-cond-assign
-    if (existingListNode = scope[astNode.expr]) {
+    const existing = scope[astNode.expr]
+    if (existing) {
       // this list has already been added to the parent scope; revisit it to add more content members if necessary
-      reduceContentArray(astNode.contentArray, existingListNode.contentArray, existingListNode.scope)
+      reduceContentArray(astNode.contentArray, existing.contentArray, existing.scope)
+      if (astNode.id) {
+        const idd = existing.idd || (existing.idd = [])
+        idd.push(astNode.id)
+      }
       return null
     } else {
-      // eslint-disable-next-line no-unused-vars
-      const { id, contentArray, ...copyOfNode } = astNode // TODO: stop stripping the id!
+      const { /* id, */ contentArray, ...copyOfNode } = astNode // stopped stripping the id
       copyOfNode.scope = {} // fresh new wholly separate scope for lists
       copyOfNode.contentArray = reduceContentArray(contentArray, null, copyOfNode.scope)
       scope[astNode.expr] = copyOfNode // set BEFORE recursion for consistent results?  (or is it intentionally after?)
@@ -407,15 +421,14 @@ const reduceContentNode = function (astNode, scope, parentScope = null) {
     // AND VICE VERSA: an expression emitted as part of a content node STILL needs to be emitted as part of a condition,
     // too.
 
-    // eslint-disable-next-line no-unused-vars
-    const { id, contentArray, ...copyOfNode } = astNode // TODO: stop stripping the id!
+    const { /* id, */ contentArray, ...copyOfNode } = astNode // stopped stripping the id
     // this 'parentScope' thing is a bit tricky.  The parentScope argument is only supplied
     // when we're inside an If/ElseIf/Else block within the current scope.
     // If supplied, it INDIRECTLY refers to the actual scope -- basically, successive layers of "if" blocks
     // that each establish a new "mini" scope, that has the parent scope as its prototype.
-    // This means, a reference to an identifier in a parent scope, will prevent that identifier from appearing
-    // (redundantly) in a child; but a reference to an identifier in a child scope,
-    // will NOT prevent that identifier from appearing in a parent scope.
+    // This means, a reference to an identifier in a parent scope, will prevent that identifier from
+    // subsequently appearing (redundantly) in a child; but a reference to an identifier in a child scope,
+    // must NOT prevent that identifier from appearing subsequently in a parent scope.
     const pscope = (parentScope != null) ? parentScope : scope
     if (copyOfNode.type === OD.If || copyOfNode.type === OD.ElseIf) {
       if (!(('if$' + astNode.expr) in pscope)) {
@@ -451,10 +464,15 @@ const simplifyContentArray3 = function (body, scope = {}) {
     let nodeRemoved = false
     if (field.type === OD.Content) {
       if (field.expr in scope) {
+        if (field.id) {
+          const existing = scope[field.expr]
+          const idd = existing.idd || (existing.idd = [])
+          idd.push(field.id)
+        }
         body.splice(i, 1)
         nodeRemoved = true
       } else {
-        scope[field.expr] = true
+        scope[field.expr] = field
       }
     }
     if (!nodeRemoved) {
@@ -465,7 +483,7 @@ const simplifyContentArray3 = function (body, scope = {}) {
   for (const field of body) {
     if (field.type === OD.List) {
       if (!(field.expr in scope)) {
-        scope[field.expr] = true
+        scope[field.expr] = field
       }
       simplifyContentArray3(field.contentArray, {}) // new scope for lists
     } else if (field.type === OD.If) {

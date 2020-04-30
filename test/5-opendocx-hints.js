@@ -12,6 +12,7 @@ describe('Emitting ifs appropriately for OpenDocx', function () {
       {
         type: 'Content',
         expr: 'x',
+        id: '1',
         exprAst: {
           type: 'Identifier',
           name: 'x',
@@ -20,6 +21,7 @@ describe('Emitting ifs appropriately for OpenDocx', function () {
       }, {
         type: 'If',
         expr: 'x',
+        id: '2',
         exprAst: {
           type: 'Identifier',
           name: 'x',
