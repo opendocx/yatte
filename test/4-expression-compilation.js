@@ -122,6 +122,19 @@ describe('Compiling expressions via exported API', function () {
   })
 
   it('allows lookup of/access to an object in a list using the find filter', function () {
+    const evaluator = yatte.Engine.compileExpr('(table|find:col1=="b").col2')
+    const data = {
+      table: [
+        { col1: 'a', col2: 'A' },
+        { col1: 'b', col2: 'B' },
+        { col1: 'c', col2: 'C' },
+      ],
+    }
+    const result = evaluator(data)
+    assert.strictEqual(result, 'B')
+  })
+
+  it('allows lookup of/access to an object in a list with context using the find filter', function () {
     const evaluator = yatte.Engine.compileExpr('(table|find:col1==value).col2')
     const data = {
       value: 'b',
@@ -131,9 +144,8 @@ describe('Compiling expressions via exported API', function () {
         { col1: 'c', col2: 'C' },
       ],
     }
-    //const scope = Scope.pushObject(data)
-    //const result = scope.evaluate(evaluator)
-    const result = evaluator(data)
+    const scope = require('../src/index').Scope.pushObject(data)
+    const result = scope.evaluate(evaluator)
     assert.strictEqual(result, 'B')
   })
 
