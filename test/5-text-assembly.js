@@ -149,6 +149,88 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'Who is John Smith?')
   })
 
+  it('should assemble a template that explicitly uses only the local context', function () {
+    const proto = {
+      FullName: yatte.compileText('{[this.First]} {[this.Middle ? this.Middle + " ":""]}{[this.Last]}')
+    }
+    let data = Scope.pushObject(
+      TestData.makeObject(proto, {
+        Last: 'Smith',
+        First: 'Gerald',
+        Middle: 'W.'
+      })
+    )
+    data = Scope.pushObject(
+      TestData.makeObject(proto, {
+        First: 'John'
+      }),
+      data
+    )
+    const template2 = 'Who is {[FullName]}?'
+    const result = yatte.assembleText(template2, data)
+    assert.equal(result, 'Who is John [this.Last]?')
+  })
+
+  it('should assemble a template using local list contexts AND a global context', function () {
+    const proto = {
+      FullName: yatte.compileText('{[First]} {[Middle ? Middle + " ":""]}{[Last]}')
+    }
+    let data = {
+      First: 'Gerald',
+      Middle: 'N.',
+      Last: 'Smith',
+      Children: [
+        TestData.makeObject(proto, {
+          First: 'Joan'
+        }),
+        TestData.makeObject(proto, {
+          First: 'Kathy',
+          Last: 'Other'
+        }),
+        TestData.makeObject(proto, {
+          First: 'John',
+          Middle: 'Jacob Jingleheimer'
+        }),
+      ]
+    }
+    data = TestData.makeObject(proto, data)
+    data = Scope.pushObject(data)
+    //data = Scope.pushList(data.Children, data)
+    const template2 = '{[FullName]} has kids {[list Children|punc:"1, 2 and 3"]}{[_index]}) {[FullName]}{[endlist]}.'
+    const result = yatte.assembleText(template2, data)
+    assert.equal(result, 'Gerald N. Smith has kids 1) Joan N. Smith, 2) Kathy N. Other and 3) John Jacob Jingleheimer Smith.')
+  })
+
+  it('should assemble a template using both explicitly local and implicitly global contexts', function () {
+    const proto = {
+      FullName: yatte.compileText('{[this.First]} {[this.Middle ? this.Middle + " ":""]}{[Last]}')
+    }
+    let data = {
+      First: 'Gerald',
+      Middle: 'N.',
+      Last: 'Smith',
+      Children: [
+        TestData.makeObject(proto, {
+          First: 'Joan'
+        }),
+        TestData.makeObject(proto, {
+          First: 'Kathy',
+          Last: 'Other'
+        }),
+        TestData.makeObject(proto, {
+          First: 'John',
+          Middle: 'Jacob Jingleheimer'
+        }),
+      ]
+    }
+    data = TestData.makeObject(proto, data)
+    data = Scope.pushObject(data)
+    //data = Scope.pushList(data.Children, data)
+    const template2 = '{[FullName]} has kids {[list Children|punc:"1, 2 and 3"]}{[_index]}) {[FullName]}{[endlist]}.'
+    const result = yatte.assembleText(template2, data)
+    assert.equal(result, 'Gerald N. Smith has kids 1) Joan Smith, 2) Kathy Other and 3) John Jacob Jingleheimer Smith.')
+  })
+
   it('should assemble a punctuated list based on an array of keyed objects', function () {
     const template = 'My favorite colors are {[list Colors|punc:"1, 2 and 3"]}{[Description]}{[endlist]}.'
     const evaluator = yatte.compileText(template)
