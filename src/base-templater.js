@@ -66,6 +66,7 @@ exports.buildLogicTree = buildLogicTree
  *
  * @callback EvaluateExpression
  * @param {Object} s - the scope against which to evaluate the expression
+ * @param {Object} l - the local object ("this") against which to evaluate the expression
  * @returns {*} - the value resulting from the evaluation
  *
  * @property {Object} ast
@@ -102,13 +103,16 @@ const compileExpr = function (expr) {
       // since I'm not entirely sure how to do anything useful with that stuff outside of Angular itself
       result.ast = reduceAstNode(result.ast.body[0].expression)
       // extend AST with enhanced nodes for filters
-      const modified = fixFilters(result.ast)
+      let modified = fixFilters(result.ast)
       // normalize the expression
       const normalizedExpr = AST.serialize(result.ast)
+      // change "this" to "$locals"
+      const hasThis = thisTo$locals(result.ast)
+      modified |= hasThis
       // recompile the expression if filter fixes changed its functionality
       if (modified) {
         const existingAst = result.ast
-        result = expressions.compile(normalizedExpr)
+        result = expressions.compile(hasThis ? AST.serialize(existingAst) : normalizedExpr)
         result.ast = existingAst
       }
       // save the normalized expression as a property of the compiled expression
@@ -231,13 +235,20 @@ const parseFieldExpr = function (fieldObj) {
   //   type (string): the field type
   //   expr (string): the expression within the field that wants to be parsed
   const expectarray = (fieldObj.type === OD.List)
-  const compiledExpr = compileExpr(fieldObj.expr)
-  fieldObj.exprAst = compiledExpr.ast
-  if (expectarray) {
-    fieldObj.exprAst.expectarray = expectarray
+  try {
+    const compiledExpr = compileExpr(fieldObj.expr)
+    fieldObj.exprAst = compiledExpr.ast
+    if (expectarray) {
+      fieldObj.exprAst.expectarray = expectarray
+    }
+    fieldObj.expr = compiledExpr.normalized // normalize all expressions
+    return compiledExpr
+  } catch (err) {
+    if (fieldObj.id) {
+      err.message = err.message + ' [in field ' + fieldObj.id + ']'
+    }
+    throw err
   }
-  fieldObj.expr = compiledExpr.normalized // normalize all expressions
-  return compiledExpr
 }
 
 const parseContentUntilMatch = function (
@@ -673,6 +684,26 @@ const convertCallNodeToFilterNode = function (node) {
     node.type = AST.AngularFilterExpression
     return false
   }
+}
+
+/**
+ * Recursively processes the given AST node to convert any and all nodes representing the "this" token,
+ * to the "$locals" token instead
+ *
+ * Note: if this function makes changes, it modifies the given ast *in place*. The return value indicates whether
+ *       or not changes were made.
+ *
+ * @param {object} astNode
+ * @returns {boolean} whether or not the AST was modified
+ */
+const thisTo$locals = function (astNode) {
+  return astMutateInPlace(astNode, node => {
+    if (node.type === AST.ThisExpression) {
+      node.type = AST.LocalsExpression
+      return true
+    }
+    return false
+  })
 }
 
 function isNormalizedListFilterNode (node) {

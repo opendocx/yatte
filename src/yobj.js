@@ -95,7 +95,7 @@ class YObject {
       // first check for child YObjects
       const yobj = this.getChildYObject(property, curriedParent)
       if (yobj) {
-        return (yobj instanceof YList) ? yobj.scopeProxy : yobj.proxy
+        return /*(yobj instanceof YList) ? yobj.scopeProxy :*/ yobj.proxy
       }
       // else get the value
       const val = this.value[property]
@@ -143,8 +143,8 @@ class YObject {
     if (typeof compiledVirtual === 'function') {
       if (compiledVirtual.ast) {
         // appears to be a compiled angular expression; it expects a scope object (proxy)
-        const result = compiledVirtual(this.scopeProxy)
-        const yobj = result  && result.__scope && result.__yobj
+        const result = compiledVirtual(this.scopeProxy, this.proxy)
+        const yobj = result  && result.__yobj
         const frameType = yobj && yobj.frameType
         if (frameType === YObject.LIST) {
           // it's an array proxy of scope proxies; just return it
@@ -152,7 +152,7 @@ class YObject {
         }
         // check for array return values, wrap them in a YList, and return a proxy
         if (Array.isArray(result) && !(this instanceof YReducerItem)) {
-          return (new YList(result, this)).scopeProxy
+          return (new YList(result, this)).proxy // scopeProxy
         }
         // else check for proxied primitives we may need to unwrap
         if (frameType === YObject.PRIMITIVE) {
@@ -168,7 +168,7 @@ class YObject {
         const result = compiledVirtual(this)
         return result && result.valueOf()
       } // else
-      return compiledVirtual(this.scopeProxy)
+      return compiledVirtual(this.scopeProxy, this.proxy)
     }
     throw new Error('YObject.evaluate invoked against a non-function')
   }
@@ -270,7 +270,7 @@ class YObject {
 
   get _parent () {
     const parent = this.getParentEffective()
-    return parent && parent.scopeProxy
+    return parent && parent.proxy // scopeProxy
     // note: _parent needs to return a scopeProxy (rather than a regular proxy) so _index will be available on it
   }
 
@@ -528,6 +528,8 @@ class YObjectHandler {
       case '__yobj': return yobj // target object
       case '__value': return yobj.value // raw value
       case '_parent': return yobj._parent // object proxy
+      case '_index': return yobj.index
+      case '_index0': return yobj.index0
       case 'toString': return (...args) => yobj.value.toString.apply(yobj.value, args)
       case 'valueOf': return () => yobj.value && yobj.value.valueOf()
       case Symbol.toPrimitive: return (hint) => yobj[Symbol.toPrimitive](hint)
@@ -555,8 +557,10 @@ class YObjectHandler {
   }
 }
 
-const proxyMethodNames = ['__yobj', '__value', '_parent', 'toString', 'valueOf', Symbol.toPrimitive]
-const scopeProxyMethodNames = proxyMethodNames.concat(['__scope', '_index', '_index0', '_punc', '_result'])
+const proxyMethodNames = [
+  '__yobj', '__value', '_parent', '_index', '_index0', 'toString', 'valueOf', Symbol.toPrimitive
+]
+const scopeProxyMethodNames = proxyMethodNames.concat(['__scope', '_punc', '_result'])
 
 /*
   ScopeHandler is a Proxy handler for runtime proxies of context scope frames.
@@ -591,9 +595,9 @@ class ScopeHandler extends YObjectHandler {
             // check if the context we need (yobj) is already part of member's context!
             if (!yo.hasParent(yobj)) {
               if (yo instanceof YList) {
-                return (new YList(yo.value, yobj)).scopeProxy
+                return (new YList(yo.value, yobj)).proxy // scopeProxy
               } else {
-                return (new YObject(yo.value, yobj)).scopeProxy
+                return (new YObject(yo.value, yobj)).proxy // scopeProxy
               }
             }
           }

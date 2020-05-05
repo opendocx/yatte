@@ -44,6 +44,11 @@ describe('Compiling expressions via exported API', function () {
     assert.deepStrictEqual(evaluator.ast, ListFilterAST)
   })
 
+  it('correctly normalizes an expression with functions and this', function () {
+    const evaluator = yatte.Engine.compileExpr('[].concat(Client, Spouse, Children)|filter:this')
+    assert.deepStrictEqual(evaluator.normalized, '[].concat(Client,Spouse,Children)|filter:"this"')
+  })
+
   it('correctly parses and compiles array concatenation and filtering out falsy values', function () {
     const evaluator = yatte.Engine.compileExpr('[].concat(Client, Spouse, Children)|filter:this')
     assert.deepStrictEqual(evaluator.ast, {
@@ -66,7 +71,7 @@ describe('Compiling expressions via exported API', function () {
           { type: 'Identifier', name: 'Children', constant: false }
         ]
       },
-      arguments: [{ type: 'ThisExpression', constant: false }]
+      arguments: [{ type: 'LocalsExpression', constant: false }]
     })
   })
 

@@ -158,7 +158,7 @@ describe('Executing expressions compiled via exported API', function () {
     const evaluator = yatte.Engine.compileExpr('test ? consequent : alternative')
     const data = { test: true, consequent: 'consequent', alternative: 'alternative' }
     let stack = Scope.pushObject(data)
-    assert.deepStrictEqual(evaluator(stack.scopeProxy), 'consequent')
+    assert.deepStrictEqual(evaluator(stack.scopeProxy, stack.proxy), 'consequent')
   })
 
   it('re-compiling a normalized list filter expression produces the same normalization and compilation', function () {
@@ -174,8 +174,8 @@ describe('Executing expressions compiled via exported API', function () {
     // console.log(str1)
     let stack = Scope.pushObject({ currentDate: new Date(2019, 11, 13) })
     stack = Scope.pushObject(TV_Family_Data, stack)
-    const result1 = evaluator1(stack.scopeProxy)
-    const result2 = evaluator2(stack.scopeProxy)
+    const result1 = evaluator1(stack.scopeProxy, stack.proxy)
+    const result2 = evaluator2(stack.scopeProxy, stack.proxy)
     assert.strictEqual(result1, result2, 'result1/result2 mismatch')
     // console.log('' + result1 + '==' + result2)
     assert.strictEqual(result1, true, 'evaluation result was incorrect')
@@ -193,7 +193,7 @@ describe('Executing expressions compiled via exported API', function () {
       ]
     }
     let stack = Scope.pushObject(data)
-    const result = evaluator(stack.scopeProxy)
+    const result = evaluator(stack.scopeProxy, stack.proxy)
     assert.strictEqual(result.length, 3)
     assert.deepStrictEqual(result[0].__value, { name: 'John Smith' })
     assert.deepStrictEqual(result[1].__value, { name: 'Ken Smith' })
@@ -211,7 +211,7 @@ describe('Executing expressions compiled via exported API', function () {
       WitnessNames: ['Lucy', 'Kevin', 'Ed']
     }
     let stack = Scope.pushObject(data)
-    const result = evaluator(stack.scopeProxy)
+    const result = evaluator(stack.scopeProxy, stack.proxy)
     assert.strictEqual(result.length, 2)
     assert.equal(result[0].__value, 'Lucy')
     assert.equal(result[1].__value, 'Ed')
@@ -221,7 +221,7 @@ describe('Executing expressions compiled via exported API', function () {
     const evaluator = yatte.Engine.compileExpr('Families | some: Children | any: Birthdate > currentDate')
     let stack = Scope.pushObject({ currentDate: new Date() })
     stack = Scope.pushObject(TV_Family_Data, stack)
-    const result = evaluator(stack.scopeProxy)
+    const result = evaluator(stack.scopeProxy, stack.proxy)
     assert.strictEqual(result, true)
   })
 
@@ -250,7 +250,7 @@ describe('Executing expressions compiled via exported API', function () {
     ]
     const data1 = Scope.pushObject({ states })
     const data2 = Scope.pushObject({ MyObject: { NewYork: yatte.Engine.compileExpr('states[2]') } }, data1)
-    const result = evaluator(data2.scopeProxy)
+    const result = evaluator(data2.scopeProxy, data2.proxy)
     assert.equal(result, 'New York')
     assert.notStrictEqual(result, 'New York')
   })
@@ -264,10 +264,10 @@ describe('Executing expressions compiled via exported API', function () {
     ]
     const data1 = Scope.pushObject({ states })
     const evaluator1 = yatte.Engine.compileExpr('states|find:Name=="New York"')
-    const result1 = evaluator1(data1.scopeProxy)
+    const result1 = evaluator1(data1.scopeProxy, data1.proxy)
     const data2 = Scope.pushObject({ MyObject: { State: result1 } }, data1)
     const evaluator2 = yatte.Engine.compileExpr('MyObject.State')
-    const result2 = evaluator2(data2.scopeProxy)
+    const result2 = evaluator2(data2.scopeProxy, data2.proxy)
     assert.equal(result2, 'New York')
     assert.notStrictEqual(result2, 'New York')
   })
@@ -282,7 +282,7 @@ describe('Executing expressions compiled via exported API', function () {
     const data1 = Scope.pushObject({ states })
     const data2 = Scope.pushObject({ MyObject: { Michigan: yatte.Engine.compileExpr('states[1]') } }, data1)
     const evaluator = yatte.Engine.compileExpr('MyObject.Michigan.Abbreviation')
-    const result = evaluator(data2.scopeProxy)
+    const result = evaluator(data2.scopeProxy, data2.proxy)
     assert.strictEqual(result, 'MI')
   })
 
@@ -295,10 +295,10 @@ describe('Executing expressions compiled via exported API', function () {
     ]
     const data1 = Scope.pushObject({ states })
     const evaluator1 = yatte.Engine.compileExpr('states|find:Name=="Michigan"')
-    const result1 = evaluator1(data1.scopeProxy)
+    const result1 = evaluator1(data1.scopeProxy, data1.proxy)
     const data2 = Scope.pushObject({ MyObject: { State: result1 } }, data1)
     const evaluator2 = yatte.Engine.compileExpr('MyObject.State.Abbreviation')
-    const result2 = evaluator2(data2.scopeProxy)
+    const result2 = evaluator2(data2.scopeProxy, data2.proxy)
     assert.strictEqual(result2, 'MI')
   })
 
@@ -312,7 +312,7 @@ describe('Executing expressions compiled via exported API', function () {
     const data1 = Scope.pushObject({ states })
     const data2 = Scope.pushObject({ State: 'Michigan' }, data1)
     const evaluator = yatte.Engine.compileExpr('states|filter:Name==State')
-    const result = evaluator(data2.scopeProxy)
+    const result = evaluator(data2.scopeProxy, data2.proxy)
     assert.strictEqual(result.length, 1)
   })
 
@@ -325,7 +325,7 @@ describe('Executing expressions compiled via exported API', function () {
   //   ]
   //   const scope = Scope.pushObject({ states })
   //   const evaluator = yatte.Engine.compileExpr('states|any')
-  //   assert.throws(() => evaluator(scope.scopeProxy), // no argument on filter
+  //   assert.throws(() => evaluator(scope.scopeProxy, scope.proxy), // no argument on filter
   //     {
   //       name: 'Error',
   //       message: 'Invalid argument passed to the Any filter: undefined'
@@ -335,7 +335,7 @@ describe('Executing expressions compiled via exported API', function () {
   // it('correctly compiles & executes expressions using the flat() function', function () {
   //   const evaluator = yatte.Engine.compileExpr('(Families | map: (Children | map: Name)).flat()') // .flat only works for Node 11 or later
   //   let stack = Scope.pushObject(TV_Family_Data)
-  //   const result = evaluator(stack.scopeProxy)
+  //   const result = evaluator(stack.scopeProxy, stack.proxy)
   //   assert.deepEqual(result.length, 27)
   // })
 

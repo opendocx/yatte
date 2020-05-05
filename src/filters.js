@@ -217,8 +217,8 @@ function Sort (input) {
       depth = 0
     }
     if (depth >= sortBy.length) { return 0 }
-    const valA = sortBy[depth].evaluator(a) // sort expressions must only  refer to stuff in the current list item
-    const valB = sortBy[depth].evaluator(b)
+    const valA = sortBy[depth].evaluator(a, a) // sort expressions must only  refer to stuff in the current list item
+    const valB = sortBy[depth].evaluator(b, b)
     if (valA < valB) { return sortBy[depth].descending ? 1 : -1 }
     if (valA > valB) { return sortBy[depth].descending ? -1 : 1 }
     return compare(a, b, depth + 1)
@@ -263,13 +263,13 @@ function Group (input, groupStr) {
   const evaluator = base.compileExpr(unEscapeQuotes(groupStr))
   // let lScope = Scope.pushList(input, scope.__frame)
   const grouped = input.reduce(
-    (result, itemScopeProxy, index) => {
+    (result, item, index) => {
       // lScope = Scope.pushListItem(index, lScope)
       /* const key = lScope.evaluate(evaluator).toString() */
-      const yobj = itemScopeProxy && itemScopeProxy.__yobj
+      const yobj = item && item.__yobj
       let key = yobj
         ? yobj.evaluate(evaluator)
-        : evaluator(itemScopeProxy) // just evaluate item directly
+        : evaluator(item, item) // just evaluate item directly
       const keyobj = key && key.__yobj // check if the key is a proxy
       if (keyobj) { // if so, get the underlying value
         key = keyobj.bareValue
@@ -280,7 +280,7 @@ function Group (input, groupStr) {
         bucket = { _key: key, _values: [] }
         result.push(bucket)
       }
-      bucket._values.push(itemScopeProxy)
+      bucket._values.push(item)
       // lScope = Scope.pop(lScope)
       return result
     },
@@ -343,7 +343,7 @@ function callArrayFunc (func, array, predicateStr) {
     const yobj = item && item.__yobj
     return yobj
       ? yobj.evaluate(evaluator) // includes correct handling of primitive values, etc.
-      : evaluator(item) // just evaluate item directly
+      : evaluator(item, item) // just evaluate item directly
     // lScope = Scope.pushListItem(index, lScope)
     // const subResult = (justThis && (!lScope._value || (lScope.frameType === Scope.PRIMITIVE)))
     //   ? item

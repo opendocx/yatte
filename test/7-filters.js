@@ -177,7 +177,7 @@ surnameData.surnames[5].firstName = 'Ken'
 describe('group filter', function () {
   it('groups a list of strings', function () {
     const evaluator = yatte.Engine.compileExpr('surnames|group:this')
-    const value = evaluator(surnameData)
+    const value = evaluator(surnameData, surnameData)
     const v = surnameData.surnames
     assert.deepEqual(value, [
       { _key: 'Jones',        _values: [v[0], v[2], v[3], v[5]] },
@@ -189,7 +189,7 @@ describe('group filter', function () {
 
   it('simplifies a list of strings to unique values and alphabetizes them', function () {
     const evaluator = yatte.Engine.compileExpr('surnames|group:this|map:_key|sort:this')
-    const value = evaluator(surnameData)
+    const value = evaluator(surnameData, surnameData)
     assert.deepEqual(value, ['Johnson', 'Jones', 'McGillicutty', 'Smith'])
   })
 })
@@ -198,25 +198,25 @@ describe('reduce filter', function () {
   it('sums a series of numbers (no initial value)', function () {
     const evaluator = yatte.Engine.compileExpr('array|reduce:_result+this')
     const data = { array: [0, 1, 2, 3, 4] }
-    const value = evaluator(data)
+    const value = evaluator(data, data)
     assert.strictEqual(value, 10)
   })
   it('sums a series of numbers (with initial value)', function () {
     const evaluator = yatte.Engine.compileExpr('array|reduce:_result+this:10')
     const data = { array: [0, 1, 2, 3, 4] }
-    const value = evaluator(data)
+    const value = evaluator(data, data)
     assert.strictEqual(value, 20)
   })
   it('flattens a nested array (no initial value)', function () {
     const evaluator = yatte.Engine.compileExpr('array|reduce:_result.concat(this)')
     const data = { array: [[0], [1, 2], [3, 4]] }
-    const value = evaluator(data)
+    const value = evaluator(data, data)
     assert.deepEqual(value, [0, 1, 2, 3, 4])
   })
   it('flattens a nested array (with initial value)', function () {
     const evaluator = yatte.Engine.compileExpr('array|reduce:_result.concat(this):[]')
     const data = { array: [[0], [1, 2], [3, 4]] }
-    const value = evaluator(data)
+    const value = evaluator(data, data)
     assert.deepEqual(value, [0, 1, 2, 3, 4])
   })
   it('flattens a nested array in an object array', function () {
