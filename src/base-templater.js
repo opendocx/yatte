@@ -235,13 +235,20 @@ const parseFieldExpr = function (fieldObj) {
   //   type (string): the field type
   //   expr (string): the expression within the field that wants to be parsed
   const expectarray = (fieldObj.type === OD.List)
-  const compiledExpr = compileExpr(fieldObj.expr)
-  fieldObj.exprAst = compiledExpr.ast
-  if (expectarray) {
-    fieldObj.exprAst.expectarray = expectarray
+  try {
+    const compiledExpr = compileExpr(fieldObj.expr)
+    fieldObj.exprAst = compiledExpr.ast
+    if (expectarray) {
+      fieldObj.exprAst.expectarray = expectarray
+    }
+    fieldObj.expr = compiledExpr.normalized // normalize all expressions
+    return compiledExpr
+  } catch (err) {
+    if (fieldObj.id) {
+      err.message = err.message + ' [in field ' + fieldObj.id + ']'
+    }
+    throw err
   }
-  fieldObj.expr = compiledExpr.normalized // normalize all expressions
-  return compiledExpr
 }
 
 const parseContentUntilMatch = function (
