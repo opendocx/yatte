@@ -262,6 +262,11 @@ const parseContentUntilMatch = function (
   let elseEncountered = false
   // eslint-disable-next-line no-constant-condition
   while (true) {
+    if (idx >= contentArray.length) {
+      throw new Error(`No ${targetType} found to match ${originId
+        ? `field ${originId}'s`
+        : (targetType === OD.EndList) ? 'a' : 'an'} ${(targetType === OD.EndList) ? 'List' : 'If'}`)
+    }
     const parsedContent = parseContentItem(idx, contentArray, bIncludeExpressions, bIncludeListPunctuation)
     const isObj = (parsedContent.length === 1 && typeof parsedContent[0] === 'object' && parsedContent[0] !== null)
     idx++
@@ -295,11 +300,6 @@ const parseContentUntilMatch = function (
     if (isObj && (parsedContent[0].type === OD.EndIf || parsedContent[0].type === OD.EndList)) {
       throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${
         parsedContent[0].id})` : ''} without a matching ${(parsedContent[0].type === OD.EndList) ? 'List' : 'If'}`)
-    }
-    if (idx >= contentArray.length) {
-      throw new Error(`No ${targetType} found to match ${originId
-        ? `field ${originId}'s`
-        : (targetType === OD.EndList) ? 'a' : 'an'} ${(targetType === OD.EndList) ? 'List' : 'If'}`)
     }
   }
   // remove (consume) all parsed items from the contentArray before returning
