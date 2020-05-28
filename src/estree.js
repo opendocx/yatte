@@ -255,11 +255,13 @@ function serializeAstNode (astNode) {
       return (
         serializeOptionallyWrapped(astNode.test, EXPRESSIONS_PRECEDENCE.ConditionalExpression, true)
         + '?' + serializeOptionallyWrapped(
-          astNode.fixed
-            ? astNode.consequent
-            : astNode.alternate,
+          astNode.fixed ? astNode.consequent : astNode.alternate,
           EXPRESSIONS_PRECEDENCE.ConditionalExpression
-        ) + ':' + serializeAstNode(astNode.fixed ? astNode.alternate : astNode.consequent))
+        ) + ':' + serializeOptionallyWrapped(
+          astNode.fixed ? astNode.alternate : astNode.consequent,
+          EXPRESSIONS_PRECEDENCE.ConditionalExpression
+        )
+      )
     case AST.ThisExpression:
       return 'this'
     case AST.LocalsExpression:

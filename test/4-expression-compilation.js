@@ -215,4 +215,29 @@ describe('Compiling expressions via exported API', function () {
     })
     assert.deepStrictEqual(evaluator.normalized, '!test')
   })
+
+  it('correctly serializes grouping in nested conditionals (grouping needed)', function () {
+    const evaluator = yatte.Engine.compileExpr(`a
+  ? b
+    ? (c|map:C)
+    : (d|map:D)
+  : e`)
+    assert.deepStrictEqual(evaluator.normalized, 'a?b?(c|map:"C"):(d|map:"D"):e')
+  })
+
+  it('correctly serializes grouping in nested conditionals (complex)', function () {
+    const evaluator = yatte.Engine.compileExpr(`
+(a ? b : c)
+  ? (
+    d
+      ? e
+      : (
+        f
+          ? g
+          : h
+      )
+  )
+  : i`)
+    assert.deepStrictEqual(evaluator.normalized, '(a?b:c)?d?e:f?g:h:i')
+  })
 })
