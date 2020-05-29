@@ -26,9 +26,10 @@ const parseContentArray = function (contentArray, bIncludeExpressions = true, bI
             parsedContent.type === OD.ElseIf
            )
       ) {
-        throw new Error(`Encountered an ${parsedContent.type}${
-          parsedContent.id ? ` (field ${parsedContent.id})` : ''
-        } without a matching ${(parsedContent.type === OD.EndList) ? 'List' : 'If'}`)
+        // Field X's EndList/EndIf/Else/ElseIf has no matching List/If
+        const errMsg = `${parsedContent.id ? `Field ${parsedContent.id}'s` : 'The'} ${parsedContent.type
+        } has no matching ${(parsedContent.type === OD.EndList) ? 'List' : 'If'}`
+        throw new Error(errMsg)
       }
     }
     Array.prototype.push.apply(astBody, parsedContentItem)
@@ -263,9 +264,10 @@ const parseContentUntilMatch = function (
   // eslint-disable-next-line no-constant-condition
   while (true) {
     if (idx >= contentArray.length) {
-      throw new Error(`No ${targetType} found to match ${originId
-        ? `field ${originId}'s`
-        : (targetType === OD.EndList) ? 'a' : 'an'} ${(targetType === OD.EndList) ? 'List' : 'If'}`)
+      // Field X's List/If has no matching EndList/EndIf
+      const errMsg = `${originId ? `Field ${originId}'s` : 'The'} ${(targetType === OD.EndList) ? 'List' : 'If'
+      } has no matching ${targetType}`
+      throw new Error(errMsg)
     }
     const parsedContent = parseContentItem(idx, contentArray, bIncludeExpressions, bIncludeListPunctuation)
     const isObj = (parsedContent.length === 1 && typeof parsedContent[0] === 'object' && parsedContent[0] !== null)
@@ -284,22 +286,39 @@ const parseContentUntilMatch = function (
       break
     }
     if (parsedContent) { parsedContent.forEach(pc => { if (pc) { parentContent.push(pc) } }) }
-    if (isObj && (parsedContent[0].type === OD.ElseIf || parsedContent[0].type === OD.Else)) {
-      if (targetType === OD.EndIf) {
-        if (elseEncountered) {
-          throw new Error(`An ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${
-            parsedContent[0].id})` : ''} cannot follow an Else`)
-        }
-        if (parsedContent[0].type === OD.Else) { elseEncountered = true }
-        parentContent = parsedContent[0].contentArray
-      } else if (targetType === OD.EndList) {
-        throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${
-          parsedContent[0].id})` : ''} when expecting ${originId ? `field ${originId}'s` : 'an'} EndList`)
+    if (isObj) {
+      let errMsg
+      switch (parsedContent[0].type) {
+        case OD.ElseIf:
+        case OD.Else:
+          if (targetType === OD.EndIf) {
+            if (elseEncountered) {
+              // Encountered [field Y's|an] [Else/ElseIf] when expecting an EndIf (following [field X's|an] Else)
+              errMsg = `Encountered ${
+                parsedContent[0].id ? `field ${parsedContent[0].id}'s` : 'an'} ${
+                parsedContent[0].type} (after ${originId ? `field ${originId}'s` : 'an'
+              } Else) when expecting an EndIf`
+            }
+            if (parsedContent[0].type === OD.Else) { elseEncountered = true }
+            if (!errMsg) { parentContent = parsedContent[0].contentArray }
+          } else if (targetType === OD.EndList) {
+            // Encountered [field Y's|an] [Else|ElseIf] when expecting [the end of field X's List|an EndList]
+            errMsg = `Encountered ${
+              parsedContent[0].id ? `field ${parsedContent[0].id}'s` : 'an'} ${
+              parsedContent[0].type} when expecting ${originId
+              ? `the end of field ${originId}'s List`
+              : 'an EndList'}`
+          }
+          break
+        case OD.EndIf:
+        case OD.EndList:
+          // Field X's EndIf/EndList has no matching If/List
+          errMsg = `${parsedContent[0].id ? `Field ${parsedContent[0].id}'s` : 'The'} ${parsedContent[0].type
+          } has no matching ${(parsedContent[0].type === OD.EndList) ? 'List' : 'If'}`
       }
-    }
-    if (isObj && (parsedContent[0].type === OD.EndIf || parsedContent[0].type === OD.EndList)) {
-      throw new Error(`Encountered an ${parsedContent[0].type}${parsedContent[0].id ? ` (field ${
-        parsedContent[0].id})` : ''} without a matching ${(parsedContent[0].type === OD.EndList) ? 'List' : 'If'}`)
+      if (errMsg) {
+        throw new Error(errMsg)
+      }
     }
   }
   // remove (consume) all parsed items from the contentArray before returning
