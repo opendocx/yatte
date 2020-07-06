@@ -381,6 +381,20 @@ describe('Assembly of text template via exported API', function () {
     assert.equal(result, 'two is the 2nd of 3 in global')
   })
 
+  it('assembles an if field testing against a string with a single quote', function () {
+    const data = Scope.pushObject({
+      D: {
+        T: "Children's Trust"
+      }
+    })
+    const result = yatte.assembleText(
+      "{[if D.T==\"Trust\"||D.T==\"Children's Trust\"]}a{[else]}b{[endif]}",
+      data.scopeProxy
+    )
+    assert.equal(result, 'a')
+  })
+
+
 })
 
 class Child {
