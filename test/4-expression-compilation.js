@@ -240,4 +240,34 @@ describe('Compiling expressions via exported API', function () {
   : i`)
     assert.deepStrictEqual(evaluator.normalized, '(a?b:c)?d?e:f?g:h:i')
   })
+
+  it('correctly serializes grouping in object literals (grouping needed)', function () {
+    const evaluator = yatte.Engine.compileExpr('{ a: a, b: (b|map:B) }')
+    assert.deepStrictEqual(evaluator.normalized, '{a:a,b:(b|map:"B")}')
+  })
+
+  it('correctly serializes grouping in array elements (grouping needed)', function () {
+    const evaluator = yatte.Engine.compileExpr('[ a, (b|format:"9") ]')
+    assert.deepStrictEqual(evaluator.normalized, '[a,(b|format:"9")]')
+  })
+
+  it('correctly serializes grouping in array elements (2)', function () {
+    const evaluator = yatte.Engine.compileExpr('[ (b|format:"9") ]')
+    assert.deepStrictEqual(evaluator.normalized, '[(b|format:"9")]')
+  })
+
+  it('correctly serializes grouping in function calls (grouping needed)', function () {
+    const evaluator = yatte.Engine.compileExpr('a.func((b|map: B))')
+    assert.deepStrictEqual(evaluator.normalized, 'a.func((b|map:"B"))')
+  })
+
+  it('correctly serializes grouping in function calls (2)', function () {
+    const evaluator = yatte.Engine.compileExpr('a.func((b|map: B), c)')
+    assert.deepStrictEqual(evaluator.normalized, 'a.func((b|map:"B"),c)')
+  })
+
+  it('correctly serializes grouping in function calls (3)', function () {
+    const evaluator = yatte.Engine.compileExpr('(a|map: A).func(b)')
+    assert.deepStrictEqual(evaluator.normalized, '(a|map:"A").func(b)')
+  })
 })

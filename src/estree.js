@@ -55,27 +55,29 @@ const OPERATOR_PRECEDENCE = {
 }
 
 // Enables parenthesis regardless of precedence
-const NEEDS_PARENTHESES = 17
+const NEEDS_PARENTHESES = 18
 
 const EXPRESSIONS_PRECEDENCE = {
   // Definitions
-  [AST.ArrayExpression]: 20,
-  [AST.ThisExpression]: 20,
-  [AST.LocalsExpression]: 20,
-  [AST.Identifier]: 20,
-  [AST.Literal]: 18,
+  [AST.ArrayExpression]: 21,
+  [AST.ThisExpression]: 21,
+  [AST.LocalsExpression]: 21,
+  [AST.Identifier]: 21,
   // Operations
-  [AST.MemberExpression]: 19,
-  [AST.CallExpression]: 19,
+  [AST.MemberExpression]: 20,
+  [AST.CallExpression]: 20,
   // Other definitions
+  [AST.Literal]: 19,
   [AST.ObjectExpression]: NEEDS_PARENTHESES,
   // Other operations
-  [AST.UnaryExpression]: 15,
+  [AST.UnaryExpression]: 17,
   [AST.BinaryExpression]: 14,
-  [AST.LogicalExpression]: 13,
+  [AST.LogicalExpression]: 12,
   [AST.ConditionalExpression]: 4,
-  [AST.AngularFilterExpression]: 1,
-  [AST.ListFilterExpression]: 1
+  CommaOrSequence: 1,
+  [AST.Property]: 1,
+  [AST.AngularFilterExpression]: 0,
+  [AST.ListFilterExpression]: 0
 }
 
 exports.astMutateInPlace = astMutateInPlace
@@ -150,8 +152,8 @@ function expressionNeedsParentheses (node, parentNode, isRightHand) {
     // Different node types
     return nodePrecedence < parentNodePrecedence
   }
-  if (nodePrecedence !== 13 && nodePrecedence !== 14) {
-    // Not a `LogicalExpression` or `BinaryExpression`
+  if (nodePrecedence !== EXPRESSIONS_PRECEDENCE.LogicalExpression
+    && nodePrecedence !== EXPRESSIONS_PRECEDENCE.BinaryExpression) {
     return false
   }
   if (isRightHand) {
@@ -212,7 +214,7 @@ function serializeAstNode (astNode) {
       } else {
         str = serializeAstNode(astNode.callee) + '('
           + astNode.arguments.map(
-            argObj => serializeAstNode(argObj)
+            argObj => serializeOptionallyWrapped(argObj, EXPRESSIONS_PRECEDENCE.CommaOrSequence)
           ).join(',') + ')'
       }
       return str
@@ -235,12 +237,15 @@ function serializeAstNode (astNode) {
               : `:"${escapeQuotes(serializeAstNode(arg))}"`
           )).join('')
     case AST.ArrayExpression:
-      return '[' + astNode.elements.map(elem => serializeAstNode(elem)).join(',') + ']'
+      return '[' + astNode.elements.map(
+        elem => serializeOptionallyWrapped(elem, EXPRESSIONS_PRECEDENCE.CommaOrSequence)
+      ).join(',') + ']'
     case AST.ObjectExpression:
       return '{' + astNode.properties.map(prop => serializeAstNode(prop)).join(',') + '}'
     case AST.Property:
       return (astNode.computed ? '[' : '') + serializeAstNode(astNode.key)
-        + (astNode.computed ? ']' : '') + ':' + serializeAstNode(astNode.value)
+        + (astNode.computed ? ']' : '') + ':'
+        + serializeOptionallyWrapped(astNode.value, EXPRESSIONS_PRECEDENCE.Property)
     case AST.BinaryExpression:
     case AST.LogicalExpression:
       return serializeBinaryExpressionPart(astNode.left, astNode, false)
