@@ -95,7 +95,7 @@ class YObject {
       // first check for child YObjects
       const yobj = this.getChildYObject(property, curriedParent)
       if (yobj) {
-        return /*(yobj instanceof YList) ? yobj.scopeProxy :*/ yobj.proxy
+        return /* (yobj instanceof YList) ? yobj.scopeProxy : */ yobj.proxy
       }
       // else get the value
       const val = this.value[property]
@@ -105,7 +105,7 @@ class YObject {
         if (newVal instanceof EvaluationResult) {
           newVal = newVal.value
         }
-        // I believe newVal, at this point, may be either a primitive or an object proxy
+        // newVal, at this point, may be either a primitive or an object proxy -- may also be an "indirect virtual"
         return newVal
       }
       // else just return it

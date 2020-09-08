@@ -4,8 +4,10 @@ const MetaEvaluator = require('./meta-evaluator')
 const { AST } = require('./estree')
 const base = require('./base-templater')
 const EvaluationResult = require('./eval-result')
+const IndirectVirtual = require('./indirect')
 exports.Engine = base
 exports.EvaluationResult = EvaluationResult
+exports.IndirectVirtual = IndirectVirtual
 exports.parseText = textTemplater.parseTemplate
 
 function extractLogic (template, bIncludeListPunctuation = true) {
