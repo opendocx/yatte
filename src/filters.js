@@ -228,22 +228,26 @@ function Sort (input) {
 Sort.arrayFilter = true
 
 function Filter (input, predicateStr) {
+  if (input && input.length === 0) return input
   return callArrayFunc(Array.prototype.filter, input, predicateStr)
 }
 Filter.arrayFilter = true
 
 function Find (input, predicateStr) {
+  if (input && input.length === 0) return null
   return callArrayFunc(Array.prototype.find, input, predicateStr)
 }
 Find.arrayFilter = true
 
 function Any (input, predicateStr) {
+  if (input && input.length === 0) return false
   return callArrayFunc(Array.prototype.some, input, predicateStr)
 }
 Any.arrayFilter = true
 Any.rtlFilter = true
 
 function Every (input, predicateStr) {
+  if (input && input.length === 0) return true
   return callArrayFunc(Array.prototype.every, input, predicateStr)
 }
 Every.arrayFilter = true
@@ -257,9 +261,10 @@ MapFilter.arrayFilter = true
 function Group (input, groupStr) {
   if (!input) return input
   if (input instanceof Scope) throw new Error('Unexpected scope as group input')
-  if (!Array.isArray(input) || !input.length || arguments.length < 2) {
+  if (!Array.isArray(input) || arguments.length < 2) {
     return input
   }
+  if (input.length === 0) return []
   const evaluator = base.compileExpr(unEscapeQuotes(groupStr))
   // let lScope = Scope.pushList(input, scope.__frame)
   const grouped = input.reduce(
@@ -294,9 +299,10 @@ Group.arrayFilter = true
 function Reduce (input, reducerStr, initValue = undefined) {
   if (!input) return input
   if (input instanceof Scope) throw new Error('Unexpected scope as reduce input')
-  if (!Array.isArray(input) || !input.length || arguments.length < 2) {
+  if (!Array.isArray(input) || arguments.length < 2) {
     return input
   }
+  if (input.length === 0) return initValue
   // input should now be an array of scope proxy objects (or other plain objects or primitive values)
   const reducer = base.compileExpr(unEscapeQuotes(reducerStr))
   const yobj0 = input[0].__yobj
@@ -321,8 +327,8 @@ Reduce.immediateArgs = [1]
 function callArrayFunc (func, array, predicateStr) {
   if (!array) return array
   if (array instanceof Scope) throw new Error('Unexpected scope as list filter input')
-  if (!Array.isArray(array) || !array.length || arguments.length < 2) {
-    return array
+  if (!Array.isArray(array) || arguments.length < 2) {
+    return array // maybe we should throw instead...
   }
   if (typeof predicateStr !== 'string') {
     let filter = 'a list'
