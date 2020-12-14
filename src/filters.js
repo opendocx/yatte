@@ -168,11 +168,11 @@ function Else (input, unansweredFmt) {
 
 function Contains (input, value) {
   if (input === null || typeof input === 'undefined' || input === '') return false
-  if (input instanceof Scope) throw new Error('Unexpected scope as contains input')
   const inputPrimitive = input.valueOf()
   if (typeof inputPrimitive === 'string') {
     return inputPrimitive.includes(value)
   }
+  if (input instanceof Scope) throw new Error('Unexpected scope as contains input')
   if (!Scope.isIterable(input)) return false
   value = value && value.valueOf()
   for (const item of input) {
