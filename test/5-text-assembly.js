@@ -314,7 +314,7 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble object lists that filter on a computed value (2)', function () {
-    const template = '{[list Children|filter:Age<60]}{[Name]} was born on {[Birthdate|format:"MM/dd/yyyy"]}.\n{[endlist]}'
+    const template = '{[list Children|filter:Age<61]}{[Name]} was born on {[Birthdate|format:"MM/dd/yyyy"]}.\n{[endlist]}'
     let data = Scope.pushObject({ neverMind: true })
     let children = TestData.TV_Family_Data.Families[0].Children
     data = Scope.pushObject({ Children: children.map(c => new Child(c)) }, data)
