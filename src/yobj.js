@@ -143,25 +143,30 @@ class YObject {
     if (typeof compiledVirtual === 'function') {
       if (compiledVirtual.ast) {
         // appears to be a compiled angular expression; it expects a scope object (proxy)
-        const result = compiledVirtual(this.scopeProxy, this.proxy)
-        const yobj = result  && result.__yobj
-        const frameType = yobj && yobj.frameType
-        if (frameType === YObject.LIST) {
-          // it's an array proxy of scope proxies; just return it
+        try {
+          const result = compiledVirtual(this.scopeProxy, this.proxy)
+          const yobj = result  && result.__yobj
+          const frameType = yobj && yobj.frameType
+          if (frameType === YObject.LIST) {
+            // it's an array proxy of scope proxies; just return it
+            return result
+          }
+          // check for array return values, wrap them in a YList, and return a proxy
+          if (Array.isArray(result) && !(this instanceof YReducerItem)) {
+            return (new YList(result, this)).proxy // scopeProxy
+          }
+          // else check for proxied primitives we may need to unwrap
+          if (frameType === YObject.PRIMITIVE) {
+            return yobj.valueType === 'null'
+              ? yobj.bareValue // nothing else can be done with a null
+              : yobj.proxy // but we may still need to look up properties of other "hybrid" objects!
+          }
+          // else just return the value
           return result
+        } catch (e) {
+          console.error(`Evaluation error: ${e.toString()}`)
+          return undefined
         }
-        // check for array return values, wrap them in a YList, and return a proxy
-        if (Array.isArray(result) && !(this instanceof YReducerItem)) {
-          return (new YList(result, this)).proxy // scopeProxy
-        }
-        // else check for proxied primitives we may need to unwrap
-        if (frameType === YObject.PRIMITIVE) {
-          return yobj.valueType === 'null'
-            ? yobj.bareValue // nothing else can be done with a null
-            : yobj.proxy // but we may still need to look up properties of other "hybrid" objects!
-        }
-        // else just return the value
-        return result
       } // else
       if (compiledVirtual.logic) {
         // appears to be a compiled template; it expects a scope frame (not a proxy)
