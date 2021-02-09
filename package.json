@@ -40,7 +40,7 @@
     "standard": "^13.1.0"
   },
   "dependencies": {
-    "angular-expressions": "1.0.0",
+    "angular-expressions": "1.1.2",
     "date-fns": "^2.15.0",
     "fast-deep-equal": "^2.0.1",
     "number-to-words-en": "^1.2.5",
