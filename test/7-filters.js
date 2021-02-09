@@ -39,6 +39,16 @@ describe('number formatting', function () {
     assert.equal(evaluator({num: 1234}), 'one thousand two hundred thirty-four')
   })
 
+  it('cardinal - null input', function () {
+    const evaluator = yatte.Engine.compileExpr('num|cardinal')
+    assert.equal(evaluator({num: null}), null)
+  })
+
+  it('cardinal - NaN input', function () {
+    const evaluator = yatte.Engine.compileExpr('num|cardinal')
+    assert.equal(evaluator({num: NaN}), null)
+  })
+
   it('base 26 - under 26', function () {
     const evaluator = yatte.Engine.compileExpr('num|format:"a"')
     assert.equal(evaluator({num: 3}), 'c')
@@ -47,6 +57,16 @@ describe('number formatting', function () {
   it('base 26 - over 26', function () {
     const evaluator = yatte.Engine.compileExpr('num|format:"A"')
     assert.equal(evaluator({num: 30}), 'AD')
+  })
+
+  it('base 26 - null input', function () {
+    const evaluator = yatte.Engine.compileExpr('num|format:"a"')
+    assert.equal(evaluator({num: null}), null)
+  })
+
+  it('base 26 - NaN input', function () {
+    const evaluator = yatte.Engine.compileExpr('num|format:"a"')
+    assert.equal(evaluator({num: NaN}), null)
   })
 })
 

@@ -105,6 +105,7 @@ function Format (input, generalFmt, negativeFmt, zeroFmt) {
   }
   // else number
   const num = Number(input)
+  if (!isFinite(num)) return null
   let fmtStr
   if (num === 0) {
     fmtStr = zeroFmt || generalFmt || '0,0'
@@ -129,6 +130,7 @@ function base26 (input, upper) {
   if (input === null || typeof input === 'undefined') return input
   const places = []
   let quotient = Number(input)
+  if (!isFinite(quotient)) return null
   let remain, dec
   while (quotient !== 0) {
     dec = quotient - 1
@@ -142,17 +144,22 @@ function base26 (input, upper) {
 
 function Cardinal (input) {
   if (input === null || typeof input === 'undefined') return input
-  return numWords.toWords(Number(input), { useCommas: false })
+  const num = Number(input)
+  if (!isFinite(num)) return null
+  return numWords.toWords(num, { useCommas: false })
 }
 
 function Ordinal (input) {
   if (input === null || typeof input === 'undefined') return input
-  return numWords.toWordsOrdinal(Number(input), { useCommas: false })
+  const num = Number(input)
+  if (!isFinite(num)) return null
+  return numWords.toWordsOrdinal(num, { useCommas: false })
 }
 
 function Ordsuffix (input) {
   if (input === null || typeof input === 'undefined') return input
   if (typeof input !== 'number') input = Number(input)
+  if (!isFinite(input)) return null
   switch (input % 10) {
     case 1: return 'st'
     case 2: return 'nd'
@@ -163,6 +170,9 @@ function Ordsuffix (input) {
 
 function Else (input, unansweredFmt) {
   if (input === null || typeof input === 'undefined') return unansweredFmt
+  if (typeof input === 'number') {
+    if (!isFinite(input)) return unansweredFmt
+  }
   return input
 }
 
