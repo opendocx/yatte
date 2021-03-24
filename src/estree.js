@@ -163,32 +163,32 @@ function expressionNeedsParentheses (node, parentNode, isRightHand) {
   return (OPERATOR_PRECEDENCE[node.operator] < OPERATOR_PRECEDENCE[parentNode.operator])
 }
 
-function serializeOptionallyWrapped (node, maxPrecedence, orEqual = false) {
+function serializeOptionallyWrapped (node, subs, maxPrecedence, orEqual = false) {
   const wrap = orEqual
     ? (getExpressionPrecedence(node) <= maxPrecedence)
     : (getExpressionPrecedence(node) < maxPrecedence)
-  return wrap ? ('(' + serializeAstNode(node) + ')') : serializeAstNode(node)
+  return wrap ? ('(' + serializeAstNode(node, subs) + ')') : serializeAstNode(node, subs)
 }
 
-function serializeBinaryExpressionPart (node, parentNode, isRightHand) {
+function serializeBinaryExpressionPart (node, parentNode, isRightHand, subs) {
   /*
     serializes a left-hand or right-hand expression `node`
     from a binary expression applying the provided `operator`.
     The `isRightHand` parameter should be `true` if the `node` is a right-hand argument.
     */
   if (expressionNeedsParentheses(node, parentNode, isRightHand)) {
-    return '(' + serializeAstNode(node) + ')'
+    return '(' + serializeAstNode(node, subs) + ')'
   } else {
-    return serializeAstNode(node)
+    return serializeAstNode(node, subs)
   }
 }
 
-function serializeAstNode (astNode) {
+function serializeAstNode (astNode, subs = false) {
   switch (astNode.type) {
     case AST.Program:
-      return astNode.body.map(statement => serializeAstNode(statement)).join('\n')
+      return astNode.body.map(statement => serializeAstNode(statement, subs)).join('\n')
     case AST.ExpressionStatement:
-      return serializeAstNode(astNode.expression)
+      return serializeAstNode(astNode.expression, subs)
     case AST.Literal:
       if (typeof astNode.value === 'string') { return '"' + astNode.value + '"' }
       if (astNode.value === null) { return 'null' }
@@ -196,81 +196,93 @@ function serializeAstNode (astNode) {
     case AST.Identifier:
       return astNode.name
     case AST.MemberExpression:
-      return serializeOptionallyWrapped(astNode.object, EXPRESSIONS_PRECEDENCE.MemberExpression) + (
+      return serializeOptionallyWrapped(astNode.object, subs, EXPRESSIONS_PRECEDENCE.MemberExpression) + (
         astNode.computed
-          ? ('[' + serializeAstNode(astNode.property) + ']')
-          : ('.' + serializeAstNode(astNode.property))
+          ? ('[' + serializeAstNode(astNode.property, subs) + ']')
+          : ('.' + serializeAstNode(astNode.property, subs))
       )
     case AST.CallExpression: {
       let str
       if (astNode.filter) {
-        str = serializeOptionallyWrapped(astNode.arguments[0],
+        str = serializeOptionallyWrapped(astNode.arguments[0], subs,
           EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression], true)
-          + '|' + serializeAstNode(astNode.callee)
+          + '|' + serializeAstNode(astNode.callee, subs)
         for (let i = 1; i < astNode.arguments.length; i++) {
-          str += ':' + serializeOptionallyWrapped(astNode.arguments[i],
+          str += ':' + serializeOptionallyWrapped(astNode.arguments[i], subs,
             EXPRESSIONS_PRECEDENCE[AST.AngularFilterExpression], true)
         }
       } else {
-        str = serializeAstNode(astNode.callee) + '('
+        str = serializeAstNode(astNode.callee, subs) + '('
           + astNode.arguments.map(
-            argObj => serializeOptionallyWrapped(argObj, EXPRESSIONS_PRECEDENCE.CommaOrSequence)
+            argObj => serializeOptionallyWrapped(argObj, subs, EXPRESSIONS_PRECEDENCE.CommaOrSequence)
           ).join(',') + ')'
       }
       return str
     }
     case AST.AngularFilterExpression:
       return (
-        serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)
-        + '|' + serializeAstNode(astNode.filter)
+        serializeOptionallyWrapped(astNode.input, subs, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)
+        + '|' + serializeAstNode(astNode.filter, subs)
         + astNode.arguments.map(arg =>
-          ':' + serializeOptionallyWrapped(arg, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)
+          ':' + serializeOptionallyWrapped(arg, subs, EXPRESSIONS_PRECEDENCE.AngularFilterExpression)
         ).join('')
       )
     case AST.ListFilterExpression:
-      return serializeOptionallyWrapped(astNode.input, EXPRESSIONS_PRECEDENCE.ListFilterExpression, astNode.rtl)
-        + '|' + serializeAstNode(astNode.filter) // + ':this' // starting with yatte 1.2 beta 5, this is obsolete
+      return serializeOptionallyWrapped(astNode.input, subs, EXPRESSIONS_PRECEDENCE.ListFilterExpression, astNode.rtl)
+        + '|' + serializeAstNode(astNode.filter, subs) // + ':this' // starting with yatte 1.2 beta 5, this is obsolete
         + astNode.arguments.map(
-          (arg, i) => (
-            astNode.immediateArgs && astNode.immediateArgs.includes(i)
-              ? `:${serializeAstNode(arg)}`
-              : `:"${escapeQuotes(serializeAstNode(arg))}"`
-          )).join('')
+          (arg, i) => {
+            if (subs) {
+              if (arg.type === AST.Literal && typeof arg.value === 'string') {
+                return `:${astNode.value}??ERR??`
+              } else {
+                return `:${serializeAstNode(arg, subs)}`
+              }
+            } else {
+              return (
+                astNode.immediateArgs && astNode.immediateArgs.includes(i)
+                  ? `:${serializeAstNode(arg, subs)}`
+                  : `:"${escapeQuotes(serializeAstNode(arg, subs))}"`
+              )
+            }
+          }).join('')
     case AST.ArrayExpression:
       return '[' + astNode.elements.map(
-        elem => serializeOptionallyWrapped(elem, EXPRESSIONS_PRECEDENCE.CommaOrSequence)
+        elem => serializeOptionallyWrapped(elem, subs, EXPRESSIONS_PRECEDENCE.CommaOrSequence)
       ).join(',') + ']'
     case AST.ObjectExpression:
-      return '{' + astNode.properties.map(prop => serializeAstNode(prop)).join(',') + '}'
+      return '{' + astNode.properties.map(prop => serializeAstNode(prop, subs)).join(',') + '}'
     case AST.Property:
-      return (astNode.computed ? '[' : '') + serializeAstNode(astNode.key)
+      return (astNode.computed ? '[' : '') + serializeAstNode(astNode.key, subs)
         + (astNode.computed ? ']' : '') + ':'
-        + serializeOptionallyWrapped(astNode.value, EXPRESSIONS_PRECEDENCE.Property)
+        + serializeOptionallyWrapped(astNode.value, subs, EXPRESSIONS_PRECEDENCE.Property)
     case AST.BinaryExpression:
     case AST.LogicalExpression:
-      return serializeBinaryExpressionPart(astNode.left, astNode, false)
-        + astNode.operator + serializeBinaryExpressionPart(astNode.right, astNode, true)
+      return serializeBinaryExpressionPart(astNode.left, astNode, false, subs)
+        + astNode.operator + serializeBinaryExpressionPart(astNode.right, astNode, true, subs)
     case AST.UnaryExpression:
       return astNode.prefix
-        ? astNode.operator + serializeOptionallyWrapped(astNode.argument, EXPRESSIONS_PRECEDENCE.UnaryExpression)
-        : serializeAstNode(astNode.argument) + astNode.operator
+        ? astNode.operator + serializeOptionallyWrapped(astNode.argument, subs, EXPRESSIONS_PRECEDENCE.UnaryExpression)
+        : serializeAstNode(astNode.argument, subs) + astNode.operator
     case AST.ConditionalExpression:
       // angular expression parsing has alternate and consequent reversed from their standard meanings!
       // so serialize according to whether it's been fixed or not
       return (
-        serializeOptionallyWrapped(astNode.test, EXPRESSIONS_PRECEDENCE.ConditionalExpression, true)
+        serializeOptionallyWrapped(astNode.test, subs, EXPRESSIONS_PRECEDENCE.ConditionalExpression, true)
         + '?' + serializeOptionallyWrapped(
           astNode.fixed ? astNode.consequent : astNode.alternate,
+          subs,
           EXPRESSIONS_PRECEDENCE.ConditionalExpression
         ) + ':' + serializeOptionallyWrapped(
           astNode.fixed ? astNode.alternate : astNode.consequent,
+          subs,
           EXPRESSIONS_PRECEDENCE.ConditionalExpression
         )
       )
     case AST.ThisExpression:
       return 'this'
     case AST.LocalsExpression:
-      return '$locals'
+      return /* subs ? '' : */ '$locals'
     default:
       throw new Error(`Unsupported expression type '${astNode.type}'`)
   }
