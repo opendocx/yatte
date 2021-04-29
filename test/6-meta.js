@@ -1,10 +1,11 @@
 const yatte = require('../src/index')
 const assert = require('assert')
+const Scope = yatte.Scope
 
 describe('Assembly of meta template via exported API', function () {
   it('should assemble a meta template', function () {
     const metaTemplate = '{[ident1]}\n{[ident2.ident3]}\n{[if x]}\n{[ident4]}\n{[if y]}\n{[ident5]}\n{[else]}\n{[ident6]}\n{[endif]}\n{[endif]}\n{[list z]}\n{[ident7]}\n{[endlist]}\n'
-    const data = {
+    const data = new yatte.Scope({
       ident1: { description: 'mock template' },
       ident2: { name: 'something',
         ident3: { description: 'another mock template' } },
@@ -22,7 +23,7 @@ describe('Assembly of meta template via exported API', function () {
           ident7: { description: 'mock template #7' }
         }
       ]
-    }
+    })
     const result = yatte.assembleMeta(metaTemplate, data)
     assert(typeof result === 'object')
     assert(typeof result.value === 'object')
@@ -30,47 +31,88 @@ describe('Assembly of meta template via exported API', function () {
     assert(Array.isArray(result.value.body))
     assert.strictEqual(result.value.body.length, 6)
 
-    assert.deepStrictEqual(result.value.body[0], {
-      type: 'ExpressionStatement',
-      expression: { type: 'Identifier', name: 'ident1', constant: false },
-      text: 'ident1',
-      data: result.value.body[0].data
+    let actual = result.value.body[0]
+    assert.strictEqual(actual.type, 'ExpressionStatement')
+    assert.strictEqual(actual.text, 'ident1')
+    assert.deepStrictEqual(actual.expression, {
+      type: 'Identifier',
+      name: 'ident1',
+      constant: false,
     })
-    assert.deepStrictEqual(result.value.body[1], {
-      type: 'ExpressionStatement',
-      expression: {
-        type: 'MemberExpression',
-        object: { type: 'Identifier', name: 'ident2', constant: false },
-        property: { type: 'Identifier', name: 'ident3' },
-        computed: false,
-        constant: false
-      },
-      text: 'ident2.ident3',
-      data: result.value.body[0].data
+    assert.deepStrictEqual(actual.context, [])
+    let actualValue = actual.data.valueOf()
+    assert.strictEqual(actualValue.ident1.description, 'mock template')
+    let newStack = Scope.pushContext(actual.context, data)
+    let actualValue2 = newStack.valueOf()
+    assert.strictEqual(actualValue2.ident1.description, 'mock template')
+
+    actual = result.value.body[1]
+    assert.strictEqual(actual.type, 'ExpressionStatement')
+    assert.strictEqual(actual.text, 'ident2.ident3')
+    assert.deepStrictEqual(actual.expression, {
+      type: 'MemberExpression',
+      object: { type: 'Identifier', name: 'ident2', constant: false },
+      property: { type: 'Identifier', name: 'ident3' },
+      computed: false,
+      constant: false,
     })
-    assert.deepStrictEqual(result.value.body[2], {
-      type: 'ExpressionStatement',
-      expression: { type: 'Identifier', name: 'ident4', constant: false },
-      text: 'ident4',
-      data: result.value.body[0].data
+    assert.deepStrictEqual(actual.context, [])
+    actualValue = actual.data.valueOf()
+    assert.strictEqual(actualValue.ident2.ident3.description, 'another mock template')
+    newStack = Scope.pushContext(actual.context, data)
+    actualValue2 = newStack.valueOf()
+    assert.strictEqual(actualValue2.ident2.ident3.description, 'another mock template')
+
+    actual = result.value.body[2]
+    assert.strictEqual(actual.type, 'ExpressionStatement')
+    assert.strictEqual(actual.text, 'ident4')
+    assert.deepStrictEqual(actual.expression, {
+      type: 'Identifier',
+      name: 'ident4',
+      constant: false,
     })
-    assert.deepStrictEqual(result.value.body[3], {
-      type: 'ExpressionStatement',
-      expression: { type: 'Identifier', name: 'ident6', constant: false },
-      text: 'ident6',
-      data: result.value.body[0].data
+
+    actual = result.value.body[3]
+    assert.strictEqual(actual.type, 'ExpressionStatement')
+    assert.strictEqual(actual.text, 'ident6')
+    assert.deepStrictEqual(actual.expression, {
+      type: 'Identifier',
+      name: 'ident6',
+      constant: false,
     })
-    assert.deepStrictEqual(result.value.body[4], {
-      type: 'ExpressionStatement',
-      expression: { type: 'Identifier', name: 'ident7', constant: false },
-      text: 'ident7',
-      data: result.value.body[4].data
+
+    actual = result.value.body[4]
+    assert.strictEqual(actual.type, 'ExpressionStatement')
+    assert.strictEqual(actual.text, 'ident7')
+    assert.deepStrictEqual(actual.expression, {
+      type: 'Identifier',
+      name: 'ident7',
+      constant: false,
     })
-    assert.deepStrictEqual(result.value.body[5], {
-      type: 'ExpressionStatement',
-      expression: { type: 'Identifier', name: 'ident7', constant: false },
-      text: 'ident7',
-      data: result.value.body[5].data
+    assert.deepStrictEqual(actual.context, ['z', 0])
+    actualValue = actual.data.valueOf()
+    assert.strictEqual(actualValue.ident7.description, 'mock template #7')
+    assert.strictEqual(actualValue.iter, 1)
+    newStack = Scope.pushContext(actual.context, data)
+    actualValue2 = newStack.valueOf()
+    assert.strictEqual(actualValue2.ident7.description, 'mock template #7')
+    assert.strictEqual(actualValue2.iter, 1)
+
+    actual = result.value.body[5]
+    assert.strictEqual(actual.type, 'ExpressionStatement')
+    assert.strictEqual(actual.text, 'ident7')
+    assert.deepStrictEqual(actual.expression, {
+      type: 'Identifier',
+      name: 'ident7',
+      constant: false,
     })
+    assert.deepStrictEqual(actual.context, ['z', 1])
+    actualValue = actual.data.valueOf()
+    assert.strictEqual(actualValue.ident7.description, 'mock template #7')
+    assert.strictEqual(actualValue.iter, 2)
+    newStack = Scope.pushContext(actual.context, data)
+    actualValue2 = newStack.valueOf()
+    assert.strictEqual(actualValue2.ident7.description, 'mock template #7')
+    assert.strictEqual(actualValue2.iter, 2)
   })
 })

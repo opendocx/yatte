@@ -45,8 +45,10 @@ function ContentReplacementTransform (contentItem, contextStack) {
         return CreateContextErrorMessage(err.message)
       }
       contextStack = Scope.pushList(iterable, contextStack)
+      contextStack.__expr = contentItem.expr // for deferred re-evaluation of list if necessary
       const allContent = contextStack.indices.map(index => {
         contextStack = Scope.pushListItem(index, contextStack)
+        contextStack.__index = index // for deferred re-selection of list item if necessary
         const listItemContent = contentItem.contentArray.map(
           listContentItem => ContentReplacementTransform(listContentItem, contextStack)
         )

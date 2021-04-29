@@ -1,4 +1,5 @@
 'use strict'
+const base = require('./base-templater')
 const EvaluationResult = require('./eval-result')
 const { AST } = require('./estree')
 
@@ -181,11 +182,23 @@ class YObject {
   deferEvaluate (compiledVirtual) {
     if (typeof compiledVirtual === 'function') {
       if (compiledVirtual.ast) {
+        const evalStack = []
+        // evalStack.unshift(compiledVirtual.normalized)
+        let frame = this
+        while (frame.parent) {
+          if ('__index' in frame) {
+            evalStack.unshift(frame.__index)
+          } else if ('__expr' in frame) {
+            evalStack.unshift(frame.__expr)
+          }
+          frame = frame.parent
+        }
         return {
           type: AST.ExpressionStatement,
           expression: compiledVirtual.ast,
           text: compiledVirtual.normalized,
-          data: this
+          data: this,
+          context: evalStack,
         }
       }
     }
@@ -286,6 +299,25 @@ class YObject {
   static pop (thatScope) {
     if (YObject.empty(thatScope)) return null
     return thatScope.getParent()
+  }
+
+  static pushContext (contextArray, parent) {
+    let context = parent
+    if (contextArray) {
+      for (const expr of contextArray) {
+        if (typeof expr === 'string') {
+          const evaluator = base.compileExpr(expr)
+          const lst = context.evaluate(evaluator)
+          context = YObject.pushList(lst, context)
+        } else if (typeof expr === 'number') {
+          if (!(context instanceof YList)) {
+            throw new Error('Invalid contextArray passed to pushContext')
+          }
+          context = YObject.pushListItem(expr, context)
+        }
+      }
+    }
+    return context
   }
 
   static pushObject (value, parent = null) {
