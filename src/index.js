@@ -26,12 +26,11 @@ function compileText (template) {
   const compiledTemplateCache = compileText.cache
   let func = compiledTemplateCache && compiledTemplateCache.get(contentArray)
   if (!func) {
-    func = (s) =>
-      new EvaluationResult(
-        (new TextEvaluator(s)).assemble(contentArray),
-        [], // TODO: keep track of identifiers that did not produce a value (missing)
-        [], // TODO: keep track of other errors encountered during evaluations
-      )
+    func = (s) => {
+      const evaluator = new TextEvaluator(s)
+      const value = evaluator.assemble(contentArray)
+      return new EvaluationResult(value, evaluator.missing, evaluator.errors)
+    }
     func.logic = base.buildLogicTree(contentArray)
     if (compiledTemplateCache) compiledTemplateCache.set(contentArray, func)
   }
@@ -42,12 +41,14 @@ exports.compileText = compileText
 
 function assembleText (template, scope) {
   // non-curried version of assembly: pass in a template AND a context
+  // omits "logic" AST, so useful only for assembling and not additional analysis
   try {
     const contentArray = textTemplater.parseTemplate(template)
-    const value = (new TextEvaluator(scope)).assemble(contentArray)
-    return new EvaluationResult(value, [], []) // TODO: populate the missing & errors collections!!
+    const evaluator = new TextEvaluator(scope)
+    const value = evaluator.assemble(contentArray)
+    return new EvaluationResult(value, evaluator.missing, evaluator.errors)
   } catch (err) {
-    return new EvaluationResult(null, [], [err.message]) // TODO: populate the missing & errors collections!!
+    return new EvaluationResult(null, [], [err.message])
   }
 }
 exports.assembleText = assembleText
@@ -55,12 +56,17 @@ exports.assembleText = assembleText
 function assembleMeta (metaTemplate, scope) {
   try {
     const contentArray = textTemplater.parseTemplate(metaTemplate, true, false)
-    const nodes = (new MetaEvaluator(scope)).assemble(contentArray)
+    const evaluator = new MetaEvaluator(scope)
+    const nodes = evaluator.assemble(contentArray)
     const program = {
       type: AST.Program,
       body: nodes.filter(n => !n.error)
     }
-    return new EvaluationResult(program, [], nodes.filter(n => n.error)) // TODO: populate the missing collection!!
+    return new EvaluationResult(
+      program,
+      evaluator.missing,
+      evaluator.errors.concat(nodes.filter(n => n.error).map(n => n.error))
+    )
   } catch (err) {
     return new EvaluationResult(null, [], [err.message])
   }

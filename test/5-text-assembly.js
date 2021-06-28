@@ -1,5 +1,6 @@
 const yatte = require('../src/index')
 const Scope = yatte.Scope
+const IndirectVirtual = yatte.IndirectVirtual
 const assert = require('assert')
 const TestData = require('./test-data')
 const CreateKeyedObject = TestData.createKeyedObject
@@ -350,6 +351,45 @@ describe('Assembly of text template via exported API', function () {
     const template = '{[SingleEntity.FullName]} is {[SingleEntityLength1]} characters long (yes {[SingleEntityLength2]})'
     const result = yatte.assembleText(template, scope)
     assert.equal(result, 'John Smith is 10 characters long (yes 10)')
+  })
+
+  it('should assemble template containing nested indirect templates', function () {
+    const data = {
+      FirstName: "John",
+      LastName: "Smith",
+      Indirect: new IndirectVirtual({ toString: () => 'NESTED' }, null, 'text'),
+    }
+    const scope = Scope.pushObject(data)
+    const template = '{[FirstName]} {[Indirect]} {[LastName]}'
+    const result = yatte.assembleText(template, scope)
+    assert.equal(result, 'John NESTED Smith')
+  })
+
+  it('should keep track of missing stuff encountered during assembly', function () {
+    const data = {
+      FirstName: "John",
+      Indirect: new IndirectVirtual({}, null, 'text'),
+    }
+    const scope = Scope.pushObject(data)
+    const template = '{[FirstName]} {[Indirect]} {[LastName]}'
+    const result = yatte.assembleText(template, scope)
+    assert.equal(result.value, 'John [Indirect] [LastName]')
+    assert.deepStrictEqual(result.missing, { LastName: true })
+    assert.equal(result.errors.length, 1)
+    assert.strictEqual(result.errors[0], 'Template \'Indirect\' (text) cannot be assembled as text')
+  })
+
+  it('should keep track of missing stuff encountered during assembly', function () {
+    const data = {
+      FirstName: "John",
+      Indirect: new IndirectVirtual({ toString: () => 'INDIRECT' }, null, 'text'),
+    }
+    const scope = Scope.pushObject(data)
+    const template = '{[FirstName]} {[Indirect]} {[LastName]}'
+    const result = yatte.assembleText(template, scope)
+    assert.equal(result.value, 'John INDIRECT [LastName]')
+    assert.deepStrictEqual(result.missing, { LastName: true })
+    assert.equal(result.errors.length, 0)
   })
 
   it('should assemble template based on nested objects with primitive lists', function () {
