@@ -20,18 +20,28 @@ exports.extractLogic = extractLogic
 
 function compileText (template) {
   // returns curried function that will assemble the text template (given the data context as input)
-  // (this method currently throws if the template contains an error!)
-  // the resulting function includes a "logic" property containing the same thing you'd get from extractLogic()
-  const contentArray = textTemplater.parseTemplate(template) // content arrays cached on key of template string
+  // the resulting function will include a "logic" property containing the AST from extractLogic()
   const compiledTemplateCache = compileText.cache
-  let func = compiledTemplateCache && compiledTemplateCache.get(contentArray)
+  let func, contentArray
+  try {
+    contentArray = textTemplater.parseTemplate(template) // content arrays cached on key of template string
+  } catch (err) {
+    contentArray = err
+  }
+  func = compiledTemplateCache && compiledTemplateCache.get(contentArray)
   if (!func) {
-    func = (s) => {
-      const evaluator = new TextEvaluator(s)
-      const value = evaluator.assemble(contentArray)
-      return new EvaluationResult(value, evaluator.missing, evaluator.errors)
+    if (contentArray instanceof Error) {
+      func = () => new EvaluationResult(null, [], [contentArray.message])
+      func.error = contentArray.message
+      func.logic = true
+    } else {
+      func = (s) => {
+        const evaluator = new TextEvaluator(s)
+        const value = evaluator.assemble(contentArray)
+        return new EvaluationResult(value, evaluator.missing, evaluator.errors)
+      }
+      func.logic = base.buildLogicTree(contentArray)
     }
-    func.logic = base.buildLogicTree(contentArray)
     if (compiledTemplateCache) compiledTemplateCache.set(contentArray, func)
   }
   return func

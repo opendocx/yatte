@@ -12,22 +12,32 @@ const OD = require('./fieldtypes')
 */
 function parseTemplate (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
   const templateCache = parseTemplate.cache
-  if (templateCache && templateCache.hasOwnProperty(template)) { return templateCache[template] }
-  // if any block-level paired fields are on a lines by themselves, remove the CR/LF following those fields
-  // (but leave block-level content fields alone)
-  const tweaked = template.replace(_blockFieldRE, _blockFieldReplacer)
-  // TODO: improve this approach with something that captures & retains each field offset
   let result
-  const templateSplit = tweaked.split(_fieldRE)
-  if (templateSplit.length < 2) { // no fields
-    result = [template]
+  if (templateCache && templateCache.hasOwnProperty(template)) {
+    result = templateCache[template]
   } else {
-    result = base.parseContentArray(templateSplit, bIncludeExpressions, bIncludeListPunctuation)
-    // number the fields after-the-fact
-    numberFields(result)
+    try {
+      // if any block-level paired fields are on a lines by themselves, remove the CR/LF following those fields
+      // (but leave block-level content fields alone)
+      const tweaked = template.replace(_blockFieldRE, _blockFieldReplacer)
+      // TODO: improve this approach with something that captures & retains each field offset
+      const templateSplit = tweaked.split(_fieldRE)
+      if (templateSplit.length < 2) { // no fields
+        result = [template]
+      } else {
+        result = base.parseContentArray(templateSplit, bIncludeExpressions, bIncludeListPunctuation)
+        // number the fields after-the-fact
+        numberFields(result)
+      }
+    } catch (err) {
+      result = (typeof err === 'string') ? new Error(err) : err
+    }
+    if (templateCache) {
+      templateCache[template] = result
+    }
   }
-  if (templateCache) {
-    templateCache[template] = result
+  if (result instanceof Error) {
+    throw result
   }
   return result
 }
