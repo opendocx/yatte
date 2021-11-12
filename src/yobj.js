@@ -144,6 +144,7 @@ class YObject {
     if (typeof compiledVirtual === 'function') {
       if (compiledVirtual.ast) {
         // appears to be a compiled angular expression; it expects a scope object (proxy)
+        increment(compiledVirtual)
         try {
           const result = compiledVirtual(this.scopeProxy, this.proxy)
           const yobj = result  && result.__yobj
@@ -165,16 +166,27 @@ class YObject {
           // else just return the value
           return result
         } catch (e) {
-          console.error(`Evaluation error: ${e.toString()}`)
+          if ((e instanceof RecursionError) && (compiledVirtual._count > 1)) {
+            throw e // need the error to bubble all the way up/out of the recursion!
+          } else {
+            console.error(`Evaluation error: ${e.toString()}`)
+          }
           return undefined
+        } finally {
+          decrement(compiledVirtual)
         }
       } // else
       if (compiledVirtual.logic) {
         // appears to be a compiled template; it expects a scope frame (not a proxy)
+        increment(compiledVirtual)
         const result = compiledVirtual(this)
+        decrement(compiledVirtual)
         return result && result.valueOf()
       } // else
-      return compiledVirtual(this.scopeProxy, this.proxy)
+      increment(compiledVirtual)
+      const result = compiledVirtual(this.scopeProxy, this.proxy)
+      decrement(compiledVirtual)
+      return result
     }
     throw new Error('YObject.evaluate invoked against a non-function')
   }
@@ -686,4 +698,29 @@ function isPrimitive (value, includeWrapped = true) {
       }
   }
   return false
+}
+
+const recurseLimit = 20
+
+class RecursionError extends Error {
+  constructor (message) {
+    super(message)
+    this.name = 'RecursionError'
+  }
+}
+
+function increment (compiledVirtual) {
+  const currentCount = compiledVirtual._count
+  if (currentCount > recurseLimit) {
+    throw new RecursionError(`Runaway recursion?  Recurse count exceeds ${recurseLimit}.`)
+  } else if (currentCount === undefined) {
+    compiledVirtual._count = 0
+  }
+  compiledVirtual._count++
+}
+
+function decrement (compiledVirtual) {
+  if (compiledVirtual._count) {
+    compiledVirtual._count--
+  }
 }

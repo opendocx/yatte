@@ -316,6 +316,39 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(result.length, 1)
   })
 
+  it('returns undefined when unbounded recursion occurs in an expression', function () {
+    const obj = {
+      SingleEntity: {
+        FirstName: "J",
+        LastName: "Smith",
+        FullName: yatte.Engine.compileExpr('FirstName + " " + FullName')
+      },
+    }
+    const scope = Scope.pushObject(obj)
+    const evaluator = yatte.Engine.compileExpr('SingleEntity.FullName')
+    const result = evaluator(scope.scopeProxy, scope.proxy)
+    assert.strictEqual(result, undefined)
+    // it seems like it should probably throw a RecursionError instead of returning undefined??
+  })
+
+  // it('throws when unbounded recursion occurs in a template', function () {
+  //   const obj = {
+  //     SingleEntity: {
+  //       FirstName: "John",
+  //       LastName: "Smith",
+  //       FullName: yatte.compileText('{[FirstName]} {[FullName]}')
+  //     },
+  //   }
+  //   const scope = Scope.pushObject(obj)
+  //   const template = '{[SingleEntity.FullName]}'
+  //   try {
+  //     const result = yatte.assembleText(template, scope)
+  //     assert.fail('expected error not thrown')
+  //   } catch (err) {
+  //     assert.equal(err.name, 'RecursionError')
+  //   }
+  // })
+
   // it('throws when list filters have no arguments', function () {
   //   const states = [
   //     createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
