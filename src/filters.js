@@ -315,7 +315,8 @@ function Reduce (input, reducerStr, initValue = undefined) {
   if (input.length === 0) return initValue
   // input should now be an array of scope proxy objects (or other plain objects or primitive values)
   const reducer = base.compileExpr(unEscapeQuotes(reducerStr))
-  const yobj0 = input[0].__yobj
+  const input0 = input[0]
+  const yobj0 = input0 && input0.__yobj
   const list = Scope.pushList(input, yobj0 && yobj0.getParentEffective())
   const reduced = list.items.reduce(
     (result, itemFrame, index) => {
