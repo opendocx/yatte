@@ -166,7 +166,7 @@ class YObject {
           // else just return the value
           return result
         } catch (e) {
-          if ((e instanceof RecursionError) && (compiledVirtual._count > 1)) {
+          if (e instanceof RecursionError) {
             throw e // need the error to bubble all the way up/out of the recursion!
           } else {
             console.error(`Evaluation error: ${e.toString()}`)

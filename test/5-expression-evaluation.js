@@ -316,7 +316,7 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(result.length, 1)
   })
 
-  it('returns undefined when unbounded recursion occurs in an expression', function () {
+  it('throws when unbounded recursion occurs in an expression', function () {
     const obj = {
       SingleEntity: {
         FirstName: "J",
@@ -326,9 +326,12 @@ describe('Executing expressions compiled via exported API', function () {
     }
     const scope = Scope.pushObject(obj)
     const evaluator = yatte.Engine.compileExpr('SingleEntity.FullName')
-    const result = evaluator(scope.scopeProxy, scope.proxy)
-    assert.strictEqual(result, undefined)
-    // it seems like it should probably throw a RecursionError instead of returning undefined??
+    try {
+      const result = evaluator(scope.scopeProxy, scope.proxy)
+      assert.fail('expected error not thrown')
+    } catch (err) {
+      assert.equal(err.name, 'RecursionError')
+    }
   })
 
   // it('throws when unbounded recursion occurs in a template', function () {
