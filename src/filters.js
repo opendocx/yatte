@@ -13,28 +13,33 @@ if (dateFns.format.__esModule) {
 
 module.exports = expressions.filters
 
-// define built-in filters
-expressions.filters.upper = Upper
-expressions.filters.lower = Lower
-expressions.filters.initcap = Initcap
-expressions.filters.titlecaps = Titlecaps
-expressions.filters.format = Format
-expressions.filters.cardinal = Cardinal
-expressions.filters.ordinal = Ordinal
-expressions.filters.ordsuffix = Ordsuffix
-expressions.filters.else = Else
-expressions.filters.contains = Contains
-expressions.filters.punc = Punc
-expressions.filters.sort = Sort
-expressions.filters.filter = Filter
-expressions.filters.find = Find
-expressions.filters.any = Any
-expressions.filters.some = Any
-expressions.filters.every = Every
-expressions.filters.all = Every
-expressions.filters.map = MapFilter
-expressions.filters.group = Group
-expressions.filters.reduce = Reduce
+// define built-in filters (both regular filters and "list" filters)
+// (the distinction between regular and list filters is NOT whether input or output is a list, but rather,
+//  whether the filter accepts a predicate as an argument.
+//  List filters have a predicate argument, regular filters do not.)
+// regular filters:
+expressions.filters.upper = Upper           // text -> text
+expressions.filters.lower = Lower           // text -> text
+expressions.filters.initcap = Initcap       // text -> text
+expressions.filters.titlecaps = Titlecaps   // text -> text
+expressions.filters.format = Format         // number/date/trueFalse -> text
+expressions.filters.cardinal = Cardinal     // number -> text
+expressions.filters.ordinal = Ordinal       // number -> text
+expressions.filters.ordsuffix = Ordsuffix   // number -> text
+expressions.filters.else = Else             // text/number/date/trueFalse -> same/text
+expressions.filters.contains = Contains     // text/list -> trueFalse
+expressions.filters.punc = Punc             // list -> list of same
+// list filters (arrayFilter == true):
+expressions.filters.sort = Sort             // list -> list of same
+expressions.filters.filter = Filter         // list -> list of same
+expressions.filters.find = Find             // list -> single item of same
+expressions.filters.any = Any               // list -> trueFalse
+expressions.filters.some = Any              // list -> trueFalse
+expressions.filters.every = Every           // list -> trueFalse
+expressions.filters.all = Every             // list -> trueFalse
+expressions.filters.map = MapFilter         // list -> list of anything
+expressions.filters.group = Group           // list -> list of buckets, each bucket has _key and _values list
+expressions.filters.reduce = Reduce         // list -> anything
 
 function Upper (input) {
   if (!input) return input
@@ -160,6 +165,8 @@ function Ordsuffix (input) {
   if (input === null || typeof input === 'undefined') return input
   if (typeof input !== 'number') input = Number(input)
   if (!isFinite(input)) return null
+  // English-language exception for 11th, 12th, 13th, 111th, 112th, 113th, 211th, 212th, 213th, etc.
+  if (~~(input % 100 / 10) === 1) return 'th'
   switch (input % 10) {
     case 1: return 'st'
     case 2: return 'nd'
