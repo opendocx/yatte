@@ -1,3 +1,4 @@
+/* eslint-disable no-multi-spaces */
 const expressions = require('angular-expressions')
 const dateFns = { format: require('date-fns/format') }
 const numeral = require('numeral')
@@ -15,7 +16,7 @@ module.exports = expressions.filters
 
 // define built-in filters (both regular filters and "list" filters)
 // (the distinction between regular and list filters is NOT whether input or output is a list, but rather,
-//  whether the filter accepts a predicate as an argument.
+//  whether the filter accepts or expects an anonymous expression (predicate) as an argument or not.
 //  List filters have a predicate argument, regular filters do not.)
 // regular filters:
 expressions.filters.upper = Upper           // text -> text
@@ -29,6 +30,7 @@ expressions.filters.ordsuffix = Ordsuffix   // number -> text
 expressions.filters.else = Else             // text/number/date/trueFalse -> same/text
 expressions.filters.contains = Contains     // text/list -> trueFalse
 expressions.filters.punc = Punc             // list -> list of same
+expressions.filters.keepsections = KeepSections // indirect -> indirect
 // list filters (arrayFilter == true):
 expressions.filters.sort = Sort             // list -> list of same
 expressions.filters.filter = Filter         // list -> list of same
@@ -212,6 +214,18 @@ function Punc (inputList, example = '1, 2, and 3') {
     inputList['punc'] = parsed
   }
   return inputList
+}
+
+function KeepSections (input) {
+  if (!input) return input
+  if (typeof input !== 'object') return input
+  const newInput = input.valueOf()
+  if (newInput && (!newInput.contentType || newInput.contentType === 'docx')) {
+    newInput.KeepSections = true
+  } else {
+    console.log('keepsections filter used on something other than a DOCX insert/indirect')
+  }
+  return newInput
 }
 
 // runtime implementation of list filters:

@@ -366,6 +366,18 @@ describe('Assembly of text template via exported API', function () {
     assert(result == 'John NESTED Smith')
   })
 
+  it('should assemble template containing nested indirect templates, ignoring keepsections filter', function () {
+    const data = {
+      FirstName: 'John',
+      LastName: 'Smith',
+      Indirect: new IndirectVirtual({ toString: () => 'NESTED' }, null, 'text'),
+    }
+    const scope = Scope.pushObject(data)
+    const template = '{[FirstName]} {[Indirect|keepsections]} {[LastName]}'
+    const result = yatte.assembleText(template, scope)
+    assert(result == 'John NESTED Smith')
+  })
+
   it('should keep track of missing stuff encountered during assembly', function () {
     const data = {
       FirstName: 'John',
@@ -391,6 +403,19 @@ describe('Assembly of text template via exported API', function () {
     assert.strictEqual(result.value, 'John INDIRECT [LastName]')
     assert.deepStrictEqual(result.missing, { LastName: true })
     assert.strictEqual(result.errors.length, 0)
+  })
+
+  it('should support use of keepsections filter on reference to indirect template', function () {
+    const data = {
+      FirstName: 'John',
+      LastName: 'Smith',
+      Indirect: new IndirectVirtual({ toString: () => 'NESTED' }, null, 'text'),
+    }
+    const scope = Scope.pushObject(data)
+    const template = '{[FirstName]} {[Indirect|keepsections]} {[LastName]}'
+    const result = yatte.assembleText(template, scope)
+    assert(result == 'John NESTED Smith')
+    // keepsections filter is no-op for text-based assembly, but for OpenDocx it makes a difference
   })
 
   it('should assemble template based on nested objects with primitive lists', function () {

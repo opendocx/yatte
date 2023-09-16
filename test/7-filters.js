@@ -28,6 +28,10 @@ describe('text formatting', function () {
     const evaluator = yatte.Engine.compileExpr('text|titlecaps:true')
     assert.strictEqual(evaluator({ text: 'hello World' }), 'Hello World')
   })
+  it('keepsections should be no-op', function () {
+    const evaluator = yatte.Engine.compileExpr('text|keepsections')
+    assert.strictEqual(evaluator({ text: 'HELLO world' }), 'HELLO world')
+  })
 })
 
 describe('number formatting', function () {
