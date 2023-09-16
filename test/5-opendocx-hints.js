@@ -1,8 +1,9 @@
+/* eslint-disable no-unused-vars, no-new-wrappers, object-property-newline, camelcase, comma-dangle */
+const { describe, it } = require('mocha')
 const yatte = require('../src/index')
 const assert = require('assert')
 
 describe('Emitting ifs appropriately for OpenDocx', function () {
-
   it('should include (not omit) a conditional usage that follows a content usage', function () {
     const template = '{[x]}{[if x]}what{[endif]}'
     // If answers are not emitted separately for both Content AND If fields,
@@ -12,21 +13,11 @@ describe('Emitting ifs appropriately for OpenDocx', function () {
       {
         type: 'Content',
         expr: 'x',
-        id: '1',
-        exprAst: {
-          type: 'Identifier',
-          name: 'x',
-          constant: false
-        }
+        id: '1'
       }, {
         type: 'If',
         expr: 'x',
         id: '2',
-        exprAst: {
-          type: 'Identifier',
-          name: 'x',
-          constant: false
-        },
         contentArray: []
       }
     ])

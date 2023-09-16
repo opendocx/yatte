@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars, no-new-wrappers, object-property-newline, camelcase, comma-dangle */
+const { describe, it } = require('mocha')
 const Scope = require('../src/yobj')
 const Engine = require('../src/base-templater')
 const { Earth_Data, simVirtuals, makeObject } = require('./test-data')
@@ -24,8 +26,8 @@ describe('Proper operation of the context stack', function () {
     //
     const objContext = simVirtuals({
       a: 'global',
-      t: [ 3, 1, 4, 1, 5, 9, 2, 6 ],
-      pi: function (obj) { return obj.t.reduce((prev, curr, idx) => prev + curr * Math.pow(10,-idx), 0) }
+      t: [3, 1, 4, 1, 5, 9, 2, 6],
+      pi: function (obj) { return obj.t.reduce((prev, curr, idx) => prev + curr * Math.pow(10, -idx), 0) }
     })
     const lProto = simVirtuals({
       cpi: function (obj) { return (obj.c.length * obj.pi).toFixed(8) }
@@ -52,15 +54,15 @@ describe('Proper operation of the context stack', function () {
 
   it('should correctly evaluate an expression that refers to a wrapped string', function () {
     const data = { ClientName: 'John Doe', DPOAType: new String('Contingent') }
-    let stack = Scope.pushObject(data)
+    const stack = Scope.pushObject(data)
     const evaluator = Engine.compileExpr('DPOAType=="Contingent"')
     const value = stack.evaluate(evaluator)
     assert.strictEqual(value, true)
   })
 
   it('should evaluate an expression against an object proxy', function () {
-    let stack = Scope.pushObject(Earth_Data)
-    let p = stack.proxy
+    const stack = Scope.pushObject(Earth_Data)
+    const p = stack.proxy
     assert.strictEqual(p.ContinentCount, 7)
     assert.strictEqual(p._parent, null)
   })
@@ -69,12 +71,10 @@ describe('Proper operation of the context stack', function () {
     let stack = Scope.pushObject(Earth_Data) // start on Earth
     stack = Scope.pushList(Earth_Data.Continents, stack) // List Continents
     stack = Scope.pushListItem(3, stack) // we're on continent #4 (North America)
-    let p = stack.proxy
+    const p = stack.proxy
     assert.strictEqual(p.SurfaceArea, 24709000) // property of North America
     assert.strictEqual(p.LakeCount, 5) // virtual on Continents
     assert.strictEqual(p.Planet, undefined) // it's an object proxy, so lookup (up to planet scope) does not happen
     assert.strictEqual(p._parent.Planet, 'Earth') // _parent returns a scope proxy for the parent, so Planet is then available
   })
-
 })
-

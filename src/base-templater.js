@@ -153,7 +153,7 @@ const angularExpressionErrorMessage = function (e, expr) {
     const token = errInfo[3]
     return `${msg} '${token}':\n${expr}\n${' '.repeat(position) + '^'.repeat(token.length)}`
   }
-  if (e.message === 'Cannot read property \'$stateful\' of undefined') {
+  if (e.message.startsWith('Cannot read propert') && e.message.includes('$stateful')) {
     return 'Syntax Error: did you refer to a nonexistent filter?\n' + expr
   }
   return e.message
@@ -235,15 +235,9 @@ const parseFieldExpr = function (fieldObj) {
   // fieldObj is an object with two properties:
   //   type (string): the field type
   //   expr (string): the expression within the field that wants to be parsed
-  const expectarray = (fieldObj.type === OD.List)
   try {
     const compiledExpr = compileExpr(fieldObj.expr)
-    fieldObj.exprAst = compiledExpr.ast
-    if (expectarray) {
-      fieldObj.exprAst.expectarray = expectarray
-    }
     fieldObj.expr = compiledExpr.normalized // normalize all expressions
-    return compiledExpr
   } catch (err) {
     if (fieldObj.id) {
       err.message = err.message + ' [in field ' + fieldObj.id + ']'
@@ -411,6 +405,9 @@ const reduceContentNode = function (astNode, scope, parentScope = null) {
     return null
   }
   if (astNode.type === OD.Content) {
+    if (!astNode.id && astNode.expr === '_punc') { // _punc nodes do not affect logic!
+      return null
+    }
     const existing = scope[astNode.expr]
     if (existing) { // expression already defined in this scope
       if (astNode.id && typeof existing === 'object') {
@@ -729,9 +726,9 @@ function isNormalizedListFilterNode (node) {
   if (!node || node.type !== AST.ListFilterExpression) return false
   const args = node.arguments
   if (
-    args.length > 0 // 1
-    // && args[0].type === AST.ThisExpression
-    && args[0/* 1 */].type === AST.Literal
+    args.length > 0 /* 1 */ &&
+    // args[0].type === AST.ThisExpression &&
+    args[0/* 1 */].type === AST.Literal
   ) {
     if (args.length !== 1 /* 2 */ && node.filter.name !== 'sort' && node.filter.name !== 'reduce') {
       console.log(`Warning: ListFilterExpression with multiple arguments: ${AST.serialize(node)}`)

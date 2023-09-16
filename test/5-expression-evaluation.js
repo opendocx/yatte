@@ -1,12 +1,13 @@
+/* eslint-disable no-unused-vars, no-new-wrappers, object-property-newline, camelcase, comma-dangle */
+const { describe, it } = require('mocha')
 const yatte = require('../src/index')
 const Scope = require('../src/yobj')
 const assert = require('assert')
 const { TV_Family_Data, createKeyedObject } = require('./test-data')
 
 describe('Executing expressions compiled via exported API', function () {
-
   it('prelim: this._parent yields appropriate object (in object list)', function () {
-    const sol = { star: 'Sol', planets: [{name: 'Mercury'}, {name: 'Venus'}, {name: 'Earth'}, {name: 'Mars'}] }
+    const sol = { star: 'Sol', planets: [{ name: 'Mercury' }, { name: 'Venus' }, { name: 'Earth' }, { name: 'Mars' }] }
     let context = Scope.pushObject(sol)
     context = Scope.pushList(sol.planets, context)
     context = Scope.pushListItem(2, context)
@@ -16,7 +17,7 @@ describe('Executing expressions compiled via exported API', function () {
   })
 
   it('prelim: this._parent yields appropriate object (in object list with virtualized stack)', function () {
-    const sol = { star: 'Sol', planets: [{name: 'Mercury'}, {name: 'Venus'}, {name: 'Earth'}, {name: 'Mars'}] }
+    const sol = { star: 'Sol', planets: [{ name: 'Mercury' }, { name: 'Venus' }, { name: 'Earth' }, { name: 'Mars' }] }
     const context1 = Scope.pushObject(sol)
     const link1 = () => context1
     const context2 = Scope.pushList(sol.planets, link1)
@@ -42,7 +43,7 @@ describe('Executing expressions compiled via exported API', function () {
 
   it('prelim: this._parent yields appropriate object (when parent is primitive?)', function () {
     const sol = { star: 'Sol', planets: ['Mercury', 'Venus', 'Earth', 'Mars'] }
-    const unrelatedList = [{name: 'Greg'}, {name: 'Marsha'}, {name: 'Jan'}, {name: 'Cindy'}]
+    const unrelatedList = [{ name: 'Greg' }, { name: 'Marsha' }, { name: 'Jan' }, { name: 'Cindy' }]
     let context = Scope.pushObject(sol)
     context = Scope.pushList(sol.planets, context)
     context = Scope.pushListItem(2, context)
@@ -85,18 +86,18 @@ describe('Executing expressions compiled via exported API', function () {
   //   const parent = context.evaluate(compiled)
   //   assert.strictEqual(parent.__value, sol)
   // })
-  
+
   it('prelim: _parent._parent yields appropriate object', function () {
     const sol = {
       star: 'Sol',
       planets: [
-        {name: 'Mercury'},
-        {name: 'Venus'},
+        { name: 'Mercury' },
+        { name: 'Venus' },
         {
           name: 'Earth',
           oceans: ['Atlantic', 'Pacific'],
         },
-        {name: 'Mars'}
+        { name: 'Mars' }
       ]
     }
     let context = Scope.pushObject(sol)
@@ -117,31 +118,31 @@ describe('Executing expressions compiled via exported API', function () {
     const sol = {
       star: 'Sol',
       planets: [
-        {name: 'Mercury'},
-        {name: 'Venus'},
+        { name: 'Mercury' },
+        { name: 'Venus' },
         {
           name: 'Earth',
           oceans: ['Atlantic', 'Pacific'],
         },
-        {name: 'Mars'}
+        { name: 'Mars' }
       ]
     }
     let context1 = Scope.pushObject(sol)
-    let link1 = () => context1
+    const link1 = () => context1
     let context2 = Scope.pushList(sol.planets, link1)
-    let link2 = () => context2
-    let context3 = Scope.pushListItem(2, link2)
-    let link3 = () => context3
-    let context4 = Scope.pushList(sol.planets[2].oceans, link3)
-    let link4 = () => context4
-    let context5 = Scope.pushListItem(1, link4)
+    const link2 = () => context2
+    const context3 = Scope.pushListItem(2, link2)
+    const link3 = () => context3
+    const context4 = Scope.pushList(sol.planets[2].oceans, link3)
+    const link4 = () => context4
+    const context5 = Scope.pushListItem(1, link4)
     const compiled1 = yatte.Engine.compileExpr('_parent._index')
     const test1 = context5.evaluate(compiled1)
     assert.strictEqual(test1, 3)
     // add some data, which will result in a new Sol system but with the existing planets
     const newSol = {
       ...sol,
-      planets: [...sol.planets, {name: 'Jupiter'}],
+      planets: [...sol.planets, { name: 'Jupiter' }],
     }
     assert.strictEqual(sol.planets[2], newSol.planets[2])
     assert.notStrictEqual(sol.planets, newSol.planets)
@@ -157,7 +158,7 @@ describe('Executing expressions compiled via exported API', function () {
   it('should correctly categorize the outcomes of a conditional expression', function () {
     const evaluator = yatte.Engine.compileExpr('test ? consequent : alternative')
     const data = { test: true, consequent: 'consequent', alternative: 'alternative' }
-    let stack = Scope.pushObject(data)
+    const stack = Scope.pushObject(data)
     assert.deepStrictEqual(evaluator(stack.scopeProxy, stack.proxy), 'consequent')
   })
 
@@ -192,7 +193,7 @@ describe('Executing expressions compiled via exported API', function () {
         { name: 'Susan Smith' }
       ]
     }
-    let stack = Scope.pushObject(data)
+    const stack = Scope.pushObject(data)
     const result = evaluator(stack.scopeProxy, stack.proxy)
     assert.strictEqual(result.length, 3)
     assert.deepStrictEqual(result[0].__value, { name: 'John Smith' })
@@ -210,11 +211,11 @@ describe('Executing expressions compiled via exported API', function () {
       Spouse: { Name: 'Kevin' },
       WitnessNames: ['Lucy', 'Kevin', 'Ed']
     }
-    let stack = Scope.pushObject(data)
+    const stack = Scope.pushObject(data)
     const result = evaluator(stack.scopeProxy, stack.proxy)
     assert.strictEqual(result.length, 2)
-    assert.equal(result[0].__value, 'Lucy')
-    assert.equal(result[1].__value, 'Ed')
+    assert(result[0].__value == 'Lucy') // eslint-disable-line eqeqeq
+    assert(result[1].__value == 'Ed') // eslint-disable-line eqeqeq
   })
 
   it('allow chaining of "any" filter (and/or its "some" alias)', function () {
@@ -243,24 +244,24 @@ describe('Executing expressions compiled via exported API', function () {
   it('allows fetching of hybrid objects (directly)', function () {
     const evaluator = yatte.Engine.compileExpr('MyObject.NewYork')
     const states = [
-      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
-      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
-      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
-      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+      createKeyedObject({ Name: 'Illinois', Abbreviation: 'IL' }, 'Name'),
+      createKeyedObject({ Name: 'Michigan', Abbreviation: 'MI' }, 'Name'),
+      createKeyedObject({ Name: 'New York', Abbreviation: 'NY' }, 'Name'),
+      createKeyedObject({ Name: 'Utah', Abbreviation: 'UT' }, 'Name'),
     ]
     const data1 = Scope.pushObject({ states })
     const data2 = Scope.pushObject({ MyObject: { NewYork: yatte.Engine.compileExpr('states[2]') } }, data1)
     const result = evaluator(data2.scopeProxy, data2.proxy)
-    assert.equal(result, 'New York')
+    assert(result == 'New York') // eslint-disable-line eqeqeq
     assert.notStrictEqual(result, 'New York')
   })
 
   it('allows fetching of hybrid objects (indirectly)', function () {
     const states = [
-      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
-      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
-      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
-      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+      createKeyedObject({ Name: 'Illinois', Abbreviation: 'IL' }, 'Name'),
+      createKeyedObject({ Name: 'Michigan', Abbreviation: 'MI' }, 'Name'),
+      createKeyedObject({ Name: 'New York', Abbreviation: 'NY' }, 'Name'),
+      createKeyedObject({ Name: 'Utah', Abbreviation: 'UT' }, 'Name'),
     ]
     const data1 = Scope.pushObject({ states })
     const evaluator1 = yatte.Engine.compileExpr('states|find:Name=="New York"')
@@ -268,16 +269,16 @@ describe('Executing expressions compiled via exported API', function () {
     const data2 = Scope.pushObject({ MyObject: { State: result1 } }, data1)
     const evaluator2 = yatte.Engine.compileExpr('MyObject.State')
     const result2 = evaluator2(data2.scopeProxy, data2.proxy)
-    assert.equal(result2, 'New York')
+    assert(result2 == 'New York') // eslint-disable-line eqeqeq
     assert.notStrictEqual(result2, 'New York')
   })
 
   it('allows fetching chained values from hybrid objects (directly)', function () {
     const states = [
-      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
-      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
-      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
-      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+      createKeyedObject({ Name: 'Illinois', Abbreviation: 'IL' }, 'Name'),
+      createKeyedObject({ Name: 'Michigan', Abbreviation: 'MI' }, 'Name'),
+      createKeyedObject({ Name: 'New York', Abbreviation: 'NY' }, 'Name'),
+      createKeyedObject({ Name: 'Utah', Abbreviation: 'UT' }, 'Name'),
     ]
     const data1 = Scope.pushObject({ states })
     const data2 = Scope.pushObject({ MyObject: { Michigan: yatte.Engine.compileExpr('states[1]') } }, data1)
@@ -288,10 +289,10 @@ describe('Executing expressions compiled via exported API', function () {
 
   it('allows fetching chained values from hybrid objects (indirectly)', function () {
     const states = [
-      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
-      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
-      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
-      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+      createKeyedObject({ Name: 'Illinois', Abbreviation: 'IL' }, 'Name'),
+      createKeyedObject({ Name: 'Michigan', Abbreviation: 'MI' }, 'Name'),
+      createKeyedObject({ Name: 'New York', Abbreviation: 'NY' }, 'Name'),
+      createKeyedObject({ Name: 'Utah', Abbreviation: 'UT' }, 'Name'),
     ]
     const data1 = Scope.pushObject({ states })
     const evaluator1 = yatte.Engine.compileExpr('states|find:Name=="Michigan"')
@@ -304,10 +305,10 @@ describe('Executing expressions compiled via exported API', function () {
 
   it('preserve child context when fetching a list from a parent context for evaluation', function () {
     const states = [
-      createKeyedObject({Name: 'Illinois', Abbreviation: 'IL'}, 'Name'),
-      createKeyedObject({Name: 'Michigan', Abbreviation: 'MI'}, 'Name'),
-      createKeyedObject({Name: 'New York', Abbreviation: 'NY'}, 'Name'),
-      createKeyedObject({Name: 'Utah', Abbreviation: 'UT'}, 'Name'),
+      createKeyedObject({ Name: 'Illinois', Abbreviation: 'IL' }, 'Name'),
+      createKeyedObject({ Name: 'Michigan', Abbreviation: 'MI' }, 'Name'),
+      createKeyedObject({ Name: 'New York', Abbreviation: 'NY' }, 'Name'),
+      createKeyedObject({ Name: 'Utah', Abbreviation: 'UT' }, 'Name'),
     ]
     const data1 = Scope.pushObject({ states })
     const data2 = Scope.pushObject({ State: 'Michigan' }, data1)
@@ -319,8 +320,8 @@ describe('Executing expressions compiled via exported API', function () {
   it('throws when unbounded recursion occurs in an expression', function () {
     const obj = {
       SingleEntity: {
-        FirstName: "J",
-        LastName: "Smith",
+        FirstName: 'J',
+        LastName: 'Smith',
         FullName: yatte.Engine.compileExpr('FirstName + " " + FullName')
       },
     }
@@ -330,7 +331,7 @@ describe('Executing expressions compiled via exported API', function () {
       const result = evaluator(scope.scopeProxy, scope.proxy)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.name, 'RecursionError')
+      assert.strictEqual(err.name, 'RecursionError')
     }
   })
 
@@ -348,7 +349,7 @@ describe('Executing expressions compiled via exported API', function () {
   //     const result = yatte.assembleText(template, scope)
   //     assert.fail('expected error not thrown')
   //   } catch (err) {
-  //     assert.equal(err.name, 'RecursionError')
+  //     assert.strictEqual(err.name, 'RecursionError')
   //   }
   // })
 
@@ -374,5 +375,4 @@ describe('Executing expressions compiled via exported API', function () {
   //   const result = evaluator(stack.scopeProxy, stack.proxy)
   //   assert.deepEqual(result.length, 27)
   // })
-
 })
