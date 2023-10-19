@@ -62,11 +62,29 @@ function Initcap (input, forceLower = false) {
   return input.charAt(0).toUpperCase() + input.slice(1)
 }
 
+// const TitleCapRegEx_AsciiOnly = /(^|[^'’]|\W['’])\b([a-z])/gm // not only [a-z], but also \W and \b are ASCII only!
+// without \b and \W, this is harder to do...
+const TitleCapRegEx = /^\p{Ll}|(?:\s|(?:^|.)\p{P})\p{Ll}/gmu
+// 1st case: ^\p{Ll}  - char 0 is lowercase letter
+// 2nd case: \s\p{Ll} - char n is whitespace, char n+1 is lowercase letter
+// 3rd case: ^\p{P}\p{Ll} - char 0 is punctuation, char 1 lowercase letter
+// 4th case: .\p{P}\p{Ll} - char n is ANYTHING (.), char n+1 is punctuation, char n+2 is lowercase letter
+//      >> in this case additional logic is required to decide whether it's an exceptional case or not!
+const UnicodeWordChar = /\p{L}|\p{N}/u
+
 function Titlecaps (input, forceLower = false) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   if (forceLower) input = input.toLowerCase()
-  return input.replace(/(^| )(\w)/g, s => s.toUpperCase())
+  return input.replace(TitleCapRegEx, s => {
+    // console.log(s)
+    if (s.length === 3) { // 4th case above
+      return (s[1] === "'" || s[1] === '’') && UnicodeWordChar.test(s[0])
+        ? s // EXCEPTION for possessives and mid-word contractions: don't capitalize
+        : s.slice(0, 2) + s[2].toUpperCase() // otherwise - do capitalize
+    }
+    return s.toUpperCase() // all other cases
+  })
 }
 
 class DateFormatFixer {

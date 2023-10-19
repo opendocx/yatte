@@ -26,7 +26,39 @@ describe('text formatting', function () {
   })
   it('titlecaps forced lower', function () {
     const evaluator = yatte.Engine.compileExpr('text|titlecaps:true')
-    assert.strictEqual(evaluator({ text: 'hello World' }), 'Hello World')
+    assert.strictEqual(evaluator({ text: 'HELLO world' }), 'Hello World')
+  })
+  it('titlecaps with punctuation', function () {
+    const evaluator = yatte.Engine.compileExpr('text|titlecaps')
+    const text = `RegExr's creator is gskinner.com.
+Edit the Expression & Text willy-nilly to see y'all's matches.
+"does john-doe know him," she said
+¿que?
+«oi!»
+Em dashes—what?
+it’d be okay
+there'dn't've been a problem
+“what about when he said, 'dude!'? or ‘whoa.’?”
+oh ’tis a fine morning
+'s wonderful
+änders wäre besser
+šaha
+удачи тебе`
+    const expected = `RegExr's Creator Is Gskinner.Com.
+Edit The Expression & Text Willy-Nilly To See Y'all's Matches.
+"Does John-Doe Know Him," She Said
+¿Que?
+«Oi!»
+Em Dashes—What?
+It’d Be Okay
+There'dn't've Been A Problem
+“What About When He Said, 'Dude!'? Or ‘Whoa.’?”
+Oh ’Tis A Fine Morning
+'S Wonderful
+Änders Wäre Besser
+Šaha
+Удачи Тебе`
+    assert.strictEqual(evaluator({ text }), expected)
   })
   it('keepsections should be no-op', function () {
     const evaluator = yatte.Engine.compileExpr('text|keepsections')
