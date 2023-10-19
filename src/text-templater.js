@@ -71,44 +71,30 @@ const _blockFieldRE = /^\{\s*\[([^{}]*?)\]\s*\}(\r\n|\n|\r)/gm
 const _fieldRE = /\{\s*(\[.*?\])\s*\}/
 const _fieldsRE = /\{\s*\[(.*?)\]\s*\}/g
 
-// const extractFields = function (contentArray) {
-//     return contentArray
-//         .filter(obj => obj != null && typeof obj == "object")
-//         .map(obj => {
-//             const newObj = { type: obj.type };
-//             if (typeof obj.expr == 'string')
-//                 newObj.expr = obj.expr;
-//             if (obj.exprAst)
-//                 newObj.exprAst = obj.exprAst;
-//             if (obj.contentArray && obj.contentArray.length > 0)
-//                 newObj.contentArray = extractFields(obj.contentArray);
-//             return newObj;
-//         });
-// }
-// exports.extractFields = extractFields;
-
-// new-and-improved parsing of text templates... not yet fully implemented :-(
-function parseText (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
-  const templateCache = parseText.cache
-  if (templateCache && templateCache.hasOwnProperty(template)) { return templateCache[template] }
-  // split template into lines (parallel to paragraphs in Word doc)
-  const lines = []
+function parseRawTemplate (template, format = 'raw') {
+  // todo: behave differently when format === 'md' for markdown...
+  //       in that case only certain line breaks are significant,
+  //       so maybe we use a markdown parser to reliably split into paragraphs?
+  const lines = splitLines(template)
+  let fieldId = 0
   // scan fields in text, embedding metadata in each field about its line no, character offset & chunk no.
   // Each line is now an array of content items, and each field has a L:C:K id.
-  for (const line of template.split('\n')) {
+  const lineItems = []
+  lines.forEach((line, lineIdx) => {
     const items = []
     let match
     while ((match = _fieldsRE.exec(line)) !== null) {
-      // todo: capture text (if any) prior to field
+      // capture text (if any) prior to field
       const lastEnd = items.length && items[items.length - 1].end
       if (match.index > lastEnd) {
         items.push(line.substring(lastEnd, match.index))
       }
-      items.push({
-        content: match[1],
-        start: match.index,
-        end: _fieldsRE.lastIndex
-      })
+      const parsedContent = base.parseFieldContent(match[1])
+      parsedContent.id = String(++fieldId)
+      parsedContent.line = lineIdx
+      parsedContent.start = match.index
+      parsedContent.end = _fieldsRE.lastIndex
+      items.push(parsedContent)
     }
     if (items.length === 0) {
       items.push(line)
@@ -118,129 +104,135 @@ function parseText (template, bIncludeExpressions = true, bIncludeListPunctuatio
         items.push(line.substr(lastEnd))
       }
     }
-    lines.push(items)
-  }
-  // perform some validation on content items as we go: make sure ifs & lists are either in same line as
-  // their matching end fields, or on lines by themselves
-  // extract all the fields into one content array, in order, which we will pass to the base templater
-  const contentArray = []
-  lines.forEach((lineArray, lineIndex) => {
-    lineArray.forEach((item, itemIndex) => {
-      if (typeof item === 'object') {
-        item.id = `${lineIndex + 1}:${item.start}:${item.end}:${itemIndex}`
-        contentArray.push(item)
+    lineItems.push(items)
+  })
+  return lineItems
+}
+exports.parseRawTemplate = parseRawTemplate
+
+function extractRawFields (template) {
+  const parsed = parseRawTemplate(template)
+  const result = parsed.reduce((allFields, lineItems) => {
+    lineItems.forEach(li => {
+      if (li && typeof li === 'object') {
+        allFields.push(li)
       }
     })
-  })
-  // the base templater only gets a list of fields, it doesn't know whether they're from text or DOCX or PDF etc.
-  const result = base.parseContentArray(contentArray, bIncludeExpressions, bIncludeListPunctuation)
-  if (templateCache) {
-    templateCache[template] = result
-  }
+    return allFields
+  }, [])
   return result
 }
-parseText.cache = {}
-exports.parseText = parseText
+exports.extractRawFields = extractRawFields
 
-class ParsedTextTemplate {
-  constructor (template, bIncludeExpressions = true, bIncludeListPunctuation = true) {
-    // split template into lines (parallel to paragraphs in Word doc)
-    const lines = []
-    // scan fields in text, embedding metadata in each field about its line no, character offset & chunk no.
-    // Each line is now an array of content items, and each field has a L:C:K id.
-    for (const line of template.split('\n')) {
-      const items = []
-      let match
-      while ((match = _fieldsRE.exec(line)) !== null) {
-        // todo: capture text (if any) prior to field
-        const lastEnd = items.length && items[items.length - 1].end
-        if (match.index > lastEnd) {
-          items.push(line.substring(lastEnd, match.index))
-        }
-        items.push({
-          content: match[1],
-          start: match.index,
-          end: _fieldsRE.lastIndex
-        })
-      }
-      if (items.length === 0) {
-        items.push(line)
-      } else {
-        const lastEnd = items[items.length - 1].end
-        if (line.length > lastEnd) {
-          items.push(line.substr(lastEnd))
-        }
-      }
-      lines.push(items)
+function serializeTemplate (contentObj) {
+  if (!contentObj) return ''
+  if (typeof contentObj === 'string') return contentObj
+  if (Array.isArray(contentObj)) {
+    const hasSubArrays = contentObj.some(sub => Array.isArray(sub))
+    return contentObj.map(co => serializeTemplate(co))
+      .join(hasSubArrays ? '\n' : '')
+  }
+  switch (contentObj.type) {
+    case OD.Content: {
+      if (contentObj.expr) return '{[' + contentObj.expr + ']}'
+      // else !expr
+      return '{[' + ' '.repeat(contentObj.end - contentObj.start - 4) + ']}'
     }
-    // perform some validation on content items as we go: make sure ifs & lists are either in same line as
-    // their matching end fields, or on lines by themselves
-    const errors = []
-    NormalizeRepeatAndConditional(lines, errors)
-    // extract all the fields into one content array, in order, which we will pass to the base templater
-    const contentArray = []
-    lines.forEach((items, lineIndex) => {
-      items.forEach((item, itemIndex) => {
-        if (typeof item === 'object') {
-          item.id = `${lineIndex + 1}:${item.start}:${item.end}:${itemIndex}`
-          contentArray.push(item)
-        }
-      })
-    })
-    // the base templater only gets a list of fields, it doesn't know whether they're from text or DOCX or PDF etc.
-    this.ast = base.parseContentArray(contentArray, bIncludeExpressions, bIncludeListPunctuation)
+    case OD.List: {
+      if (contentObj.contentArray) {
+        return '{[list ' + contentObj.expr + ']}' +
+          serializeTemplate(contentObj.contentArray) +
+          '{[endlist]}'
+      } else {
+        if (contentObj.expr) return '{[list ' + contentObj.expr + ']}'
+        // else !expr
+        return '{[list' + ' '.repeat(contentObj.end - contentObj.start - 8) + ']}'
+      }
+    }
+    case OD.EndList: return '{[endlist' + (contentObj.comment || '') + ']}'
+    case OD.If: {
+      if (contentObj.contentArray) {
+        return '{[if ' + contentObj.expr + ']}' +
+          serializeTemplate(contentObj.contentArray) +
+          '{[endif]}'
+      } else {
+        if (contentObj.expr) return '{[if ' + contentObj.expr + ']}'
+        // else !expr -- how many spaces?
+        return '{[if' + ' '.repeat(contentObj.end - contentObj.start - 6) + ']}'
+      }
+    }
+    case OD.ElseIf: {
+      if (contentObj.contentArray) {
+        return '{[elseif ' + contentObj.expr + ']}' +
+          serializeTemplate(contentObj.contentArray)
+      } else {
+        if (contentObj.expr) return '{[elseif ' + contentObj.expr + ']}'
+        // else !expr
+        return '{[elseif' + ' '.repeat(contentObj.end - contentObj.start - 10) + ']}'
+      }
+    }
+    case OD.Else: {
+      if (contentObj.contentArray) {
+        return '{[else]}' + serializeTemplate(contentObj.contentArray)
+      } else {
+        return '{[else' + (contentObj.comment || '') + ']}'
+      }
+    }
+    case OD.EndIf: return '{[endif' + (contentObj.comment || '') + ']}'
+    default: return ''
   }
 }
+exports.serializeTemplate = serializeTemplate
 
-function NormalizeRepeatAndConditional (lines, errors) {
-  const repeatDepth = 0
-  const conditionalDepth = 0
-  lines.forEach(items => {
-    items.filter(item => typeof item === 'object').forEach(field => {
-
-    })
+function toContentArray (parsed) {
+  // text templates (currently) allow free placement of paired (if/endif, list/endlist) fields,
+  // without the limitations placed on such fields in DOCX templates. So first *remove* distinctions
+  // about which lines/blocks/paragraphs things are in.
+  const contentArray = []
+  if (parsed.some(p => !Array.isArray(p))) {
+    // parsed appears to be an array of line items rather than an array of lines...
+    // so nest it inside an array of lines
+    parsed = [parsed]
+  }
+  parsed.forEach((lineItems, lineIndex, allLines) => {
+    const isLastLine = (lineIndex === allLines.length - 1)
+    if (lineItems.length === 0) { // empty line
+      if (!isLastLine) contentArray.push('\n')
+    } else {
+      lineItems.forEach((lineItem, itemIndex, lineItems) => {
+        const isLastItem = (itemIndex === lineItems.length - 1)
+        if (typeof lineItem === 'string') {
+          contentArray.push(isLastItem && !isLastLine ? lineItem + '\n' : lineItem)
+        } else {
+          contentArray.push(lineItem)
+          if (isLastItem && !isLastLine && (lineItem.type === OD.Content || itemIndex > 0)) {
+            // fields that end a line are followed by a line break
+            // UNLESS it's a paired field (non-Content field) that is alone on its line --
+            // those fields DON'T get the line break
+            contentArray.push('\n')
+          }
+        }
+      })
+    }
   })
-  // foreach (var metadata in xDoc.Descendants().Where(d =>
-  //         d.Name == OD.List ||
-  //         d.Name == OD.EndList ||
-  //         d.Name == OD.If ||
-  //         d.Name == OD.ElseIf ||
-  //         d.Name == OD.Else ||
-  //         d.Name == OD.EndIf))
-  // {
-  //     if (metadata.Name == OD.List)
-  //     {
-  //         ++repeatDepth;
-  //         metadata.Add(new XAttribute(OD.Depth, repeatDepth));
-  //         continue;
-  //     }
-  //     if (metadata.Name == OD.EndList)
-  //     {
-  //         metadata.Add(new XAttribute(OD.Depth, repeatDepth));
-  //         --repeatDepth;
-  //         continue;
-  //     }
-  //     if (metadata.Name == OD.If)
-  //     {
-  //         ++conditionalDepth;
-  //         metadata.Add(new XAttribute(OD.Depth, conditionalDepth));
-  //         continue;
-  //     }
-  //     if (metadata.Name == OD.ElseIf)
-  //     {
-  //         metadata.Add(new XAttribute(OD.Depth, conditionalDepth));
-  //         continue;
-  //     }
-  //     if (metadata.Name == OD.Else)
-  //     {
-  //         metadata.Add(new XAttribute(OD.Depth, conditionalDepth));
-  //         continue;
-  //     }
-  //     if (metadata.Name == OD.EndIf)
-  //     {
-  //         metadata.Add(new XAttribute(OD.Depth, conditionalDepth));
-  //         --conditionalDepth;
-  //         continue;
-  //     }
-  // }
+  return contentArray
+}
+
+/**
+ * Takes a parsed template (parsed using parseRawTemplate), validates its field nesting,
+ * and converts it into a nested ContentArray. Throws if it encounters errors with field nesting.
+ * @param {Array<*>} parsed a template array as parsed by parseRawTemplate (i.e. parseTextPermissive)
+ */
+function validateParsedTemplate (parsed) {
+  return base.validateContentArray(toContentArray(parsed))
+}
+exports.validateParsedTemplate = validateParsedTemplate
+
+const LBRE = /\r\n|\r|\n/g
+const normalizeLineBreaks = (str) => {
+  return str.replace(LBRE, '\n')
+}
+exports.normalizeLineBreaks = normalizeLineBreaks
+const splitLines = (str) => {
+  return str.split(LBRE)
 }

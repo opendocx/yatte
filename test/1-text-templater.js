@@ -163,7 +163,8 @@ describe('Field parsing of simple conditionals', function () {
 describe('new-and-improved text template parsing', function () {
   it('should parse fields out of a multi-line template', function () {
     const template = 'what\nhappens when {[IDontKnow]}{[WhatWillHappen]}\nnow'
-    const result = textTemplater.parseText(template, true, false)
+    const parsed = textTemplater.parseRawTemplate(template)
+    const result = textTemplater.validateParsedTemplate(parsed)
   })
 })
 
@@ -538,5 +539,124 @@ describe('Parsing and normalization of expressions', function () {
         id: '3'
       }
     ])
+  })
+})
+
+describe('"Permissive" text template parsing -- no checks for proper nesting', function () {
+  it('should parse a valid template', function () {
+    const template = '{[First]} {[if Middle]}{[Middle]} {[endif]}{[Last]}!'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [[
+      { type: 'Content', expr: 'First', id: '1', line: 0, start: 0, end: 9 },
+      ' ',
+      { type: 'If', expr: 'Middle', id: '2', line: 0, start: 10, end: 23 },
+      { type: 'Content', expr: 'Middle', id: '3', line: 0, start: 23, end: 33 },
+      ' ',
+      { type: 'EndIf', id: '4', line: 0, start: 34, end: 43 },
+      { type: 'Content', expr: 'Last', id: '5', line: 0, start: 43, end: 51 },
+      '!',
+    ]]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template),
+      [expected[0][0], expected[0][2], expected[0][3], expected[0][5], expected[0][6]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), template)
+  })
+  it('should validate a parsed template that is valid', function () {
+    const template = '{[First]} {[if Middle]}{[Middle]} {[endif]}{[Last]}!'
+    const parsed = textTemplater.parseRawTemplate(template)
+    const result = textTemplater.validateParsedTemplate(parsed)
+    const expected = [
+      { type: 'Content', expr: 'First', id: '1', line: 0, start: 0, end: 9 },
+      ' ',
+      { type: 'If', expr: 'Middle', id: '2', line: 0, start: 10, end: 23, contentArray: [
+        { type: 'Content', expr: 'Middle', id: '3', line: 0, start: 23, end: 33 },
+        ' ',
+        { type: 'EndIf', id: '4', line: 0, start: 34, end: 43 }
+      ] },
+      { type: 'Content', expr: 'Last', id: '5', line: 0, start: 43, end: 51 },
+      '!'
+    ]
+    assert.deepStrictEqual(result, expected)
+  })
+  it('should parse an invalid template', function () {
+    const template = '{[if false]}A{[else]}B{[elseif false]}C{[endif]}'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [[
+      { type: 'If', expr: 'false', id: '1', line: 0, start: 0, end: 12 },
+      'A',
+      { type: 'Else', id: '2', line: 0, start: 13, end: 21 },
+      'B',
+      { type: 'ElseIf', expr: 'false', id: '3', line: 0, start: 22, end: 38 },
+      'C',
+      { type: 'EndIf', id: '4', line: 0, start: 39, end: 48 },
+    ]]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template),
+      [expected[0][0], expected[0][2], expected[0][4], expected[0][6]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), template)
+  })
+  it('should reject validating a parsed template that is invalid', function () {
+    const template = '{[if false]}A{[else]}B{[elseif false]}C{[endif]}'
+    const parsed = textTemplater.parseRawTemplate(template)
+    try {
+      const result = textTemplater.validateParsedTemplate(parsed)
+      assert.fail('expected error not thrown')
+    } catch (err) {
+      assert.strictEqual(err.message,
+        'Encountered field 3\'s ElseIf when expecting an EndIf (ElseIf cannot follow Else!)')
+    }
+  })
+  it('should parse an empty content field', function () {
+    const template = '{[]}!'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [[{ type: 'Content', expr: '', id: '1', line: 0, start: 0, end: 4 }, '!']]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template), [expected[0][0]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), template)
+  })
+  it('should parse an empty if field', function () {
+    const template = 'x\r{[if]}y'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [
+      ['x'],
+      [{ type: 'If', expr: '', id: '1', line: 1, start: 0, end: 6 }, 'y']]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template), [expected[1][0]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), textTemplater.normalizeLineBreaks(template))
+  })
+  it('should parse an else with a comment', function () {
+    const template = '{[else something]}\r\nsomething else'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [
+      [{ type: 'Else', comment: ' something', id: '1', line: 0, start: 0, end: 18 }],
+      ['something else']
+    ]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template), [expected[0][0]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), textTemplater.normalizeLineBreaks(template))
+  })
+  it('should extract fields from an invalid template', function () {
+    const template = 'A{[if false]}B{[else comment]}C1\nC2{[elseif false]}D{[endif interrupted'
+    const result = textTemplater.extractRawFields(template)
+    const expected = [
+      { type: 'If', expr: 'false', id: '1', line: 0, start: 1, end: 13 },
+      { type: 'Else', comment: ' comment', id: '2', line: 0, start: 14, end: 30 },
+      { type: 'ElseIf', expr: 'false', id: '3', line: 1, start: 2, end: 18 }
+    ]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), '{[if false]}{[else comment]}{[elseif false]}')
+  })
+  it('should extract and validate fields from a valid template', function () {
+    const template = 'A{[if false]}B{[elseif comment]}C1\nC2{[else]}D{[endif]}'
+    const result = textTemplater.extractRawFields(template)
+    const expected = [
+      { type: 'If', expr: 'false', id: '1', line: 0, start: 1, end: 13 },
+      { type: 'ElseIf', expr: 'comment', id: '2', line: 0, start: 14, end: 32 },
+      { type: 'Else', id: '3', line: 1, start: 2, end: 10 },
+      { type: 'EndIf', id: '4', line: 1, start: 11, end: 20 }
+    ]
+    assert.deepStrictEqual(result, expected)
+    const result2 = textTemplater.validateParsedTemplate(result)
+    assert.notStrictEqual(result2, null)
   })
 })

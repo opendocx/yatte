@@ -39,6 +39,33 @@ const parseContentArray = function (contentArray, bIncludeExpressions = true, bI
 }
 exports.parseContentArray = parseContentArray
 
+const validateContentArray = function (contentArray) {
+  const astBody = []
+  let i = 0
+  while (i < contentArray.length) { // we use a 'while' because contentArray gets shorter as we go!
+    const parsedContentItem = validateContentItem(i, contentArray)
+    if (parsedContentItem.length === 1) {
+      const parsedContent = parsedContentItem[0]
+      if (typeof parsedContent === 'object' &&
+           (parsedContent.type === OD.EndList ||
+            parsedContent.type === OD.EndIf ||
+            parsedContent.type === OD.Else ||
+            parsedContent.type === OD.ElseIf
+           )
+      ) {
+        // Field X's EndList/EndIf/Else/ElseIf has no matching List/If
+        const errMsg = `${parsedContent.id ? `Field ${parsedContent.id}'s` : 'The'} ${parsedContent.type
+        } has no matching ${(parsedContent.type === OD.EndList) ? 'List' : 'If'}`
+        throw new Error(errMsg)
+      }
+    }
+    Array.prototype.push.apply(astBody, parsedContentItem)
+    i++
+  }
+  return astBody
+}
+exports.validateContentArray = validateContentArray
+
 const buildLogicTree = function (astBody) {
   // return a copy of astBody with all (or at least some) logically insignificant nodes pruned out:
   // remove plain text nodes (non-dynamic)
@@ -176,6 +203,23 @@ const parseContentItem = function (idx, contentArray, bIncludeExpressions = true
   return parsedItems
 }
 
+const validateContentItem = function (idx, contentArray) {
+  const contentItem = contentArray[idx]
+  const parsedItems = []
+  if (Array.isArray(contentItem)) {
+    // if there's a sub-array, that item must be its own valid sequence of fields
+    // with appropriately matched ifs/endifs and/or lists/endlists
+    const parsedBlockContent = validateContentArray(contentItem)
+    Array.prototype.push.apply(parsedItems, parsedBlockContent)
+  } else {
+    const parsedContent = validateField(contentArray, idx)
+    if (parsedContent !== null) {
+      parsedItems.push(parsedContent)
+    }
+  }
+  return parsedItems
+}
+
 const parseField = function (contentArray, idx = 0, bIncludeExpressions = true, bIncludeListPunctuation = true) {
   const contentArrayItem = contentArray[idx]
   let content, fieldId
@@ -222,6 +266,50 @@ const parseField = function (contentArray, idx = 0, bIncludeExpressions = true, 
   }
   return node
 }
+
+const validateField = function (contentArray, idx = 0) {
+  const node = contentArray[idx]
+  if (typeof node === 'string') {
+    if (node.length === 0) return null // empty string == ignore (== null)
+    return node // it's static text
+  }
+  // otherwise it's a parsed field object
+  if (node.type === OD.If) {
+    node.contentArray = validateContentUntilMatch(contentArray, idx + 1, OD.EndIf, node.id)
+  } else if (node.type === OD.ElseIf || node.type === OD.Else) {
+    node.contentArray = []
+  } else if (node.type === OD.List) {
+    node.contentArray = validateContentUntilMatch(contentArray, idx + 1, OD.EndList, node.id)
+  }
+  return node
+}
+
+const parseFieldContent = function (content) {
+  if (typeof content !== 'string') return null // error
+  if (!content) return createNode(OD.Content, '')
+  // parse the content
+  let match, result
+  if ((match = _ifRE.exec(content))) {
+    result = createNode(OD.If, match[1])
+  } else if ((match = _elseifRE.exec(content))) {
+    result = createNode(OD.ElseIf, match[1])
+  } else if ((match = _elseRE.exec(content))) {
+    result = createNode(OD.Else)
+    if (match[1]) result.comment = match[1]
+  } else if ((match = _endifRE.exec(content))) {
+    result = createNode(OD.EndIf)
+    if (match[1]) result.comment = match[1]
+  } else if ((match = _listRE.exec(content))) {
+    result = createNode(OD.List, match[1])
+  } else if ((match = _endlistRE.exec(content))) {
+    result = createNode(OD.EndList)
+    if (match[1]) result.comment = match[1]
+  } else {
+    result = createNode(OD.Content, content.trim())
+  }
+  return result
+}
+exports.parseFieldContent = parseFieldContent
 
 const createNode = function (type, expr, id, contentArray) {
   const newNode = { type: type }
@@ -320,6 +408,77 @@ const parseContentUntilMatch = function (
   return result
 }
 
+const validateContentUntilMatch = function (contentArray, startIdx, targetType, originId) {
+  // validates WITHIN THE SAME CONTENT ARRAY (block) until it finds a field of the given targetType
+  // returns a content array
+  let idx = startIdx
+  const result = []
+  let parentContent = result
+  let elseEncountered = false
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (idx >= contentArray.length) {
+      // Field X's List/If has no matching EndList/EndIf
+      const errMsg = `${originId ? `Field ${originId}'s` : 'The'} ${(targetType === OD.EndList) ? 'List' : 'If'
+      } has no matching ${targetType}`
+      throw new Error(errMsg)
+    }
+    const parsedContent = validateContentItem(idx, contentArray)
+    const isObj = (parsedContent.length === 1 && typeof parsedContent[0] === 'object' && parsedContent[0] !== null)
+    idx++
+    if (isObj && parsedContent[0].type === targetType) {
+      if (parsedContent[0].type === OD.EndList) {
+        // future: possibly inject this only if we're in a list on which the "punc" filter was used
+        // (because without the "punc" filter specifying list punctuation, this node will be a no-op)
+        // However, that is a little more complicated than it might seem, because this
+        // code operates in parallel with OpenDocx, which does the same thing (always inserting
+        // a punctuation placeholder at the tail-end of every list) for DOCX templates.
+        // See "puncElem" in OpenDocx.Templater\Templater.cs
+        injectListPunctuationNode(parentContent, false)
+      }
+      parentContent.push(parsedContent[0])
+      break
+    }
+    if (parsedContent) { parsedContent.forEach(pc => { if (pc) { parentContent.push(pc) } }) }
+    if (isObj) {
+      let errMsg
+      switch (parsedContent[0].type) {
+        case OD.ElseIf:
+        case OD.Else:
+          if (targetType === OD.EndIf) {
+            if (elseEncountered) {
+              // Encountered [field Y's|an] [Else/ElseIf] when expecting an EndIf (following [field X's|an] Else)
+              errMsg = `Encountered ${
+                parsedContent[0].id ? `field ${parsedContent[0].id}'s` : 'an'} ${
+                parsedContent[0].type} when expecting an EndIf (ElseIf cannot follow Else!)`
+            }
+            if (parsedContent[0].type === OD.Else) { elseEncountered = true }
+            if (!errMsg) { parentContent = parsedContent[0].contentArray }
+          } else if (targetType === OD.EndList) {
+            // Encountered [field Y's|an] [Else|ElseIf] when expecting [the end of field X's List|an EndList]
+            errMsg = `Encountered ${
+              parsedContent[0].id ? `field ${parsedContent[0].id}'s` : 'an'} ${
+              parsedContent[0].type} when expecting ${originId
+              ? `the end of field ${originId}'s List`
+              : 'an EndList'}`
+          }
+          break
+        case OD.EndIf:
+        case OD.EndList:
+          // Field X's EndIf/EndList has no matching If/List
+          errMsg = `${parsedContent[0].id ? `Field ${parsedContent[0].id}'s` : 'The'} ${parsedContent[0].type
+          } has no matching ${(parsedContent[0].type === OD.EndList) ? 'List' : 'If'}`
+      }
+      if (errMsg) {
+        throw new Error(errMsg)
+      }
+    }
+  }
+  // remove (consume) all parsed items from the contentArray before returning
+  contentArray.splice(startIdx, idx - startIdx)
+  return result
+}
+
 const injectListPunctuationNode = function (contentArray, bIncludeExpressions) {
   // synthesize list punctuation node
   const puncNode = createNode(OD.Content, '_punc', void 0)
@@ -359,10 +518,10 @@ const injectListPunctuationNode = function (contentArray, bIncludeExpressions) {
 
 const _ifRE = /^(?:if\b|\?)\s*(.*)$/
 const _elseifRE = /^(?:elseif\b|:\?)\s*(.*)$/
-const _elseRE = /^(?:else|:)$/
-const _endifRE = /^(?:endif|\/\?)(?:.*)$/
+const _elseRE = /^(?:else\b|:)(.*)?$/
+const _endifRE = /^(?:endif\b|\/\?)(?:.*)$/
 const _listRE = /^(?:list\b|#)\s*(.*)$/
-const _endlistRE = /^(?:endlist|\/#)(?:.*)$/
+const _endlistRE = /^(?:endlist\b|\/#)(.*)$/
 const _curlyquotes = /[“”]/g
 const _zws = /[\u{200B}\u{200C}]/gu
 
