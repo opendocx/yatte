@@ -38,7 +38,7 @@ class TextEvaluator {
           let value = frame.evaluate(evaluator)
           if (value === null || typeof value === 'undefined') {
             this.missing[contentItem.expr] = true
-            value = '[' + contentItem.expr + ']' // missing value placeholder
+            value = this.missingValuePlaceholder(contentItem.expr)
           } else if (typeof value === 'object') {
             // if (value.__value) {
             //   value = value.valueOf()
@@ -53,7 +53,7 @@ class TextEvaluator {
               if (typeof value !== 'string') {
                 this.errors.push(`Template '${contentItem.expr}' (${
                   value.contentType || typeof value}) cannot be assembled as text`)
-                value = '[' + contentItem.expr + ']' // missing value placeholder
+                value = this.missingValuePlaceholder(contentItem.expr)
               }
             } else if (value.errors || value.missing) {
               // value is a yatte EvaluationResult, probably because of nested template evaluation
@@ -125,6 +125,16 @@ class TextEvaluator {
         return ''
       }
     }
+  }
+
+  missingValuePlaceholder (expr) {
+    if (expr.includes('|')) {
+      const ast = base.compileExpr(expr).ast
+      if (ast.type === base.AST.AngularFilterExpression) {
+        return this.missingValuePlaceholder(base.serializeAST(ast.input))
+      }
+    }
+    return '[' + expr + ']'
   }
 }
 module.exports = TextEvaluator

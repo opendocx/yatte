@@ -378,6 +378,16 @@ describe('Assembly of text template via exported API', function () {
     assert(result == 'John NESTED Smith')
   })
 
+  it('should not clutter unanswered placeholders with formatting or other filters', function () {
+    const data = {
+      FirstName: 'John',
+    }
+    const scope = Scope.pushObject(data)
+    const template = '{[FirstName]} was born on {[Birthdate|format:"MM/dd/yyyy"]}.'
+    const result = yatte.assembleText(template, scope)
+    assert.strictEqual(result.value, 'John was born on [Birthdate].')
+  })
+
   it('should keep track of missing stuff encountered during assembly', function () {
     const data = {
       FirstName: 'John',
