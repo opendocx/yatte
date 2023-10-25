@@ -147,7 +147,7 @@ class YObject {
         increment(compiledVirtual)
         try {
           const result = compiledVirtual(this.scopeProxy, this.proxy)
-          const yobj = result  && result.__yobj
+          const yobj = result && result.__yobj
           const frameType = yobj && yobj.frameType
           if (frameType === YObject.LIST) {
             // it's an array proxy of scope proxies; just return it
@@ -167,6 +167,10 @@ class YObject {
           return result
         } catch (e) {
           if (e instanceof RecursionError) {
+            const frameLabel = compiledVirtual.lbl || compiledVirtual.ast.type
+            if (frameLabel) {
+              e.frames.push(frameLabel)
+            }
             throw e // need the error to bubble all the way up/out of the recursion!
           } else {
             console.error(`Evaluation error: ${e.toString()}`)
@@ -706,6 +710,7 @@ class RecursionError extends Error {
   constructor (message) {
     super(message)
     this.name = 'RecursionError'
+    this.frames = []
   }
 }
 

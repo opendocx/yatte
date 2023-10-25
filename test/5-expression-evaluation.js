@@ -325,13 +325,17 @@ describe('Executing expressions compiled via exported API', function () {
         FullName: yatte.Engine.compileExpr('FirstName + " " + FullName')
       },
     }
+    obj.SingleEntity.FullName.lbl = 'FullName'
     const scope = Scope.pushObject(obj)
     const evaluator = yatte.Engine.compileExpr('SingleEntity.FullName')
+    evaluator.lbl = 'SingleEntity.FullName'
     try {
       const result = evaluator(scope.scopeProxy, scope.proxy)
       assert.fail('expected error not thrown')
     } catch (err) {
       assert.strictEqual(err.name, 'RecursionError')
+      assert.strictEqual(err.frames.length, 21)
+      assert.strictEqual(err.frames[0], 'FullName')
     }
   })
 
