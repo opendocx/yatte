@@ -77,4 +77,24 @@ describe('Proper operation of the context stack', function () {
     assert.strictEqual(p.Planet, undefined) // it's an object proxy, so lookup (up to planet scope) does not happen
     assert.strictEqual(p._parent.Planet, 'Earth') // _parent returns a scope proxy for the parent, so Planet is then available
   })
+
+  it('should recognize stacks based on the same data as equivalent (or not)', function () {
+    const stack = Scope.pushObject(Earth_Data) // start on Earth
+    const stackA = Scope.pushList(Earth_Data.Continents, stack) // List Continents
+    const stackB = Scope.pushList(Earth_Data.Continents, stack) // List Continents
+    const stackA1 = Scope.pushListItem(3, stackA) // we're on continent #4 (North America)
+    const stackA2 = Scope.pushListItem(3, stackA) // we're on continent #4 (North America)
+    const stackB1 = Scope.pushListItem(3, stackB) // we're on continent #4 (North America)
+    const stackB2 = Scope.pushListItem(2, stackB) // we're on continent #3 (Europe)
+    assert.strictEqual(stackA1.valueEqualTo(stackA2), true)
+    assert.strictEqual(stackA2.valueEqualTo(stackA1), true)
+    assert.strictEqual(stackA1.valueEqualTo(stackB1), true)
+    assert.strictEqual(stackB1.valueEqualTo(stackA1), true)
+    assert.strictEqual(stackA.valueEqualTo(stackB), true)
+    // but non-equivalent stacks should return false
+    assert.strictEqual(stackA1.valueEqualTo(stackB2), false)
+    assert.strictEqual(stackA1.valueEqualTo(stackA), false)
+    assert.strictEqual(stackA1.valueEqualTo(stack), false)
+    assert.strictEqual(stackA.valueEqualTo(stack), false)
+  })
 })

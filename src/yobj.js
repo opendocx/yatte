@@ -292,6 +292,20 @@ class YObject {
     return this.value && this.value.valueOf()
   }
 
+  valueEqualTo (that) {
+    if (!that) return false
+    if (this.valueType !== that.valueType) return false
+    let a = this
+    let b = that
+    while (a && b) {
+      if (a.value !== b.value) return false
+      a = a.getParentEffective()
+      b = b.getParentEffective()
+    }
+    if (a || b) return false
+    return true
+  }
+
   get bareValue () { // for "unwrapping" wrapped primitives. Differs from valueOf in handling of dates.
     switch (this.valueType) {
       case 'string':
