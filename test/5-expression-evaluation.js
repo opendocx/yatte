@@ -241,6 +241,37 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(result, 'B')
   })
 
+  it('neither throws nor produces incorrect value when a list filter is invoked without context', function () {
+    // the following is a sort of hack devised to (1) synthesize a list N items long (3 in this case), and
+    // (2) map that list of empty objects, to a list of values synthesized from the context.
+    // An error occurs when evaluating, because the first sub-expression (the input to |map)
+    // provides no context, so when evaluating the map, 'val' and '_index' cannot be found/evaluated.
+    const evaluator = yatte.Engine.compileExpr('("X!".repeat(2)+"X").split("!")|map:{label: val+" "+_index }')
+    const data = {
+      val: 'number',
+    }
+    const scope = Scope.pushObject(data)
+    const result = scope.evaluate(evaluator)
+    // the error that occurs should be logged on the console (ugly but expected for now)
+    // the result of evaluation should be undefined:
+    assert.strictEqual(result, undefined)
+  })
+
+  it('work around loss of context (when calling builtin functions on primitive values) using virtuals', function () {
+    // this test case documents a workaround for the above error
+    const data = {
+      val: 'number',
+      listGen: yatte.Engine.compileExpr('("X!".repeat(2)+"X").split("!")') // virtual / workaround
+    }
+    const evaluator = yatte.Engine.compileExpr('listGen|map:{label: val+" "+_index }') // workaround
+    const scope = Scope.pushObject(data)
+    const result = scope.evaluate(evaluator)
+    assert.strictEqual(result.length, 3)
+    assert.strictEqual(result[0].label, 'number 1')
+    assert.strictEqual(result[1].label, 'number 2')
+    assert.strictEqual(result[2].label, 'number 3')
+  })
+
   it('allows fetching of hybrid objects (directly)', function () {
     const evaluator = yatte.Engine.compileExpr('MyObject.NewYork')
     const states = [

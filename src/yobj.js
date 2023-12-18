@@ -173,7 +173,7 @@ class YObject {
             }
             throw e // need the error to bubble all the way up/out of the recursion!
           } else {
-            console.error(`Evaluation error: ${e.toString()}`)
+            console.error(`Evaluation error: ${e.message}`)
           }
           return undefined
         } finally {

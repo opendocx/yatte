@@ -315,15 +315,22 @@ function Group (input, groupStr) {
   }
   if (input.length === 0) return []
   const evaluator = base.compileExpr(unEscapeQuotes(groupStr))
-  // let lScope = Scope.pushList(input, scope.__frame)
   const grouped = input.reduce(
     (result, item, index) => {
-      // lScope = Scope.pushListItem(index, lScope)
-      /* const key = lScope.evaluate(evaluator).toString() */
       const yobj = item && item.__yobj
-      let key = yobj
-        ? yobj.evaluate(evaluator)
-        : evaluator(item, item) // just evaluate item directly
+      let key
+      if (yobj) {
+        key = yobj.evaluate(evaluator)
+      } else { // item is a POJO or primitive
+        try {
+          key = evaluator(item, item) // just evaluate item directly
+        } catch (e) {
+          if (typeof item !== 'object' && e.toString().toLowerCase().includes('cannot use \'in\' operator')) {
+            throw new Error(`Invalid input for 'group' filter: missing context`)
+          }
+          throw e
+        }
+      }
       const keyobj = key && key.__yobj // check if the key is a proxy
       if (keyobj) { // if so, get the underlying value
         key = keyobj.bareValue
@@ -335,12 +342,10 @@ function Group (input, groupStr) {
         result.push(bucket)
       }
       bucket._values.push(item)
-      // lScope = Scope.pop(lScope)
       return result
     },
     []
   )
-  // lScope = Scope.pop(lScope)
   return grouped
 }
 Group.arrayFilter = true
@@ -389,25 +394,21 @@ function callArrayFunc (func, array, predicateStr) {
     predicateStr = '' // we should probably throw an error here instead...
   }
   const evaluator = base.compileExpr(unEscapeQuotes(predicateStr))
-  // const justThis = evaluator.ast.type === AST.ThisExpression // no scope lookup necessary -- we just want raw value
-  // predicateStr can refer to built-in properties _index, _index0, or _parent.
-  // These need to evaluate to the correct thing.
-  // It can also refer to this, which should refer to the current array element (even if it's a primitive)
-  // let lScope = Scope.pushList(array, scope.__frame)
   const result = func.call(array, (item, index) => {
-    // item will be a scope proxy
+    // item will TYPICALLY be a scope proxy, but it may not be (depending on where array came from)
     const yobj = item && item.__yobj
-    return yobj
-      ? yobj.evaluate(evaluator) // includes correct handling of primitive values, etc.
-      : evaluator(item, item) // just evaluate item directly
-    // lScope = Scope.pushListItem(index, lScope)
-    // const subResult = (justThis && (!lScope._value || (lScope.frameType === Scope.PRIMITIVE)))
-    //   ? item
-    //   : lScope.evaluate(evaluator)
-    // lScope = Scope.pop(lScope)
-    // return subResult
+    if (yobj) {
+      return yobj.evaluate(evaluator) // includes correct handling of primitive values, etc.
+    }
+    // else item is a POJO or primitive
+    try {
+      return evaluator(item, item) // just evaluate item directly
+    } catch (e) {
+      if (typeof item !== 'object' && e.toString().toLowerCase().includes('cannot use \'in\' operator')) {
+        throw new Error(`Invalid input for '${func.name}' filter: missing context`)
+      }
+      throw e
+    }
   })
-  // lScope = Scope.pop(lScope)
-  // const result = func.call(array, (item) => evaluator(item.scopeProxy))
   return result
 }
