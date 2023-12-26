@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "angular-expressions": "1.0.0",
-    "date-fns": "^2.15.0",
+    "date-fns": "^2.30.0",
     "fast-deep-equal": "^2.0.1",
     "number-to-words-en": "^1.2.5",
     "numeral": "^2.0.6"
