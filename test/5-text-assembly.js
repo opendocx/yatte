@@ -102,6 +102,19 @@ describe('Assembly of text template via exported API', function () {
     assert(result == 'My favorite colors are\n - Red;\n - Yellow; and\n - Blue.\nThat is all.')
   })
 
+  it('should assemble a punctuated list template with two items and a suffix', function () {
+    const template = 'My favorite colors are\n{[list Colors|punc:"1;2; and3."]}\n - {[Name]}\n{[endlist]}\nThat is all.'
+    const evaluator = yatte.compileText(template)
+    const data = {
+      Colors: [
+        { Name: 'Red' },
+        { Name: 'Blue' }
+      ]
+    }
+    const result = evaluator(data)
+    assert.strictEqual(result.toString(), 'My favorite colors are\n - Red; and\n - Blue.\nThat is all.')
+  })
+
   it('should assemble the same list twice, with the punctuation from the first not interfering with the second', function () {
     const template = 'My favorite colors are {[list Colors|punc:"1, 2, and 3."]}{[Name]}{[endlist]}\n\nOnce again that was:\n{[list Colors]}\n - {[Name]}\n{[endlist]}\n'
     const evaluator = yatte.compileText(template)

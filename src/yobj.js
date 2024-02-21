@@ -439,8 +439,9 @@ class YObject {
       if (p3 > p2) { // 3 is also present and in the expected order
         const last2 = example.slice(p2 + 1, p3)
         let only2
-        if (last2 !== between && last2.startsWith(between)) { // as with an oxford comma: "1, 2, and 3"
-          only2 = last2.slice(between.trimRight().length)
+        if (last2.startsWith(',') && last2.trimRight().length > 1 && between.trimRight() === ',') {
+          // oxford comma: "1, 2, and 3". But if only 2 items in list, omit oxford comma: "1 and 2"
+          only2 = last2.slice(1)
         } else {
           only2 = last2
         }
