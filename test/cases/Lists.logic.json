@@ -1,0 +1,1 @@
+[{"type":"List","expr":"Children|punc:\"1, 2 and 3\"","id":"1","atom":"L1","contentArray":[{"type":"Content","expr":"Name","id":"2","atom":"C2"}]},{"type":"List","expr":"Children|punc:\"1;2; and3.\"","id":"4","atom":"L4","contentArray":[{"type":"Content","expr":"Name","id":"5","atom":"C2"},{"type":"Content","expr":"Birthdate|format:\"MM/DD/YYYY\"","id":"6","atom":"C6"}]}]

@@ -5,6 +5,7 @@ const { AST } = require('./estree')
 const base = require('./base-templater')
 const EvaluationResult = require('./eval-result')
 const IndirectVirtual = require('./indirect')
+const IndirectAssembler = require('./indirect-assembler')
 exports.Engine = base
 exports.EvaluationResult = EvaluationResult
 exports.IndirectVirtual = IndirectVirtual
@@ -85,6 +86,24 @@ function assembleMeta (metaTemplate, scope) {
   }
 }
 exports.assembleMeta = assembleMeta
+
+async function getIndirectAssembler (logicTree, data, getLogicTree) {
+  if (!Array.isArray(logicTree) && typeof getLogicTree === 'function') {
+    logicTree = await getLogicTree(logicTree)
+  }
+  const indirAssembler = new IndirectAssembler(data)
+  indirAssembler.assembleData(logicTree)
+  if (!indirAssembler.errors || !indirAssembler.errors.length) {
+    // recursively assemble data for inserted indirects if there are any
+    if (indirAssembler.indirects && indirAssembler.indirects.length > 0) {
+      for (const indir of indirAssembler.indirects) {
+        indir.assembler = await getIndirectAssembler(indir, indir.scope, getLogicTree)
+      }
+    }
+  }
+  return indirAssembler
+}
+exports.getIndirectAssembler = getIndirectAssembler
 
 exports.FieldTypes = require('./fieldtypes')
 exports.Scope = require('./yobj')
