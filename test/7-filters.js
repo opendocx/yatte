@@ -2,6 +2,7 @@
 const { describe, it } = require('mocha')
 const assert = require('assert')
 const yatte = require('../src/index')
+const Scope = yatte.Scope
 
 describe('text formatting', function () {
   it('upper', function () {
@@ -298,6 +299,46 @@ describe('contains filter', function () {
   // array of wrapped primitive string contains object???
 })
 
+describe('map filter', function () {
+  it('maps a list of objects to strings', function () {
+    const evaluator = yatte.Engine.compileExpr('Children|map:Name')
+    const value = evaluator(data_Children, data_Children)
+    const expected = data_Children.Children.map(c => c.Name)
+    assert.deepStrictEqual(value, expected)
+  })
+
+  it('maps a list of objects to strings, accessing data from parent scope', function () {
+    const evaluator = yatte.Engine.compileExpr('Children|map:Name + " " + Surname')
+    const scope = Scope.pushObject(data_Children) // note: this same test case doesn't work if you use POJO directly
+    // Scope is required in order to have access to parent scope during list filter predicate evaluation
+    const value = evaluator(scope.scopeProxy, scope.proxy)
+    const expected = data_Children.Children.map(c => c.Name + ' ' + data_Children.Surname)
+    assert.deepStrictEqual(value, expected)
+  })
+
+  it('has access to _index during predicate evaluation', function () {
+    const evaluator = yatte.Engine.compileExpr('Children|map:_index.toString() + ". " + Name')
+    const scope = Scope.pushObject(data_Children) // note: this same test case doesn't work if you use POJO directly!
+    // Scope is required in order to have access to _index/_index0 during predicate evaluation
+    const value = evaluator(scope.scopeProxy, scope.proxy)
+    const expected = data_Children.Children.map((c,i) => `${i+1}. ${c.Name}`)
+    assert.deepStrictEqual(value, expected)
+  })
+
+  // FAILS... currently only the |reduce filter bothers to call pushList and pushListItem
+  // during iteration. All other list filters (such as map) will yeild the UNFILTERED _index and _index0.
+  // it('_index is accurate during predicate evaluation for filtered lists', function () {
+  //   const evaluator = yatte.Engine.compileExpr('Children|filter:Birth.getFullYear()>2000|map:_index.toString() + ". " + Name')
+  //   const scope = Scope.pushObject(data_Children)
+  //   const value = evaluator(scope.scopeProxy, scope.proxy)
+  //   const expected = data_Children
+  //     .Children
+  //       .filter(c => c.Birth.getFullYear()>2000)
+  //       .map((c,i) => `${i+1}. ${c.Name}`)
+  //   assert.deepStrictEqual(value, expected)
+  // })
+})
+
 // for purposes of the group filter's _key, wrapped strings must be simplified, so include wrapped strings...
 const surnameData = {
   surnames: [
@@ -378,5 +419,6 @@ const data_Children = {
     { Name: 'Mark', Birth: new Date(2007, 9, 24) },
     { Name: 'Yolanda', Birth: new Date(2000, 1, 1) },
     { Name: 'Beth', Birth: new Date(2000, 1, 1) }
-  ]
+  ],
+  Surname: 'Smith'
 }
