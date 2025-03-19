@@ -45,7 +45,7 @@ class IndirectAssembler {
     switch (node.type) {
       case OD.Content:
         if (node.expr === '_punc') return // ignore _punc content nodes (deprecated since 2.0.0-alpha)
-        this._setContent(node.atom || node.expr, node.expr)
+        this._setContent(node.atom || node.fieldName || node.expr, node.expr)
         break
 
       case OD.List:
