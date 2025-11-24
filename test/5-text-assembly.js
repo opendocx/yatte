@@ -10,7 +10,7 @@ const CreateKeyedObject = TestData.createKeyedObject
 describe('Assembly of text template via exported API', function () {
   it('should assemble the oceans template', function () {
     const template = 'Oceans are:\n\n{[list Oceans]}\n * {[Name]} (Average depth {[AverageDepth]} m)\n{[endlist]}'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = {
       Planet: 'Earth',
       Continents: ['Africa', 'Asia', 'Europe', 'North America', 'South America', 'Antarctica', 'Australia/Oceania'],
@@ -30,7 +30,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble a template with a list containing a non-repeated field', function () {
     const template = "{[Planet]}'s oceans are:\n\n{[list Oceans]}\n{[Planet]} > {[Name]}\n{[endlist]}"
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = {
       Planet: 'Earth',
       Oceans: [
@@ -47,7 +47,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble a punctuated list template', function () {
     const template = 'The oceans are {[list Oceans|punc:"1, 2 and 3."]}{[Name]}{[endlist]}'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = {
       Oceans: [
         { Name: 'Pacific', AverageDepth: 3970 },
@@ -63,7 +63,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble a punctuated list template with oxford comma', function () {
     const template = 'My favorite colors are {[list Colors|punc:"1, 2, and 3"]}{[Name]}{[endlist]}.'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = {
       Colors: [
         { Name: 'Red' },
@@ -77,7 +77,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble a punctuated list template with only two items', function () {
     const template = 'My favorite colors are {[list Colors|punc:"1, 2, and 3"]}{[Name]}{[endlist]}.'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = {
       Colors: [
         { Name: 'Red' },
@@ -90,7 +90,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble a punctuated list template with three items and a suffix', function () {
     const template = 'My favorite colors are\n{[list Colors|punc:"1;2; and3."]}\n - {[Name]}\n{[endlist]}\nThat is all.'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = {
       Colors: [
         { Name: 'Red' },
@@ -104,7 +104,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble a punctuated list template with two items and a suffix', function () {
     const template = 'My favorite colors are\n{[list Colors|punc:"1;2; and3."]}\n - {[Name]}\n{[endlist]}\nThat is all.'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = {
       Colors: [
         { Name: 'Red' },
@@ -117,7 +117,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble the same list twice, with the punctuation from the first not interfering with the second', function () {
     const template = 'My favorite colors are {[list Colors|punc:"1, 2, and 3."]}{[Name]}{[endlist]}\n\nOnce again that was:\n{[list Colors]}\n - {[Name]}\n{[endlist]}\n'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = {
       Colors: [
         { Name: 'Red' },
@@ -130,9 +130,8 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble the (simple) full name template, then another template which uses that one', function () {
-    const proto = {
-      FullName: yatte.compileText('{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}')
-    }
+    const proto = {}
+    defineTemplate('{[FirstName]} {[MiddleName?MiddleName + " ":""]}{[LastName]}', 'FullName', proto)
     const data = TestData.makeObject(proto, {
       FirstName: 'John',
       MiddleName: 'Jacob',
@@ -144,9 +143,8 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble a template using local AND global contexts', function () {
-    const proto = {
-      FullName: yatte.compileText('{[First]} {[Middle ? Middle + " ":""]}{[Last]}')
-    }
+    const proto = {}
+    defineTemplate('{[First]} {[Middle ? Middle + " ":""]}{[Last]}', 'FullName', proto)
     let data = Scope.pushObject(
       TestData.makeObject(proto, {
         Last: 'Smith',
@@ -165,9 +163,8 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble a template that explicitly uses only the local context', function () {
-    const proto = {
-      FullName: yatte.compileText('{[this.First]} {[this.Middle ? this.Middle + " ":""]}{[this.Last]}')
-    }
+    const proto = {}
+    defineTemplate('{[this.First]} {[this.Middle ? this.Middle + " ":""]}{[this.Last]}', 'FullName', proto)
     let data = Scope.pushObject(
       TestData.makeObject(proto, {
         Last: 'Smith',
@@ -187,9 +184,8 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble a template using local list contexts AND a global context', function () {
-    const proto = {
-      FullName: yatte.compileText('{[First]} {[Middle ? Middle + " ":""]}{[Last]}')
-    }
+    const proto = {}
+    defineTemplate('{[First]} {[Middle ? Middle + " ":""]}{[Last]}', 'FullName', proto)
     let data = {
       First: 'Gerald',
       Middle: 'N.',
@@ -217,9 +213,8 @@ describe('Assembly of text template via exported API', function () {
   })
 
   it('should assemble a template using both explicitly local and implicitly global contexts', function () {
-    const proto = {
-      FullName: yatte.compileText('{[this.First]} {[this.Middle ? this.Middle + " ":""]}{[Last]}')
-    }
+    const proto = {}
+    defineTemplate('{[this.First]} {[this.Middle ? this.Middle + " ":""]}{[Last]}', 'FullName', proto)
     let data = {
       First: 'Gerald',
       Middle: 'N.',
@@ -248,7 +243,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble a punctuated list based on an array of keyed objects', function () {
     const template = 'My favorite colors are {[list Colors|punc:"1, 2 and 3"]}{[Description]}{[endlist]}.'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = { Colors: [] }
     data.Colors.push(CreateKeyedObject({ Name: 'RGB(255,0,0)', Description: 'Red' }, 'Name'))
     data.Colors.push(CreateKeyedObject({ Name: 'RGB(255,255,0)', Description: 'Yellow' }, 'Name'))
@@ -260,7 +255,7 @@ describe('Assembly of text template via exported API', function () {
 
   it('should assemble a list based on an array of keyed objects with conditionals', function () {
     const template = 'My favorite colors are {[list Colors|punc:"1, 2 and 3"]}{[if _index==3]}(lastly) {[endif]}{[Description]}{[if this == "RGB(255,0,0)"]} (of course){[endif]}{[endlist]}.'
-    const evaluator = yatte.compileText(template)
+    const evaluator = defineTemplate(template)
     const data = { Colors: [] }
     data.Colors.push(CreateKeyedObject({ Name: 'RGB(255,0,0)', Description: 'Red' }, 'Name'))
     data.Colors.push(CreateKeyedObject({ Name: 'RGB(255,255,0)', Description: 'Yellow' }, 'Name'))
@@ -356,11 +351,14 @@ describe('Assembly of text template via exported API', function () {
       SingleEntity: {
         FirstName: 'John',
         LastName: 'Smith',
-        FullName: yatte.compileText('{[FirstName]} {[LastName]}')
+        // FullName: yatte.compileText('{[FirstName]} {[LastName]}')
       },
-      SingleEntityLength1: yatte.Engine.compileExpr('SingleEntity.FirstName.length + SingleEntity.LastName.length + 1'),
-      SingleEntityLength2: yatte.Engine.compileExpr('SingleEntity.FullName.length'),
+      // SingleEntityLength1: yatte.Engine.compileExpr('SingleEntity.FirstName.length + SingleEntity.LastName.length + 1'),
+      // SingleEntityLength2: yatte.Engine.compileExpr('SingleEntity.FullName.length'),
     }
+    defineTemplate('{[FirstName]} {[LastName]}', 'FullName', obj.SingleEntity)
+    defineNamedExpr('SingleEntity.FirstName.length + SingleEntity.LastName.length + 1', 'SingleEntityLength1', obj)
+    defineNamedExpr('SingleEntity.FullName.length', 'SingleEntityLength2', obj)
     const scope = Scope.pushObject(obj)
     const template = '{[SingleEntity.FullName]} is {[SingleEntityLength1]} characters long (yes {[SingleEntityLength2]})'
     const result = yatte.assembleText(template, scope)
@@ -448,10 +446,12 @@ describe('Assembly of text template via exported API', function () {
         FirstName: 'John',
         LastName: 'Smith',
         Children: ['Susan', 'Margaret', 'Edward'],
-        FullName: yatte.compileText('{[FirstName]} {[LastName]}')
+        // FullName: defineTemplate('{[FirstName]} {[LastName]}')
       },
-      ChildNames: yatte.Engine.compileExpr('SingleEntity.Children|map:this + " " + LastName'),
+      // ChildNames: yatte.Engine.compileExpr('SingleEntity.Children|map:this + " " + LastName'),
     }
+    defineTemplate('{[FirstName]} {[LastName]}', 'FullName', obj.SingleEntity)
+    defineNamedExpr('SingleEntity.Children|map:this + " " + LastName', 'ChildNames', obj)
     const scope = Scope.pushObject(obj)
     const result = yatte.assembleText(template, scope)
     assert(result == 'John Smith\'s children are Susan Smith, Margaret Smith and Edward Smith.')
@@ -465,7 +465,7 @@ describe('Assembly of text template via exported API', function () {
     stack = Scope.pushList(objLocals.c, stack)
     stack = Scope.pushListItem(1, stack)
     const proxy = stack.scopeProxy
-    const compiledTemplate = yatte.compileText('{[d]} is the {[_index]}{[_index|ordsuffix]} of {[c.length]} in {[a]}')
+    const compiledTemplate = defineTemplate('{[d]} is the {[_index]}{[_index|ordsuffix]} of {[c.length]} in {[a]}')
     const result = compiledTemplate(proxy)
     assert(result == 'two is the 2nd of 3 in global')
   })
@@ -490,7 +490,7 @@ class Child {
   }
 
   get Age () {
-    var today = new Date()
+    var today = new Date(2024, 0, 1) // fixed date so tests stop breaking over time ;-) // new Date()
     var birthDate = this.Birthdate
     var age = today.getFullYear() - birthDate.getFullYear()
     var m = today.getMonth() - birthDate.getMonth()
@@ -503,6 +503,24 @@ class Child {
 
 function copyProperties (fromObj, toObj) {
   Object.getOwnPropertyNames(fromObj).filter(n => isNaN(n)).forEach(name => Object.defineProperty(toObj, name, Object.getOwnPropertyDescriptor(fromObj, name)))
+}
+
+function defineTemplate (template, ident, onObject) {
+  const func = yatte.compileText(template)
+  if (onObject) {
+    onObject[ident] = func
+  } else {
+    return func
+  }
+}
+
+function defineNamedExpr (expr, ident, onObject) {
+  const func = yatte.Engine.compileExpr(expr)
+  if (onObject) {
+    onObject[ident] = func
+  } else {
+    return func
+  }
 }
 
 const nested_object = {
