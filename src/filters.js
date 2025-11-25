@@ -1,3 +1,4 @@
+/* eslint-disable no-multi-spaces */
 const expressions = require('angular-expressions')
 const dateFns = { format: require('date-fns/format') }
 const numeral = require('numeral')
@@ -15,7 +16,7 @@ module.exports = expressions.filters
 
 // define built-in filters (both regular filters and "list" filters)
 // (the distinction between regular and list filters is NOT whether input or output is a list, but rather,
-//  whether the filter accepts a predicate as an argument.
+//  whether the filter accepts or expects an anonymous expression (predicate) as an argument or not.
 //  List filters have a predicate argument, regular filters do not.)
 // regular filters:
 expressions.filters.upper = Upper           // text -> text
@@ -29,6 +30,7 @@ expressions.filters.ordsuffix = Ordsuffix   // number -> text
 expressions.filters.else = Else             // text/number/date/trueFalse -> same/text
 expressions.filters.contains = Contains     // text/list -> trueFalse
 expressions.filters.punc = Punc             // list -> list of same
+expressions.filters.keepsections = KeepSections // indirect -> indirect
 // list filters (arrayFilter == true):
 expressions.filters.sort = Sort             // list -> list of same
 expressions.filters.filter = Filter         // list -> list of same
@@ -60,11 +62,29 @@ function Initcap (input, forceLower = false) {
   return input.charAt(0).toUpperCase() + input.slice(1)
 }
 
+// const TitleCapRegEx_AsciiOnly = /(^|[^'’]|\W['’])\b([a-z])/gm // not only [a-z], but also \W and \b are ASCII only!
+// without \b and \W, this is harder to do...
+const TitleCapRegEx = /^\p{Ll}|(?:\s|(?:^|.)\p{P})\p{Ll}/gmu
+// 1st case: ^\p{Ll}  - char 0 is lowercase letter
+// 2nd case: \s\p{Ll} - char n is whitespace, char n+1 is lowercase letter
+// 3rd case: ^\p{P}\p{Ll} - char 0 is punctuation, char 1 lowercase letter
+// 4th case: .\p{P}\p{Ll} - char n is ANYTHING (.), char n+1 is punctuation, char n+2 is lowercase letter
+//      >> in this case additional logic is required to decide whether it's an exceptional case or not!
+const UnicodeWordChar = /\p{L}|\p{N}/u
+
 function Titlecaps (input, forceLower = false) {
   if (!input) return input
   if (typeof input !== 'string') input = input.toString()
   if (forceLower) input = input.toLowerCase()
-  return input.replace(/(^| )(\w)/g, s => s.toUpperCase())
+  return input.replace(TitleCapRegEx, s => {
+    // console.log(s)
+    if (s.length === 3) { // 4th case above
+      return (s[1] === "'" || s[1] === '’') && UnicodeWordChar.test(s[0])
+        ? s // EXCEPTION for possessives and mid-word contractions: don't capitalize
+        : s.slice(0, 2) + s[2].toUpperCase() // otherwise - do capitalize
+    }
+    return s.toUpperCase() // all other cases
+  })
 }
 
 class DateFormatFixer {
@@ -214,6 +234,18 @@ function Punc (inputList, example = '1, 2, and 3') {
   return inputList
 }
 
+function KeepSections (input) {
+  if (!input) return input
+  if (typeof input !== 'object') return input
+  const newInput = input.valueOf()
+  if (newInput && (!newInput.contentType || newInput.contentType === 'docx')) {
+    newInput.KeepSections = true
+  } else {
+    console.log('keepsections filter used on something other than a DOCX insert/indirect')
+  }
+  return newInput
+}
+
 // runtime implementation of list filters:
 
 function Sort (input) {
@@ -283,15 +315,22 @@ function Group (input, groupStr) {
   }
   if (input.length === 0) return []
   const evaluator = base.compileExpr(unEscapeQuotes(groupStr))
-  // let lScope = Scope.pushList(input, scope.__frame)
   const grouped = input.reduce(
     (result, item, index) => {
-      // lScope = Scope.pushListItem(index, lScope)
-      /* const key = lScope.evaluate(evaluator).toString() */
       const yobj = item && item.__yobj
-      let key = yobj
-        ? yobj.evaluate(evaluator)
-        : evaluator(item, item) // just evaluate item directly
+      let key
+      if (yobj) {
+        key = yobj.evaluate(evaluator)
+      } else { // item is a POJO or primitive
+        try {
+          key = evaluator(item, item) // just evaluate item directly
+        } catch (e) {
+          if (typeof item !== 'object' && e.toString().toLowerCase().includes('cannot use \'in\' operator')) {
+            throw new Error(`Invalid input for 'group' filter: missing context`)
+          }
+          throw e
+        }
+      }
       const keyobj = key && key.__yobj // check if the key is a proxy
       if (keyobj) { // if so, get the underlying value
         key = keyobj.bareValue
@@ -303,12 +342,10 @@ function Group (input, groupStr) {
         result.push(bucket)
       }
       bucket._values.push(item)
-      // lScope = Scope.pop(lScope)
       return result
     },
     []
   )
-  // lScope = Scope.pop(lScope)
   return grouped
 }
 Group.arrayFilter = true
@@ -357,25 +394,21 @@ function callArrayFunc (func, array, predicateStr) {
     predicateStr = '' // we should probably throw an error here instead...
   }
   const evaluator = base.compileExpr(unEscapeQuotes(predicateStr))
-  // const justThis = evaluator.ast.type === AST.ThisExpression // no scope lookup necessary -- we just want raw value
-  // predicateStr can refer to built-in properties _index, _index0, or _parent.
-  // These need to evaluate to the correct thing.
-  // It can also refer to this, which should refer to the current array element (even if it's a primitive)
-  // let lScope = Scope.pushList(array, scope.__frame)
   const result = func.call(array, (item, index) => {
-    // item will be a scope proxy
+    // item will TYPICALLY be a scope proxy, but it may not be (depending on where array came from)
     const yobj = item && item.__yobj
-    return yobj
-      ? yobj.evaluate(evaluator) // includes correct handling of primitive values, etc.
-      : evaluator(item, item) // just evaluate item directly
-    // lScope = Scope.pushListItem(index, lScope)
-    // const subResult = (justThis && (!lScope._value || (lScope.frameType === Scope.PRIMITIVE)))
-    //   ? item
-    //   : lScope.evaluate(evaluator)
-    // lScope = Scope.pop(lScope)
-    // return subResult
+    if (yobj) {
+      return yobj.evaluate(evaluator) // includes correct handling of primitive values, etc.
+    }
+    // else item is a POJO or primitive
+    try {
+      return evaluator(item, item) // just evaluate item directly
+    } catch (e) {
+      if (typeof item !== 'object' && e.toString().toLowerCase().includes('cannot use \'in\' operator')) {
+        throw new Error(`Invalid input for '${func.name}' filter: missing context`)
+      }
+      throw e
+    }
   })
-  // lScope = Scope.pop(lScope)
-  // const result = func.call(array, (item) => evaluator(item.scopeProxy))
   return result
 }

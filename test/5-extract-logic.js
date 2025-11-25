@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars, no-new-wrappers, object-property-newline, camelcase, comma-dangle */
+const { describe, it } = require('mocha')
 const yatte = require('../src/index')
 const assert = require('assert')
 
@@ -50,20 +52,10 @@ The logic tree should include the if twice, but should call for the data only on
         type: 'If',
         expr: 'x',
         id: '1',
-        exprAst: {
-          type: 'Identifier',
-          name: 'x',
-          constant: false
-        },
         contentArray: [{
           type: 'Content',
           expr: 'x',
-          id: '2',
-          exprAst: {
-            type: 'Identifier',
-            name: 'x',
-            constant: false
-          }
+          id: '2'
         }]
       }
     ])
@@ -74,52 +66,27 @@ The logic tree should include the if twice, but should call for the data only on
   //     let logic = yatte.extractLogic(template);
   //     assert.deepStrictEqual(logic, [
   //         {
-  //             "type": "If",
-  //             "expr": "a",
-  //             "exprAst": {
-  //                 "type": "Identifier",
-  //                 "name": "a",
-  //                 "constant": false
-  //             },
-  //             "contentArray": [
+  //             type: 'If',
+  //             expr: "a",
+  //             contentArray: [
   //                 {
-  //                     "type": "If",
+  //                     "type": 'If',
   //                     "expr": "b",
-  //                     "exprAst": {
-  //                         "type": "Identifier",
-  //                         "name": "b",
-  //                         "constant": false
-  //                     },
   //                     "contentArray": [
   //                         {
-  //                             "type": "Content",
+  //                             "type": 'Content',
   //                             "expr": "x",
-  //                             "exprAst": {
-  //                                 "type": "Identifier",
-  //                                 "name": "x",
-  //                                 "constant": false
-  //                             }
   //                         }
   //                     ]
   //                 },{
-  //                     "type": "Content",
+  //                     "type": 'Content',
   //                     "expr": "x",
-  //                     "exprAst": {
-  //                         "type": "Identifier",
-  //                         "name": "x",
-  //                         "constant": false
-  //                     }
   //                 }
   //             ]
   //         },
   //         {
-  //             "type": "Content",
+  //             "type": 'Content',
   //             "expr": "x",
-  //             "exprAst": {
-  //                 "type": "Identifier",
-  //                 "name": "x",
-  //                 "constant": false
-  //             }
   //         }
   //     ]);
   // });
@@ -136,21 +103,11 @@ The logic tree should include the if twice, but should call for the data only on
         type: 'If',
         expr: 'a',
         id: '1',
-        exprAst: {
-          type: 'Identifier',
-          name: 'a',
-          constant: false
-        },
         contentArray: [
           {
             type: 'If',
             expr: 'b',
             id: '2',
-            exprAst: {
-              type: 'Identifier',
-              name: 'b',
-              constant: false
-            },
             contentArray: []
           }
         ]
@@ -160,11 +117,6 @@ The logic tree should include the if twice, but should call for the data only on
         expr: 'x',
         id: '7',
         idd: ['5', '3'],
-        exprAst: {
-          type: 'Identifier',
-          name: 'x',
-          constant: false
-        }
       }
     ])
   })
@@ -178,20 +130,10 @@ The logic tree should include the if twice, but should call for the data only on
         expr: 'x',
         id: '1',
         idd: ['3'],
-        exprAst: {
-          type: 'Identifier',
-          name: 'x',
-          constant: false
-        }
       }, {
         type: 'If',
         expr: 'a',
         id: '2',
-        exprAst: {
-          type: 'Identifier',
-          name: 'a',
-          constant: false
-        },
         contentArray: []
       }
     ])
@@ -205,29 +147,14 @@ The logic tree should include the if twice, but should call for the data only on
         type: 'Content',
         expr: 'x',
         id: '1',
-        exprAst: {
-          type: 'Identifier',
-          name: 'x',
-          constant: false
-        }
       }, {
         type: 'If',
         expr: 'x',
         id: '2',
-        exprAst: {
-          type: 'Identifier',
-          name: 'x',
-          constant: false
-        },
         contentArray: [{
           type: 'Content',
           expr: 'y',
           id: '3',
-          exprAst: {
-            type: 'Identifier',
-            name: 'y',
-            constant: false
-          }
         }]
       }
     ])
@@ -239,11 +166,10 @@ The logic tree should include the if twice, but should call for the data only on
     assert.deepStrictEqual(logic, XYZLogicTree)
   })
 
-  it('correctly parses & extracts logic from the ugly nested if/elseif template', function() {
+  it('correctly parses & extracts logic from the ugly nested if/elseif template', function () {
     const result = yatte.extractLogic(ugly_nested_template)
     assert.deepStrictEqual(result, ugly_nested_contentArray)
   })
-
 })
 
 /*
@@ -304,32 +230,32 @@ can quickly & optimally determine the relevance and requiredness of any property
 
  */
 
-  // it('should always allow access to the top of the stack using the _ identifier', function() {
-  //     const data = {
-  //         name: 'Xenia',
-  //         surname: 'Onatopp',
-  //         children: [
-  //             {
-  //                 name: 'Celia',
-  //                 surname: 'Smith',
-  //                 children: [
-  //                     {
-  //                         name: 'Susan',
-  //                         surname: 'Stamford'
-  //                     }
-  //                 ]
-  //             }
-  //         ]
-  //     }
-  //     const template = "{[name]}'s children:\n{[list children]}\n   {[name]}'s children:\n{[list children]}\n      {[name]} {[surname]} knows her mother's surname is {[_parent.surname]} and grandma is {[_.surname]}\n{[endlist]}\n{[endlist]}\n"
-  //     const result = yatte.assembleText(template, {}, data);
-  //     assert.equal(result.value, "Xenia's children:\n   Celia's children:\n      Susan Stamford knows her mother's surname is Smith and grandma is Onatopp\n");
-  //     assert(!data.hasOwnProperty('_')) // data did not get the _ because it was passed as locals, but _ still works because it was added to the global scope
+// it('should always allow access to the top of the stack using the _ identifier', function() {
+//     const data = {
+//         name: 'Xenia',
+//         surname: 'Onatopp',
+//         children: [
+//             {
+//                 name: 'Celia',
+//                 surname: 'Smith',
+//                 children: [
+//                     {
+//                         name: 'Susan',
+//                         surname: 'Stamford'
+//                     }
+//                 ]
+//             }
+//         ]
+//     }
+//     const template = "{[name]}'s children:\n{[list children]}\n   {[name]}'s children:\n{[list children]}\n      {[name]} {[surname]} knows her mother's surname is {[_parent.surname]} and grandma is {[_.surname]}\n{[endlist]}\n{[endlist]}\n"
+//     const result = yatte.assembleText(template, {}, data);
+//     assert.equal(result.value, "Xenia's children:\n   Celia's children:\n      Susan Stamford knows her mother's surname is Smith and grandma is Onatopp\n");
+//     assert(!data.hasOwnProperty('_')) // data did not get the _ because it was passed as locals, but _ still works because it was added to the global scope
 
-  //     const result2 = yatte.assembleText(template, data);
-  //     assert.equal(result2.value, "Xenia's children:\n   Celia's children:\n      Susan Stamford knows her mother's surname is Smith and grandma is Onatopp\n");
-  //     assert(data.hasOwnProperty('_')) // because we passed it as the scope object rather than locals
-  // })
+//     const result2 = yatte.assembleText(template, data);
+//     assert.equal(result2.value, "Xenia's children:\n   Celia's children:\n      Susan Stamford knows her mother's surname is Smith and grandma is Onatopp\n");
+//     assert(data.hasOwnProperty('_')) // because we passed it as the scope object rather than locals
+// })
 
 // 1{[if x]}2{[list []]}3{[test]}4{[endlist]}5{[elseif y]}6{[A]}7{[list outer]}8{[z?B:B2]}9{[list inner]}10{[C]}11{[endlist]}12{[D]}13{[endlist]}14{[E]}15{[else]}16{[F]}17{[list another]}18{[G]}19{[endlist]}20{[H]}21{[endif]}
 const TestNestLogicTree = [
@@ -337,162 +263,62 @@ const TestNestLogicTree = [
     type: 'If',
     expr: 'x',
     id: '1',
-    exprAst: {
-      type: 'Identifier',
-      name: 'x',
-      constant: false
-    },
     contentArray: [
       {
         type: 'List',
         expr: '[]',
         id: '2',
-        exprAst: {
-          type: 'ArrayExpression',
-          elements: [],
-          expectarray: true,
-          constant: true
-        },
         contentArray: [
           {
             type: 'Content',
             expr: 'test',
-            id: '3',
-            exprAst: {
-              type: 'Identifier',
-              name: 'test',
-              constant: false
-            }
+            id: '3'
           },
-          {
-            type: 'Content',
-            expr: '_punc',
-            exprAst: {
-              type: 'Identifier',
-              name: '_punc',
-              constant: false
-            }
-          }
         ]
       },
       {
         type: 'ElseIf',
         expr: 'y',
         id: '5',
-        exprAst: {
-          type: 'Identifier',
-          name: 'y',
-          constant: false
-        },
         contentArray: [
           {
             type: 'Content',
             expr: 'A',
-            id: '6',
-            exprAst: {
-              type: 'Identifier',
-              name: 'A',
-              constant: false
-            }
+            id: '6'
           },
           {
             type: 'List',
             expr: 'outer',
             id: '7',
-            exprAst: {
-              type: 'Identifier',
-              name: 'outer',
-              expectarray: true,
-              constant: false
-            },
             contentArray: [
               {
                 type: 'Content',
                 expr: 'z?B:B2',
-                id: '8',
-                exprAst: {
-                  type: 'ConditionalExpression',
-                  test: {
-                    type: 'Identifier',
-                    name: 'z',
-                    constant: false
-                  },
-                  fixed: true,
-                  consequent: {
-                    type: 'Identifier',
-                    name: 'B',
-                    constant: false
-                  },
-                  alternate: {
-                    type: 'Identifier',
-                    name: 'B2',
-                    constant: false
-                  },
-                  constant: false
-                }
+                id: '8'
               },
               {
                 type: 'List',
                 expr: 'inner',
                 id: '9',
-                exprAst: {
-                  type: 'Identifier',
-                  name: 'inner',
-                  expectarray: true,
-                  constant: false
-                },
                 contentArray: [
                   {
                     type: 'Content',
                     expr: 'C',
-                    id: '10',
-                    exprAst: {
-                      type: 'Identifier',
-                      name: 'C',
-                      constant: false
-                    }
+                    id: '10'
                   },
-                  {
-                    type: 'Content',
-                    expr: '_punc',
-                    exprAst: {
-                      type: 'Identifier',
-                      name: '_punc',
-                      constant: false
-                    }
-                  }
                 ]
               },
               {
                 type: 'Content',
                 expr: 'D',
-                id: '12',
-                exprAst: {
-                  type: 'Identifier',
-                  name: 'D',
-                  constant: false
-                }
+                id: '12'
               },
-              {
-                type: 'Content',
-                expr: '_punc',
-                exprAst: {
-                  type: 'Identifier',
-                  name: '_punc',
-                  constant: false
-                }
-              }
             ]
           },
           {
             type: 'Content',
             expr: 'E',
-            id: '14',
-            exprAst: {
-              type: 'Identifier',
-              name: 'E',
-              constant: false
-            }
+            id: '14'
           },
           {
             type: 'Else',
@@ -501,54 +327,24 @@ const TestNestLogicTree = [
               {
                 type: 'Content',
                 expr: 'F',
-                id: '16',
-                exprAst: {
-                  type: 'Identifier',
-                  name: 'F',
-                  constant: false
-                }
+                id: '16'
               },
               {
                 type: 'List',
                 expr: 'another',
                 id: '17',
-                exprAst: {
-                  type: 'Identifier',
-                  name: 'another',
-                  expectarray: true,
-                  constant: false
-                },
                 contentArray: [
                   {
                     type: 'Content',
                     expr: 'G',
                     id: '18',
-                    exprAst: {
-                      type: 'Identifier',
-                      name: 'G',
-                      constant: false
-                    }
                   },
-                  {
-                    type: 'Content',
-                    expr: '_punc',
-                    exprAst: {
-                      type: 'Identifier',
-                      name: '_punc',
-                      constant: false
-                    }
-                  }
                 ]
               },
               {
                 type: 'Content',
                 expr: 'H',
                 id: '20',
-                exprAst: {
-                  type: 'Identifier',
-                  name: 'H',
-                  constant: false
-                }
               }
             ]
           }
@@ -564,20 +360,10 @@ const redundant_if_logic_tree = [
     type: 'If',
     expr: 'x',
     id: '1',
-    exprAst: {
-      type: 'Identifier',
-      name: 'x',
-      constant: false
-    },
     contentArray: [{
       type: 'Content',
       expr: 'adjective',
       id: '2',
-      exprAst: {
-        type: 'Identifier',
-        name: 'adjective',
-        constant: false
-      }
     }, {
       type: 'Else',
       id: '3',
@@ -588,20 +374,10 @@ const redundant_if_logic_tree = [
     type: 'Content',
     expr: 'name',
     id: '5',
-    exprAst: {
-      type: 'Identifier',
-      name: 'name',
-      constant: false
-    }
   }, {
     type: 'If',
     expr: 'x',
     id: '6',
-    exprAst: {
-      type: 'Identifier',
-      name: 'x',
-      constant: false
-    },
     contentArray: [{
       type: 'Else',
       id: '7',
@@ -617,38 +393,18 @@ const XYZLogicTree = [
     type: 'If',
     expr: 'x',
     id: '1',
-    exprAst: {
-      type: 'Identifier',
-      name: 'x',
-      constant: false
-    },
     contentArray: [{
       type: 'Content',
       expr: 'x',
       id: '2',
-      exprAst: {
-        type: 'Identifier',
-        name: 'x',
-        constant: false
-      }
     }, {
       type: 'ElseIf',
       expr: 'y',
       id: '3',
-      exprAst: {
-        type: 'Identifier',
-        name: 'y',
-        constant: false
-      },
       contentArray: [{
         type: 'Content',
         expr: 'y',
         id: '4',
-        exprAst: {
-          type: 'Identifier',
-          name: 'y',
-          constant: false
-        }
       }, {
         type: 'Else',
         id: '5',
@@ -656,11 +412,6 @@ const XYZLogicTree = [
           type: 'Content',
           expr: 'z',
           id: '6',
-          exprAst: {
-            type: 'Identifier',
-            name: 'z',
-            constant: false
-          }
         }]
       }
       ]
@@ -739,638 +490,250 @@ const ugly_nested_template = `{[if DocSelect == "SelectAllPlan"]}
 `
 const ugly_nested_contentArray = [
   {
-    type: "If",
-    expr: "DocSelect==\"SelectAllPlan\"",
+    type: 'If',
+    expr: 'DocSelect=="SelectAllPlan"',
     id: '1',
-    exprAst: {
-      type: "BinaryExpression",
-      operator: "==",
-      left: {
-        type: "Identifier",
-        name: "DocSelect",
-        constant: false
-      },
-      right: {
-        type: "Literal",
-        value: "SelectAllPlan",
-        constant: true
-      },
-      constant: false
-    },
     contentArray: [
       {
-        type: "Content",
-        expr: "EngageLetter",
+        type: 'Content',
+        expr: 'EngageLetter',
         id: '2',
-        exprAst: {
-          type: "Identifier",
-          name: "EngageLetter",
-          constant: false
-        }
       }, {
-        type: "Content",
-        expr: "DPOA",
+        type: 'Content',
+        expr: 'DPOA',
         id: '3',
-        exprAst: {
-          type: "Identifier",
-          name: "DPOA",
-          constant: false
-        }
       }, {
-        type: "Content",
-        expr: "AdvCarePlan",
+        type: 'Content',
+        expr: 'AdvCarePlan',
         id: '4',
-        exprAst: {
-          type: "Identifier",
-          name: "AdvCarePlan",
-          constant: false
-        }
       }, {
-        type: "Content",
-        expr: "SimpleWill",
+        type: 'Content',
+        expr: 'SimpleWill',
         id: '5',
-        exprAst: {
-          type: "Identifier",
-          name: "SimpleWill",
-          constant: false
-        }
       }, {
-        type: "Content",
-        expr: "FinancialStatement",
+        type: 'Content',
+        expr: 'FinancialStatement',
         id: '6',
-        exprAst: {
-          type: "Identifier",
-          name: "FinancialStatement",
-          constant: false
-        }
       }, {
-        type: "Content",
-        expr: "CoverSheet",
+        type: 'Content',
+        expr: 'CoverSheet',
         id: '7',
-        exprAst: {
-          type: "Identifier",
-          name: "CoverSheet",
-          constant: false
-        }
       }, {
-        type: "If",
-        expr: "Married",
+        type: 'If',
+        expr: 'Married',
         id: '8',
-        exprAst: {
-          type: "Identifier",
-          name: "Married",
-          constant: false
-        },
-        contentArray: [{
-            type: "Content",
-            expr: "DPOASpouse",
+        contentArray: [
+          {
+            type: 'Content',
+            expr: 'DPOASpouse',
             id: '9',
-            exprAst: {
-              type: "Identifier",
-              name: "DPOASpouse",
-              constant: false
-            }
           }, {
-            type: "Content",
-            expr: "AdvCarePlanSpouse",
+            type: 'Content',
+            expr: 'AdvCarePlanSpouse',
             id: '10',
-            exprAst: {
-              type: "Identifier",
-              name: "AdvCarePlanSpouse",
-              constant: false
-            }
           }, {
-            type: "Content",
-            expr: "SimpleWillSpouse",
+            type: 'Content',
+            expr: 'SimpleWillSpouse',
             id: '11',
-            exprAst: {
-              type: "Identifier",
-              name: "SimpleWillSpouse",
-              constant: false
-            }
           }
         ]
       }, {
-        type: "ElseIf",
-        expr: "DocSelect==\"SelectAllLivingWill\"",
+        type: 'ElseIf',
+        expr: 'DocSelect=="SelectAllLivingWill"',
         id: '13',
-        exprAst: {
-          type: "BinaryExpression",
-          operator: "==",
-          left: {
-            type: "Identifier",
-            name: "DocSelect",
-            constant: false
-          },
-          right: {
-            type: "Literal",
-            value: "SelectAllLivingWill",
-            constant: true
-          },
-          constant: false
-        },
         contentArray: [
           {
-            type: "Content",
-            expr: "EngageLetter",
+            type: 'Content',
+            expr: 'EngageLetter',
             id: '14',
-            exprAst: {
-              type: "Identifier",
-              name: "EngageLetter",
-              constant: false
-            }
           }, {
-            type: "Content",
-            expr: "DPOA",
+            type: 'Content',
+            expr: 'DPOA',
             id: '15',
-            exprAst: {
-              type: "Identifier",
-              name: "DPOA",
-              constant: false
-            }
-          },{
-            type: "Content",
-            expr: "LivingWill",
+          }, {
+            type: 'Content',
+            expr: 'LivingWill',
             id: '16',
-            exprAst: {
-              type: "Identifier",
-              name: "LivingWill",
-              constant: false
-            }
           }, {
-            type: "Content",
-            expr: "AdvHealthDirective",
+            type: 'Content',
+            expr: 'AdvHealthDirective',
             id: '17',
-            exprAst: {
-              type: "Identifier",
-              name: "AdvHealthDirective",
-              constant: false
-            }
           }, {
-            type: "Content",
-            expr: "SimpleWill",
+            type: 'Content',
+            expr: 'SimpleWill',
             id: '18',
-            exprAst: {
-              type: "Identifier",
-              name: "SimpleWill",
-              constant: false
-            }
           }, {
-            type: "Content",
-            expr: "FinancialStatement",
+            type: 'Content',
+            expr: 'FinancialStatement',
             id: '19',
-            exprAst: {
-              type: "Identifier",
-              name: "FinancialStatement",
-              constant: false
-            }
           }, {
-            type: "Content",
-            expr: "CoverSheet",
+            type: 'Content',
+            expr: 'CoverSheet',
             id: '20',
-            exprAst: {
-              type: "Identifier",
-              name: "CoverSheet",
-              constant: false
-            }
           }, {
-            type: "If",
-            expr: "Married",
+            type: 'If',
+            expr: 'Married',
             id: '21',
-            exprAst: {
-              type: "Identifier",
-              name: "Married",
-              constant: false
-            },
-            contentArray: [{
-                type: "Content",
-                expr: "DPOASpouse",
+            contentArray: [
+              {
+                type: 'Content',
+                expr: 'DPOASpouse',
                 id: '22',
-                exprAst: {
-                  type: "Identifier",
-                  name: "DPOASpouse",
-                  constant: false
-                }
               }, {
-                type: "Content",
-                expr: "LivingWillSpouse",
+                type: 'Content',
+                expr: 'LivingWillSpouse',
                 id: '23',
-                exprAst: {
-                  type: "Identifier",
-                  name: "LivingWillSpouse",
-                  constant: false
-                }
               }, {
-                type: "Content",
-                expr: "AdvHCDirSpouse",
+                type: 'Content',
+                expr: 'AdvHCDirSpouse',
                 id: '24',
-                exprAst: {
-                  type: "Identifier",
-                  name: "AdvHCDirSpouse",
-                  constant: false
-                }
               }, {
-                type: "Content",
-                expr: "SimpleWillSpouse",
+                type: 'Content',
+                expr: 'SimpleWillSpouse',
                 id: '25',
-                exprAst: {
-                  type: "Identifier",
-                  name: "SimpleWillSpouse",
-                  constant: false
-                }
               }
             ]
           }, {
-            type: "ElseIf",
-            expr: "DocSelect==\"SelectDocs\"",
+            type: 'ElseIf',
+            expr: 'DocSelect=="SelectDocs"',
             id: '27',
-            exprAst: {
-              type: "BinaryExpression",
-              operator: "==",
-              left: {
-                type: "Identifier",
-                name: "DocSelect",
-                constant: false
-              },
-              right: {
-                type: "Literal",
-                value: "SelectDocs",
-                constant: true
-              },
-              constant: false
-            },
-            contentArray: [{
-                type: "If",
-                expr: "Documents|contains:\"Engagement Letter\"",
+            contentArray: [
+              {
+                type: 'If',
+                expr: 'Documents|contains:"Engagement Letter"',
                 id: '28',
-                exprAst: {
-                  type: "AngularFilterExpression",
-                  arguments: [{
-                      type: "Literal",
-                      value: "Engagement Letter",
-                      constant: true
-                    }
-                  ],
-                  filter: {
-                    type: "Identifier",
-                    name: "contains"
-                  },
-                  constant: false,
-                  input: {
-                    type: "Identifier",
-                    name: "Documents",
-                    constant: false
-                  }
-                },
                 contentArray: [{
-                  type: "Content",
-                  expr: "EngageLetter",
+                  type: 'Content',
+                  expr: 'EngageLetter',
                   id: '29',
-                  exprAst: {
-                    type: "Identifier",
-                    name: "EngageLetter",
-                    constant: false
-                  }
                 }]
               }, {
-                type: "If",
-                expr: "Documents|contains:\"Living Will\"",
+                type: 'If',
+                expr: 'Documents|contains:"Living Will"',
                 id: '31',
-                exprAst: {
-                  type: "AngularFilterExpression",
-                  arguments: [{
-                      type: "Literal",
-                      value: "Living Will",
-                      constant: true
-                    }
-                  ],
-                  filter: {
-                    type: "Identifier",
-                    name: "contains"
-                  },
-                  constant: false,
-                  input: {
-                    type: "Identifier",
-                    name: "Documents",
-                    constant: false
-                  }
-                },
-                contentArray: [{
-                    type: "Content",
-                    expr: "LivingWill",
+                contentArray: [
+                  {
+                    type: 'Content',
+                    expr: 'LivingWill',
                     id: '32',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "LivingWill",
-                      constant: false
-                    }
                   }, {
-                    type: "If",
-                    expr: "Married",
+                    type: 'If',
+                    expr: 'Married',
                     id: '33',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "Married",
-                      constant: false
-                    },
-                    contentArray: [{
-                        type: "Content",
-                        expr: "LivingWillSpouse",
+                    contentArray: [
+                      {
+                        type: 'Content',
+                        expr: 'LivingWillSpouse',
                         id: '34',
-                        exprAst: {
-                          type: "Identifier",
-                          name: "LivingWillSpouse",
-                          constant: false
-                        }
                       }
                     ]
                   }
                 ]
               }, {
-                type: "If",
-                expr: "Documents|contains:\"Power of Attorney\"",
+                type: 'If',
+                expr: 'Documents|contains:"Power of Attorney"',
                 id: '37',
-                exprAst: {
-                  type: "AngularFilterExpression",
-                  arguments: [{
-                      type: "Literal",
-                      value: "Power of Attorney",
-                      constant: true
-                    }
-                  ],
-                  filter: {
-                    type: "Identifier",
-                    name: "contains"
-                  },
-                  constant: false,
-                  input: {
-                    type: "Identifier",
-                    name: "Documents",
-                    constant: false
-                  }
-                },
                 contentArray: [
                   {
-                    type: "Content",
-                    expr: "DPOA",
+                    type: 'Content',
+                    expr: 'DPOA',
                     id: '38',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "DPOA",
-                      constant: false
-                    }
                   }, {
-                    type: "If",
-                    expr: "Married",
+                    type: 'If',
+                    expr: 'Married',
                     id: '39',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "Married",
-                      constant: false
-                    },
-                    contentArray: [{
-                        type: "Content",
-                        expr: "DPOASpouse",
+                    contentArray: [
+                      {
+                        type: 'Content',
+                        expr: 'DPOASpouse',
                         id: '40',
-                        exprAst: {
-                          type: "Identifier",
-                          name: "DPOASpouse",
-                          constant: false
-                        }
                       }
                     ]
                   }
                 ]
               }, {
-                type: "If",
-                expr: "Documents|contains:\"Advanced Care Plan\"",
+                type: 'If',
+                expr: 'Documents|contains:"Advanced Care Plan"',
                 id: '43',
-                exprAst: {
-                  type: "AngularFilterExpression",
-                  arguments: [{
-                      type: "Literal",
-                      value: "Advanced Care Plan",
-                      constant: true
-                    }
-                  ],
-                  filter: {
-                    type: "Identifier",
-                    name: "contains"
-                  },
-                  constant: false,
-                  input: {
-                    type: "Identifier",
-                    name: "Documents",
-                    constant: false
-                  }
-                },
                 contentArray: [
                   {
-                    type: "Content",
-                    expr: "AdvCarePlan",
+                    type: 'Content',
+                    expr: 'AdvCarePlan',
                     id: '44',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "AdvCarePlan",
-                      constant: false
-                    }
                   }, {
-                    type: "If",
-                    expr: "Married",
+                    type: 'If',
+                    expr: 'Married',
                     id: '45',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "Married",
-                      constant: false
-                    },
-                    contentArray: [{
-                        type: "Content",
-                        expr: "AdvCarePlanSpouse",
+                    contentArray: [
+                      {
+                        type: 'Content',
+                        expr: 'AdvCarePlanSpouse',
                         id: '46',
-                        exprAst: {
-                          type: "Identifier",
-                          name: "AdvCarePlanSpouse",
-                          constant: false
-                        }
                       }
                     ]
                   }
                 ]
               }, {
-                type: "If",
-                expr: "Documents|contains:\"Advance Health Care Directive\"",
+                type: 'If',
+                expr: 'Documents|contains:"Advance Health Care Directive"',
                 id: '49',
-                exprAst: {
-                  type: "AngularFilterExpression",
-                  arguments: [{
-                      type: "Literal",
-                      value: "Advance Health Care Directive",
-                      constant: true
-                    }
-                  ],
-                  filter: {
-                    type: "Identifier",
-                    name: "contains"
-                  },
-                  constant: false,
-                  input: {
-                    type: "Identifier",
-                    name: "Documents",
-                    constant: false
-                  }
-                },
                 contentArray: [
                   {
-                    type: "Content",
-                    expr: "AdvHealthDirective",
+                    type: 'Content',
+                    expr: 'AdvHealthDirective',
                     id: '50',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "AdvHealthDirective",
-                      constant: false
-                    }
-                  },{
-                    type: "If",
-                    expr: "Married",
+                  }, {
+                    type: 'If',
+                    expr: 'Married',
                     id: '51',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "Married",
-                      constant: false
-                    },
-                    contentArray: [{
-                        type: "Content",
-                        expr: "AdvHCDirSpouse",
+                    contentArray: [
+                      {
+                        type: 'Content',
+                        expr: 'AdvHCDirSpouse',
                         id: '52',
-                        exprAst: {
-                          type: "Identifier",
-                          name: "AdvHCDirSpouse",
-                          constant: false
-                        }
                       }
                     ]
                   }
                 ]
               }, {
-                type: "If",
-                expr: "Documents|contains:\"Financial Statement\"",
+                type: 'If',
+                expr: 'Documents|contains:"Financial Statement"',
                 id: '55',
-                exprAst: {
-                  type: "AngularFilterExpression",
-                  arguments: [{
-                      type: "Literal",
-                      value: "Financial Statement",
-                      constant: true
-                    }
-                  ],
-                  filter: {
-                    type: "Identifier",
-                    name: "contains"
-                  },
-                  constant: false,
-                  input: {
-                    type: "Identifier",
-                    name: "Documents",
-                    constant: false
-                  }
-                },
                 contentArray: [{
-                  type: "Content",
-                  expr: "FinancialStatement",
+                  type: 'Content',
+                  expr: 'FinancialStatement',
                   id: '56',
-                  exprAst: {
-                    type: "Identifier",
-                    name: "FinancialStatement",
-                    constant: false
-                  }
                 }]
               }, {
-                type: "If",
-                expr: "Documents|contains:\"Will\"",
+                type: 'If',
+                expr: 'Documents|contains:"Will"',
                 id: '58',
-                exprAst: {
-                  type: "AngularFilterExpression",
-                  arguments: [{
-                      type: "Literal",
-                      value: "Will",
-                      constant: true
-                    }
-                  ],
-                  filter: {
-                    type: "Identifier",
-                    name: "contains"
-                  },
-                  constant: false,
-                  input: {
-                    type: "Identifier",
-                    name: "Documents",
-                    constant: false
-                  }
-                },
                 contentArray: [
                   {
-                    type: "Content",
-                    expr: "SimpleWill",
+                    type: 'Content',
+                    expr: 'SimpleWill',
                     id: '59',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "SimpleWill",
-                      constant: false
-                    }
                   }, {
-                    type: "If",
-                    expr: "Married",
+                    type: 'If',
+                    expr: 'Married',
                     id: '60',
-                    exprAst: {
-                      type: "Identifier",
-                      name: "Married",
-                      constant: false
-                    },
-                    contentArray: [{
-                        type: "Content",
-                        expr: "SimpleWillSpouse",
+                    contentArray: [
+                      {
+                        type: 'Content',
+                        expr: 'SimpleWillSpouse',
                         id: '61',
-                        exprAst: {
-                          type: "Identifier",
-                          name: "SimpleWillSpouse",
-                          constant: false
-                        }
                       }
                     ]
                   }
                 ]
               }, {
-                type: "If",
-                expr: "Documents|contains:\"Cover Sheet\"",
+                type: 'If',
+                expr: 'Documents|contains:"Cover Sheet"',
                 id: '64',
-                exprAst: {
-                  type: "AngularFilterExpression",
-                  arguments: [{
-                      type: "Literal",
-                      value: "Cover Sheet",
-                      constant: true
-                    }
-                  ],
-                  filter: {
-                    type: "Identifier",
-                    name: "contains"
-                  },
-                  constant: false,
-                  input: {
-                    type: "Identifier",
-                    name: "Documents",
-                    constant: false
-                  }
-                },
                 contentArray: [{
-                  type: "Content",
-                  expr: "CoverSheet",
+                  type: 'Content',
+                  expr: 'CoverSheet',
                   id: '65',
-                  exprAst: {
-                    type: "Identifier",
-                    name: "CoverSheet",
-                    constant: false
-                  }
                 }]
               }
             ]

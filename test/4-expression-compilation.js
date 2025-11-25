@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars, no-new-wrappers, object-property-newline, camelcase, comma-dangle */
+const { describe, it } = require('mocha')
 const yatte = require('../src/index')
 const assert = require('assert')
 const { TV_Family_Data } = require('./test-data')
@@ -286,38 +288,38 @@ describe('Compiling expressions via exported API', function () {
 
   it('correctly normalizes and serializes nested list filters (1)', function () {
     const evaluator = yatte.Engine.compileExpr('a|map:(b|map:c)')
-    assert.deepStrictEqual(evaluator.normalized, 'a|map:"b|map:&quot;c&quot;"', "Bad normalization")
+    assert.deepStrictEqual(evaluator.normalized, 'a|map:"b|map:&quot;c&quot;"', 'Bad normalization')
     const after = yatte.Engine.AST.serialize(evaluator.ast, true)
-    assert.deepStrictEqual(after, 'a|map:b|map:c', "Bad serialization")
+    assert.deepStrictEqual(after, 'a|map:b|map:c', 'Bad serialization')
   })
 
   it('correctly normalizes and serializes nested list filters (2)', function () {
     const evaluator = yatte.Engine.compileExpr('(a|map:b)|map:c') // map is LTR, so same as with no parens
-    assert.deepStrictEqual(evaluator.normalized, 'a|map:"b"|map:"c"', "Bad normalization")
+    assert.deepStrictEqual(evaluator.normalized, 'a|map:"b"|map:"c"', 'Bad normalization')
     const after = yatte.Engine.AST.serialize(evaluator.ast, true)
-    assert.deepStrictEqual(after, 'a|map:b|map:c', "Bad serialization")
+    assert.deepStrictEqual(after, 'a|map:b|map:c', 'Bad serialization')
   })
 
   it('correctly normalizes and serializes chained rtl list filters', function () {
     const evaluator = yatte.Engine.compileExpr('a|any:b|any:c')
-    assert.deepStrictEqual(evaluator.normalized, 'a|any:"b|any:&quot;c&quot;"', "Bad normalization")
+    assert.deepStrictEqual(evaluator.normalized, 'a|any:"b|any:&quot;c&quot;"', 'Bad normalization')
     const after = yatte.Engine.AST.serialize(evaluator.ast, true)
-    assert.deepStrictEqual(after, 'a|any:b|any:c', "Bad serialization")
+    assert.deepStrictEqual(after, 'a|any:b|any:c', 'Bad serialization')
   })
 
   it('correctly normalizes and serializes nested rtl list filters (1)', function () {
     const evaluator = yatte.Engine.compileExpr('a|any:(b|any:c)') // any is RTL, so same as with no parens
-    assert.deepStrictEqual(evaluator.normalized, 'a|any:"b|any:&quot;c&quot;"', "Bad normalization")
+    assert.deepStrictEqual(evaluator.normalized, 'a|any:"b|any:&quot;c&quot;"', 'Bad normalization')
     const after = yatte.Engine.AST.serialize(evaluator.ast, true)
-    assert.deepStrictEqual(after, 'a|any:b|any:c', "Bad serialization")
+    assert.deepStrictEqual(after, 'a|any:b|any:c', 'Bad serialization')
   })
 
   it('correctly normalizes and serializes an ugly nested mess', function () {
     const evaluator = yatte.Engine.compileExpr('a|map:b|any:c|map:d|any:e|map:f') // map is LTR, any is RTL
-    assert.deepStrictEqual(evaluator.normalized, '((a|map:"b")|any:"c"|map:"d")|any:"e"|map:"f"', "Bad normalization")
+    assert.deepStrictEqual(evaluator.normalized, '((a|map:"b")|any:"c"|map:"d")|any:"e"|map:"f"', 'Bad normalization')
     // this fails but I'm not sweatin' it yet...
     // const after = yatte.Engine.AST.serialize(evaluator.ast, true)
-    // assert.deepStrictEqual(after, 'a|map:b|any:c|map:d|any:e|map:f', "Bad serialization")
+    // assert.deepStrictEqual(after, 'a|map:b|any:c|map:d|any:e|map:f', 'Bad serialization')
   })
 
   // not supported:
@@ -327,5 +329,4 @@ describe('Compiling expressions via exported API', function () {
   //   const after = yatte.Engine.AST.serialize(evaluator.ast, true)
   //   assert.deepStrictEqual(after, 'a|any:b|any:c')
   // })
-
 })

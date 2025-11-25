@@ -1,4 +1,5 @@
-//const { describe, it} = require('mocha')
+/* eslint-disable no-unused-vars, object-property-newline */
+const { describe, it } = require('mocha')
 const textTemplater = require('../src/text-templater')
 var assert = require('assert')
 
@@ -6,7 +7,7 @@ describe('Field parsing of simple conditionals', function () {
   it('should parse the FullName template', function () {
     const template = '{[First]} {[if Middle]}{[Middle]} {[endif]}{[Last]}{[if Suffix]} {[Suffix]}{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'Content', expr: 'First', id: '1' },
       ' ',
       { type: 'If', expr: 'Middle', id: '2', contentArray: [
@@ -20,14 +21,14 @@ describe('Field parsing of simple conditionals', function () {
   it('should parse the if/endif template', function () {
     const template = '{[if true]}A{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'If', expr: 'true', id: '1', contentArray: ['A', { type: 'EndIf', id: '2' }] }
     ])
   })
   it('should parse the if/else/endif template', function () {
     const template = '{[if false]}A{[else]}B{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'If',
         expr: 'false',
         id: '1',
@@ -40,7 +41,7 @@ describe('Field parsing of simple conditionals', function () {
   it('should parse the if/elseif/endif template', function () {
     const template = '{[if false]}A{[elseif true]}B{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'If',
         expr: 'false',
         id: '1',
@@ -53,7 +54,7 @@ describe('Field parsing of simple conditionals', function () {
   it('should parse the if/elseif/else/endif template', function () {
     const template = '{[if false]}A{[elseif false]}B{[else]}C{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'If',
         expr: 'false',
         id: '1',
@@ -72,7 +73,7 @@ describe('Field parsing of simple conditionals', function () {
   it('should parse the if/elseif/elseif/else/endif template', function () {
     const template = '{[if false]}A{[elseif false]}B{[elseif false]}C{[else]}D{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'If',
         expr: 'false',
         id: '1',
@@ -100,7 +101,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Encountered an ElseIf (after an Else) when expecting an EndIf')
+      assert.strictEqual(err.message, 'Encountered an ElseIf (after an Else) when expecting an EndIf')
     }
   })
   it('should reject the if/else/else/endif template', function () {
@@ -109,7 +110,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Encountered an Else (after an Else) when expecting an EndIf')
+      assert.strictEqual(err.message, 'Encountered an Else (after an Else) when expecting an EndIf')
     }
   })
   it('should reject the if template (no endif)', function () {
@@ -118,7 +119,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The If has no matching EndIf')
+      assert.strictEqual(err.message, 'The If has no matching EndIf')
     }
   })
   it('should reject the if/else template (no endif)', function () {
@@ -127,7 +128,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The If has no matching EndIf')
+      assert.strictEqual(err.message, 'The If has no matching EndIf')
     }
   })
   it('should reject the if/endif/endif template', function () {
@@ -136,7 +137,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The EndIf has no matching If')
+      assert.strictEqual(err.message, 'The EndIf has no matching If')
     }
   })
   it('should reject the if/endif/else template', function () {
@@ -145,7 +146,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The Else has no matching If')
+      assert.strictEqual(err.message, 'The Else has no matching If')
     }
   })
   it('should reject the if/endif/elseif template', function () {
@@ -154,7 +155,7 @@ describe('Field parsing of simple conditionals', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The ElseIf has no matching If')
+      assert.strictEqual(err.message, 'The ElseIf has no matching If')
     }
   })
 })
@@ -162,7 +163,8 @@ describe('Field parsing of simple conditionals', function () {
 describe('new-and-improved text template parsing', function () {
   it('should parse fields out of a multi-line template', function () {
     const template = 'what\nhappens when {[IDontKnow]}{[WhatWillHappen]}\nnow'
-    const result = textTemplater.parseText(template, true, false)
+    const parsed = textTemplater.parseRawTemplate(template)
+    const result = textTemplater.validateParsedTemplate(parsed)
   })
 })
 
@@ -170,7 +172,7 @@ describe('Field parsing of nested conditionals', function () {
   it('should parse the if/if/endif/elseif/if/endif/else/if/endif/endif template', function () {
     const template = '{[if false]}{[if true]}A{[endif]}{[elseif false]}{[if true]}B{[endif]}{[else]}{[if true]}C{[endif]}{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'If',
         expr: 'false',
         id: '1',
@@ -194,7 +196,7 @@ describe('Field parsing of nested conditionals', function () {
   it('should parse the if/if/elseif/else/endif/elseif/if/elseif/else/endif/else/if/elseif/else/endif/endif template', function () {
     const template = '{[if false]}{[if false]}A{[elseif false]}B{[else]}C{[endif]}{[elseif false]}{[if true]}D{[elseif false]}E{[else]}F{[endif]}{[else]}{[if false]}G{[elseif false]}H{[else]}I{[endif]}{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'If',
         expr: 'false',
         id: '1',
@@ -234,7 +236,7 @@ describe('Field parsing of nested conditionals', function () {
                 contentArray: [
                   { type: 'If',
                     expr: 'false',
-                    id: '12', 
+                    id: '12',
                     contentArray: [
                       'G',
                       { type: 'ElseIf',
@@ -257,7 +259,7 @@ describe('Field parsing of lists and nested lists', function () {
   it('should parse the list/endlist template', function () {
     const template = '{[list []]}{[.]}{[endlist]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'List',
         expr: '[]',
         id: '1',
@@ -271,7 +273,7 @@ describe('Field parsing of lists and nested lists', function () {
   it('should parse the list/list/endlist/endlist template', function () {
     const template = '{[list []]}A: {[list inner]}{[.]}{[endlist inner]}{[endlist []]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'List',
         expr: '[]',
         id: '1',
@@ -296,7 +298,7 @@ describe('Field parsing of lists and nested lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The List has no matching EndList')
+      assert.strictEqual(err.message, 'The List has no matching EndList')
     }
   })
   it('should reject the endlist template (missing list)', function () {
@@ -305,7 +307,7 @@ describe('Field parsing of lists and nested lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The EndList has no matching List')
+      assert.strictEqual(err.message, 'The EndList has no matching List')
     }
   })
   it('should reject the list/list/endlist template (missing endlist)', function () {
@@ -314,7 +316,7 @@ describe('Field parsing of lists and nested lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The List has no matching EndList')
+      assert.strictEqual(err.message, 'The List has no matching EndList')
     }
   })
   it('should reject the list/else/endlist template', function () {
@@ -323,7 +325,7 @@ describe('Field parsing of lists and nested lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Encountered an Else when expecting an EndList')
+      assert.strictEqual(err.message, 'Encountered an Else when expecting an EndList')
     }
   })
 })
@@ -332,7 +334,7 @@ describe('Parsing nested conditionals and lists', function () {
   it('should parse the list/if/elseif/else/endif/endlist template', function () {
     const template = '{[list []]}{[if false]}A{[elseif .]}{[.]}{[else]}C{[endif]}, {[endlist]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'List',
         expr: '[]',
         id: '1',
@@ -359,7 +361,7 @@ describe('Parsing nested conditionals and lists', function () {
   it('should parse the if/list/endlist/elseif/list/list/endlist/endlist/else/list/endlist/endif template', function () {
     const template = '{[if false]}{[list []]}{[test]}{[endlist]}{[elseif false]}A{[list outer]}B{[list inner]}C{[endlist]}D{[endlist]}E{[else]}F{[list another]}G{[endlist]}H{[endif]}'
     const result = textTemplater.parseTemplate(template, false)
-    assert.deepEqual(result, [
+    assert.deepStrictEqual(result, [
       { type: 'If',
         expr: 'false',
         id: '1',
@@ -420,7 +422,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The EndIf has no matching If')
+      assert.strictEqual(err.message, 'The EndIf has no matching If')
     }
   })
   it('should reject the list/endif template', function () {
@@ -429,7 +431,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The EndIf has no matching If')
+      assert.strictEqual(err.message, 'The EndIf has no matching If')
     }
   })
   it('should reject the list/endif/endlist template', function () {
@@ -438,7 +440,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The EndIf has no matching If')
+      assert.strictEqual(err.message, 'The EndIf has no matching If')
     }
   })
   it('should reject the list/elseif/endlist template', function () {
@@ -447,7 +449,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Encountered an ElseIf when expecting an EndList')
+      assert.strictEqual(err.message, 'Encountered an ElseIf when expecting an EndList')
     }
   })
   it('should reject the if/list/endif/endlist template', function () {
@@ -456,7 +458,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The EndIf has no matching If')
+      assert.strictEqual(err.message, 'The EndIf has no matching If')
     }
   })
   it('should reject the list/if/else/endlist/endif template', function () {
@@ -465,7 +467,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'The EndList has no matching List')
+      assert.strictEqual(err.message, 'The EndList has no matching List')
     }
   })
   it('should (for now) reject the if/list/endlist/elseif/list/else/endlist/endif template', function () {
@@ -474,7 +476,7 @@ describe('Parsing nested conditionals and lists', function () {
       const result = textTemplater.parseTemplate(template, false)
       assert.fail('expected error not thrown')
     } catch (err) {
-      assert.equal(err.message, 'Encountered an Else when expecting an EndList')
+      assert.strictEqual(err.message, 'Encountered an Else when expecting an EndList')
     }
   })
 })
@@ -488,56 +490,16 @@ describe('Parsing and normalization of list filters', function () {
         type: 'List',
         expr: 'Oceans|filter:"AverageDepth>3500"',
         id: '1',
-        exprAst: {
-          type: 'ListFilterExpression',
-          rtl: false,
-          filter: {
-            name: 'filter',
-            type: 'Identifier'
-          },
-          input: {
-            name: 'Oceans',
-            type: 'Identifier',
-            constant: false
-          },
-          arguments: [{
-            constant: false,
-            left: {
-              constant: false,
-              name: 'AverageDepth',
-              type: 'Identifier'
-            },
-            operator: '>',
-            right: {
-              constant: true,
-              type: 'Literal',
-              value: 3500
-            },
-            type: 'BinaryExpression'
-          }],
-          constant: false,
-          expectarray: true
-        },
         contentArray: [
           ' * ',
           {
             type: 'Content',
             expr: 'Name',
-            id: '2',
-            exprAst: {
-              constant: false,
-              name: 'Name',
-              type: 'Identifier'
-            }
+            id: '2'
           },
           {
             type: 'Content',
-            expr: '_punc',
-            exprAst: {
-              constant: false,
-              name: '_punc',
-              type: 'Identifier'
-            }
+            expr: '_punc'
           },
           '\n',
           { type: 'EndList', id: '3' }
@@ -551,9 +513,9 @@ describe('Parsing and normalization of expressions', function () {
   it('should parse and cache an expression with no fields', function () {
     const template = 'static text'
     const result = textTemplater.parseTemplate(template)
-    assert.deepEqual(result, ['static text'])
+    assert.deepStrictEqual(result, ['static text'])
     const result2 = textTemplater.parseTemplate(template)
-    assert.deepEqual(result2, ['static text'])
+    assert.deepStrictEqual(result2, ['static text'])
     assert(result === result2)
   })
   it('should correctly normalize conditional and binary expressions', function () {
@@ -563,59 +525,138 @@ describe('Parsing and normalization of expressions', function () {
       {
         type: 'Content',
         expr: 'a',
-        id: '1',
-        exprAst: {
-          type: 'Identifier',
-          name: 'a',
-          constant: false
-        }
+        id: '1'
       },
       ' ',
       {
         type: 'Content',
         expr: 'b?b+" ":""',
-        id: '2',
-        exprAst: {
-          type: 'ConditionalExpression',
-          test: {
-            type: 'Identifier',
-            name: 'b',
-            constant: false
-          },
-          fixed: true,
-          consequent: {
-            type: 'BinaryExpression',
-            left: {
-              type: 'Identifier',
-              name: 'b',
-              constant: false
-            },
-            operator: '+',
-            right: {
-              type: 'Literal',
-              value: ' ',
-              constant: true
-            },
-            constant: false
-          },
-          alternate: {
-            type: 'Literal',
-            value: '',
-            constant: true
-          },
-          constant: false
-        }
+        id: '2'
       },
       {
         type: 'Content',
         expr: 'c',
-        id: '3',
-        exprAst: {
-          type: 'Identifier',
-          name: 'c',
-          constant: false
-        }
+        id: '3'
       }
     ])
+  })
+})
+
+describe('"Permissive" text template parsing -- no checks for proper nesting', function () {
+  it('should parse a valid template', function () {
+    const template = '{[First]} {[if Middle]}{[Middle]} {[endif]}{[Last]}!'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [[
+      { type: 'Content', expr: 'First', id: '1', line: 0, start: 0, end: 9 },
+      ' ',
+      { type: 'If', expr: 'Middle', id: '2', line: 0, start: 10, end: 23 },
+      { type: 'Content', expr: 'Middle', id: '3', line: 0, start: 23, end: 33 },
+      ' ',
+      { type: 'EndIf', id: '4', line: 0, start: 34, end: 43 },
+      { type: 'Content', expr: 'Last', id: '5', line: 0, start: 43, end: 51 },
+      '!',
+    ]]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template),
+      [expected[0][0], expected[0][2], expected[0][3], expected[0][5], expected[0][6]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), template)
+  })
+  it('should validate a parsed template that is valid', function () {
+    const template = '{[First]} {[if Middle]}{[Middle]} {[endif]}{[Last]}!'
+    const parsed = textTemplater.parseRawTemplate(template)
+    const result = textTemplater.validateParsedTemplate(parsed)
+    const expected = [
+      { type: 'Content', expr: 'First', id: '1', line: 0, start: 0, end: 9 },
+      ' ',
+      { type: 'If', expr: 'Middle', id: '2', line: 0, start: 10, end: 23, contentArray: [
+        { type: 'Content', expr: 'Middle', id: '3', line: 0, start: 23, end: 33 },
+        ' ',
+        { type: 'EndIf', id: '4', line: 0, start: 34, end: 43 }
+      ] },
+      { type: 'Content', expr: 'Last', id: '5', line: 0, start: 43, end: 51 },
+      '!'
+    ]
+    assert.deepStrictEqual(result, expected)
+  })
+  it('should parse an invalid template', function () {
+    const template = '{[if false]}A{[else]}B{[elseif false]}C{[endif]}'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [[
+      { type: 'If', expr: 'false', id: '1', line: 0, start: 0, end: 12 },
+      'A',
+      { type: 'Else', id: '2', line: 0, start: 13, end: 21 },
+      'B',
+      { type: 'ElseIf', expr: 'false', id: '3', line: 0, start: 22, end: 38 },
+      'C',
+      { type: 'EndIf', id: '4', line: 0, start: 39, end: 48 },
+    ]]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template),
+      [expected[0][0], expected[0][2], expected[0][4], expected[0][6]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), template)
+  })
+  it('should reject validating a parsed template that is invalid', function () {
+    const template = '{[if false]}A{[else]}B{[elseif false]}C{[endif]}'
+    const parsed = textTemplater.parseRawTemplate(template)
+    try {
+      const result = textTemplater.validateParsedTemplate(parsed)
+      assert.fail('expected error not thrown')
+    } catch (err) {
+      assert.strictEqual(err.message,
+        'Encountered field 3\'s ElseIf when expecting an EndIf (ElseIf cannot follow Else!)')
+    }
+  })
+  it('should parse an empty content field', function () {
+    const template = '{[]}!'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [[{ type: 'Content', expr: '', id: '1', line: 0, start: 0, end: 4 }, '!']]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template), [expected[0][0]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), template)
+  })
+  it('should parse an empty if field', function () {
+    const template = 'x\r{[if]}y'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [
+      ['x'],
+      [{ type: 'If', expr: '', id: '1', line: 1, start: 0, end: 6 }, 'y']]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template), [expected[1][0]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), textTemplater.normalizeLineBreaks(template))
+  })
+  it('should parse an else with a comment', function () {
+    const template = '{[else something]}\r\nsomething else'
+    const result = textTemplater.parseRawTemplate(template)
+    const expected = [
+      [{ type: 'Else', comment: ' something', id: '1', line: 0, start: 0, end: 18 }],
+      ['something else']
+    ]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.extractRawFields(template), [expected[0][0]])
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), textTemplater.normalizeLineBreaks(template))
+  })
+  it('should extract fields from an invalid template', function () {
+    const template = 'A{[if false]}B{[else comment]}C1\nC2{[elseif false]}D{[endif interrupted'
+    const result = textTemplater.extractRawFields(template)
+    const expected = [
+      { type: 'If', expr: 'false', id: '1', line: 0, start: 1, end: 13 },
+      { type: 'Else', comment: ' comment', id: '2', line: 0, start: 14, end: 30 },
+      { type: 'ElseIf', expr: 'false', id: '3', line: 1, start: 2, end: 18 }
+    ]
+    assert.deepStrictEqual(result, expected)
+    assert.deepStrictEqual(textTemplater.serializeTemplate(result), '{[if false]}{[else comment]}{[elseif false]}')
+  })
+  it('should extract and validate fields from a valid template', function () {
+    const template = 'A{[if false]}B{[elseif comment]}C1\nC2{[else]}D{[endif]}'
+    const result = textTemplater.extractRawFields(template)
+    const expected = [
+      { type: 'If', expr: 'false', id: '1', line: 0, start: 1, end: 13 },
+      { type: 'ElseIf', expr: 'comment', id: '2', line: 0, start: 14, end: 32 },
+      { type: 'Else', id: '3', line: 1, start: 2, end: 10 },
+      { type: 'EndIf', id: '4', line: 1, start: 11, end: 20 }
+    ]
+    assert.deepStrictEqual(result, expected)
+    const result2 = textTemplater.validateParsedTemplate(result)
+    assert.notStrictEqual(result2, null)
   })
 })

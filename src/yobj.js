@@ -147,7 +147,7 @@ class YObject {
         increment(compiledVirtual)
         try {
           const result = compiledVirtual(this.scopeProxy, this.proxy)
-          const yobj = result  && result.__yobj
+          const yobj = result && result.__yobj
           const frameType = yobj && yobj.frameType
           if (frameType === YObject.LIST) {
             // it's an array proxy of scope proxies; just return it
@@ -167,9 +167,13 @@ class YObject {
           return result
         } catch (e) {
           if (e instanceof RecursionError) {
+            const frameLabel = compiledVirtual.lbl || compiledVirtual.ast.type
+            if (frameLabel) {
+              e.frames.push(frameLabel)
+            }
             throw e // need the error to bubble all the way up/out of the recursion!
           } else {
-            console.error(`Evaluation error: ${e.toString()}`)
+            console.error(`Evaluation error: ${e.message}`)
           }
           return undefined
         } finally {
@@ -286,6 +290,20 @@ class YObject {
 
   valueOf () {
     return this.value && this.value.valueOf()
+  }
+
+  valueEqualTo (that) {
+    if (!that) return false
+    if (this.valueType !== that.valueType) return false
+    let a = this
+    let b = that
+    while (a && b) {
+      if (a.value !== b.value) return false
+      a = a.getParentEffective()
+      b = b.getParentEffective()
+    }
+    if (a || b) return false
+    return true
   }
 
   get bareValue () { // for "unwrapping" wrapped primitives. Differs from valueOf in handling of dates.
@@ -421,8 +439,9 @@ class YObject {
       if (p3 > p2) { // 3 is also present and in the expected order
         const last2 = example.slice(p2 + 1, p3)
         let only2
-        if (last2 !== between && last2.startsWith(between)) { // as with an oxford comma: "1, 2, and 3"
-          only2 = last2.slice(between.trimRight().length)
+        if (last2.startsWith(',') && last2.trimRight().length > 1 && between.trimRight() === ',') {
+          // oxford comma: "1, 2, and 3". But if only 2 items in list, omit oxford comma: "1 and 2"
+          only2 = last2.slice(1)
         } else {
           only2 = last2
         }
@@ -706,6 +725,7 @@ class RecursionError extends Error {
   constructor (message) {
     super(message)
     this.name = 'RecursionError'
+    this.frames = []
   }
 }
 

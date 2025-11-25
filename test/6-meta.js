@@ -1,3 +1,5 @@
+/* eslint-disable no-unused-vars, no-new-wrappers, object-property-newline, camelcase, comma-dangle */
+const { describe, it } = require('mocha')
 const yatte = require('../src/index')
 const assert = require('assert')
 const Scope = yatte.Scope

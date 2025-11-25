@@ -9,6 +9,9 @@ exports.Engine = base
 exports.EvaluationResult = EvaluationResult
 exports.IndirectVirtual = IndirectVirtual
 exports.parseText = textTemplater.parseTemplate
+exports.parseTextPermissive = textTemplater.parseRawTemplate
+exports.extractTextFields = textTemplater.extractRawFields
+exports.validateParsedText = textTemplater.validateParsedTemplate
 
 function extractLogic (template, bIncludeListPunctuation = true) {
   // returns a 'logic tree' for this template --

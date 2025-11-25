@@ -1,6 +1,6 @@
 {
   "name": "yatte",
-  "version": "1.6.1",
+  "version": "2.0.1",
   "description": "Yet Another Text Templating Engine",
   "files": [
     "/LICENSE",
@@ -11,7 +11,8 @@
   "scripts": {
     "patch": "npm version patch",
     "test": "nyc --reporter=lcov --reporter=text-summary mocha",
-    "preversion": "npm test"
+    "preversion": "npm test",
+    "dryrun": "npm pack --dry-run"
   },
   "repository": {
     "type": "git",
@@ -41,7 +42,7 @@
   },
   "dependencies": {
     "angular-expressions": "1.0.0",
-    "date-fns": "^2.15.0",
+    "date-fns": "^2.30.0",
     "fast-deep-equal": "^2.0.1",
     "number-to-words-en": "^1.2.5",
     "numeral": "^2.0.6"
