@@ -109,6 +109,31 @@ class YObject {
         // newVal, at this point, may be either a primitive or an object proxy -- may also be an "indirect virtual"
         return newVal
       }
+      if (typeof val === 'function') {
+        // debugger
+        // this is needed in Knackly in order to invoke actual functions, whether in the "global"
+        // namespace (object scope) or members of some other model/type. So we need the distinction between a
+        // function that represents a virtual (meaning, you need to **evaluate** the virtual, to get its result)
+        // vs. a POJS function that can't be passed to evaluate, because it usually needs arguments that we don't
+        // currently have access to at this point.
+        //
+        // A separate but related question is, why is the implementation of evaluate() also so ugly?
+        // this.evaluate() does some housekeeping to detect infinite recursion, and does the following:
+        //   for compiled angular-expressions virtuals (functions with an "ast" member), it...
+        //      - calls the virtual (passing in the scope and local proxy objects)
+        //      - wraps the result in a proxy object if it is not already
+        //   for compiled yatte templates (functions with a "logic" member), it...
+        //      - calls the virtual (passing in "this", NOT a proxy object)
+        //   for all other functions, it...
+        //      - calls the function (passing in the scope and local proxy objects as arguments)
+        // In other words, this.evaluate() expects to be passed a function that accepts the current yatte scope
+        // (or a proxy thereof) as its first argument. And we could definitely clean things up by making that
+        // cleaner: make it so the .ast and .logic varieties both use the SAME semantics -- basically, have one
+        // defined way to recognize that a function expects a yatte scope as its first argument.
+        // - part of that work, though, seems like it will be to overhaul yatte, replacing angular-expressions
+        //   with a more purpose-built local solution. Which has been on the roadmap for years but hasn't come
+        //   to fruition yet. Hopefully soon.
+      }
       // else just return it
       return val
     }
@@ -214,7 +239,7 @@ class YObject {
           expression: compiledVirtual.ast,
           text: compiledVirtual.normalized,
           data: this,
-          context: evalStack,
+          context: evalStack
         }
       }
     }
@@ -576,7 +601,7 @@ class ProxyArrayHandler {
     return (val && (val instanceof YObject))
       // ? (val.frameType === YObject.PRIMITIVE
       //   ? val.bareValue :
-      ?  (this.scopeProxies
+      ? (this.scopeProxies
         ? val.scopeProxy
         : val.proxy)// )
       : val
@@ -638,7 +663,7 @@ class ScopeHandler extends YObjectHandler {
   get (/* target */ yobj, property, receiver /* proxy */) {
     // for certain specific properties, we bypass searching up the context stack:
     switch (property) {
-      case '__scope':  return true
+      case '__scope': return true
       case '__yobj': return yobj
       case '__value': return yobj.value
       case '_parent': return yobj._parent

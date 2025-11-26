@@ -6,7 +6,21 @@ const Scope = yatte.Scope
 
 describe('Assembly of meta template via exported API', function () {
   it('should assemble a meta template', function () {
-    const metaTemplate = '{[ident1]}\n{[ident2.ident3]}\n{[if x]}\n{[ident4]}\n{[if y]}\n{[ident5]}\n{[else]}\n{[ident6]}\n{[endif]}\n{[endif]}\n{[list z]}\n{[ident7]}\n{[endlist]}\n'
+    const metaTemplate = `
+{[ident1]}
+{[ident2.ident3]}
+{[if x]}
+{[ident4]}
+{[if y]}
+{[ident5]}
+{[else]}
+{[ident6]}
+{[endif]}
+{[endif]}
+{[list z]}
+{[ident7]}
+{[endlist]}
+`
     const data = new yatte.Scope({
       ident1: { description: 'mock template' },
       ident2: { name: 'something',
