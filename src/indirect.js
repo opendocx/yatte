@@ -28,6 +28,14 @@ class IndirectVirtual {
       })
   }
 
+  toOxptUri () {
+    let uri = `oxpt://DocumentAssembler/insert/${this.id}`
+    if (this.KeepSections) {
+      uri += '?KeepSections=true'
+    }
+    return uri
+  }
+
   // toString () {} // When an indirect is encountered during (synchronous) text-based assembly,
   //                // toString() is called on the instance in order to retrieve the text.
   //                // In (async) docx-based assembly, encountering an indirect causes a special

@@ -85,14 +85,14 @@ class DataAggregator {
     return this.stack.length > 0 ? this.stack[this.stack.length - 1] : null
   }
 
+  replaceIndirectId (currentId, newId) {
+    replaceIndirectIdInObject(this.data, currentId, newId)
+  }
+
   toJson () {
     return JSON.stringify(this.data, (key, value) => {
       if (value instanceof IndirectVirtual) {
-        const { scope, assembler, ...orig } = value
-        if (assembler && !orig.data) {
-          orig.data = assembler.data.data
-        }
-        return orig
+        return value.toOxptUri()
       } // else
       return value
     })
@@ -131,11 +131,7 @@ class DataAggregator {
 
   serializeXmlObject (obj) {
     if (obj instanceof IndirectVirtual) {
-      let uri = `oxpt://DocumentAssembler/insert/${obj.id}`
-      if (obj.KeepSections) {
-        uri += '?KeepSections=true'
-      }
-      return uri
+      return obj.toOxptUri()
     } // else
     var sb = []
     for (var key in obj) {
@@ -145,6 +141,37 @@ class DataAggregator {
   }
 }
 module.exports = DataAggregator
+
+function replaceIndirectIdInObject (obj, currentId, newId) {
+  if (!obj || typeof obj !== 'object') {
+    return
+  }
+  // Handle arrays
+  if (Array.isArray(obj)) {
+    for (let i = 0; i < obj.length; i++) {
+      const element = obj[i]
+      if (element instanceof IndirectVirtual) {
+        if (element.id === currentId) {
+          element.id = newId
+        }
+      } else if (typeof element === 'object' && element !== null) {
+        replaceIndirectIdInObject(element, currentId, newId)
+      }
+    }
+  } else {
+    // Handle regular objects
+    for (const key in obj) {
+      const value = obj[key]
+      if (value instanceof IndirectVirtual) {
+        if (value.id === currentId) {
+          value.id = newId
+        }
+      } else if (typeof value === 'object' && value !== null) {
+        replaceIndirectIdInObject(value, currentId, newId)
+      }
+    }
+  }
+}
 
 const escapeXml = function (str) {
   str = str.valueOf()
