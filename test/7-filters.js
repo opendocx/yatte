@@ -4,6 +4,10 @@ const assert = require('assert')
 const yatte = require('../src/index')
 const Scope = yatte.Scope
 
+function assert_almostEqual(actual, expected, epsilon = 1e-12) {
+  assert.ok(Math.abs(actual - expected) < epsilon, `Expected ${expected}, but got ${actual}`);
+}
+
 describe('text formatting', function () {
   it('upper', function () {
     const evaluator = yatte.Engine.compileExpr('text|upper')
@@ -112,6 +116,33 @@ describe('number formatting', function () {
     assert.strictEqual(evaluator({ num: NaN }), null)
   })
 
+  it('cardinaldec', function () {
+    const eval1 = yatte.Engine.compileExpr('num|cardinaldec:places:zpad:sep')
+    assert.strictEqual(eval1({ num: 12.3456 }), "twelve") // 12.3456|cardinaldec
+    assert.strictEqual(eval1({ num: 12.3456, places: 2 }), "twelve point three five") // 12.3456|cardinaldec:2
+    assert.strictEqual(eval1({ num: 12.99 }), "thirteen") // 12.99|cardinaldec
+    assert.strictEqual(eval1({ num: 12.99, places: 2 }), "twelve point nine nine") // 12.99|cardinaldec:2
+    assert.strictEqual(eval1({ num: 12.99, places: 1 }), "thirteen") // 12.99|cardinaldec:1
+    assert.strictEqual(eval1({ num: 12.99, places: 1, zpad: true }), "thirteen point zero") // 12.99|cardinaldec:1::true
+    assert.strictEqual(eval1({ num: 12.3456, places: 3, zpad: false, sep: "comma" }), "twelve comma three four six") // 12.3456|cardinaldec:3:false:"comma"
+  })
+
+  it('cardinalcur', function () {
+    const eval1 = yatte.Engine.compileExpr('num|cardinalcur:dname:cname:exact:sep')
+    assert.strictEqual(eval1({ num: 12.3456, dname: "dollars", cname: "cents" }), "twelve dollars and thirty-five cents")
+    assert.strictEqual(eval1({ num: 12.3456, dname: "dollars" }), "twelve dollars")
+    assert.strictEqual(eval1({ num: 12.999, dname: "pounds", cname: "pence" }), "thirteen pounds")
+    assert.strictEqual(eval1({ num: 12.999, dname: "pounds" }), "thirteen pounds")
+    assert.strictEqual(eval1({ num: 12.999, dname: "pounds", cname: "pence", exact: "only" }), "thirteen pounds only")
+    assert.strictEqual(eval1({ num: 1.01, dname: "dollars", cname: "cents" }), "one dollar and one cent") // ("dollar" derived from "dollars" by dropping the "s", same for "cent")
+    assert.strictEqual(eval1({ num: 1.01, dname: "pounds", cname: "pence" }), "one pound and one pence") // ("pound" derived from "pounds", "pence" used as-is)
+    assert.strictEqual(eval1({ num: 2.01, dname: "złote/złoty", cname: "grosze/grosz" }), "two złote and one grosz") // (plural and singular units can be specified together using / separator)
+    assert.strictEqual(eval1({ num: 12, dname: "dollars", cname: "cents" }), "twelve dollars")
+    assert.strictEqual(eval1({ num: 12, dname: "dollars", cname: "cents", exact: "and no cents" }), "twelve dollars and no cents")
+    assert.strictEqual(eval1({ num: 12, dname: "dollars", cname: "cents", exact: "exactly", sep: "+" }), "twelve dollars exactly")
+    assert.strictEqual(eval1({ num: 12.01, dname: "dollars", cname: "cents", exact: "exactly", sep: "+" }), "twelve dollars + one cent")
+  })
+
   it('ordinal', function () {
     const evaluator = yatte.Engine.compileExpr('num|ordinal')
     assert.strictEqual(evaluator({ num: 1 }), 'first')
@@ -171,6 +202,50 @@ describe('number formatting', function () {
     assert.strictEqual(evaluator({ num: 123 }), 'rd')
   })
 
+/*  it('integer', function () {
+    const Integer = yatte.Engine.compileExpr('num|integer')
+    assert.strictEqual(Integer({ num: 12.3456  }), 12)
+    assert.strictEqual(Integer({ num: "99.999" }), 99)
+    // failure cases
+    assert.strictEqual(Integer({ num: "abc"    }), null)
+    assert.strictEqual(Integer({ num: Infinity }), null)
+  })
+
+  it('fractional', function () {
+    const evaluator = yatte.Engine.compileExpr('num|fractional:d')
+    assert_almostEqual(evaluator({ num: 12.3456          }), 0.3456)
+    assert_almostEqual(evaluator({ num: 12.3456, d: null }), 0.3456)
+    assert_almostEqual(evaluator({ num: 12.3456, d: 1000 }), 345.6)
+    assert_almostEqual(evaluator({ num: "99.999", d: 100 }), 99.9)
+    assert.strictEqual(evaluator({ num: 42               }), 0)
+    // failure cases
+    assert.strictEqual(evaluator({ num: "abc",    d: 2   }), null)
+    assert.strictEqual(evaluator({ num: 12.34,    d: -5  }), null)
+    assert.strictEqual(evaluator({ num: Infinity, d: 10  }), null)
+  })
+
+  it('truncate', function () {
+    const Truncate = yatte.Engine.compileExpr('num|truncate:p')
+    assert.strictEqual(Truncate({ num: 12.3456,  p: 2 }), 12.34)
+    assert.strictEqual(Truncate({ num: 12.3456        }), 12)
+    assert.strictEqual(Truncate({ num: "99.999", p: 1 }), 99.9)
+    // failure cases
+    assert.strictEqual(Truncate({ num: "abc",    p: 2 }), null)
+    assert.strictEqual(Truncate({ num: 12.3456, p: -1 }), null)
+    assert.strictEqual(Truncate({ num: Infinity, p: 2 }), null)
+  })
+
+  it('round', function () {
+    const Round = yatte.Engine.compileExpr('num|round:p')
+    assert.strictEqual(Round({ num: 12.3456,  p: 2 }), 12.35)
+    assert.strictEqual(Round({ num: 12.3456        }), 12)
+    assert.strictEqual(Round({ num: "99.999", p: 1 }), 100.0)
+    // failure cases
+    assert.strictEqual(Round({ num: "abc",    p: 2 }), null)
+    assert.strictEqual(Round({ num: 12.3456, p: -1 }), null)
+    assert.strictEqual(Round({ num: Infinity, p: 2 }), null)
+  })
+*/
   it('base 26 - under 26', function () {
     const evaluator = yatte.Engine.compileExpr('num|format:"a"')
     assert.strictEqual(evaluator({ num: 3 }), 'c')

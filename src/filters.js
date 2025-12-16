@@ -25,8 +25,14 @@ expressions.filters.initcap = Initcap       // text -> text
 expressions.filters.titlecaps = Titlecaps   // text -> text
 expressions.filters.format = Format         // number/date/trueFalse -> text
 expressions.filters.cardinal = Cardinal     // number -> text
+expressions.filters.cardinaldec = CardinalDec // number -> text
+expressions.filters.cardinalcur = CardinalCur // number -> text
 expressions.filters.ordinal = Ordinal       // number -> text
 expressions.filters.ordsuffix = Ordsuffix   // number -> text
+// expressions.filters.truncate = Truncate     // number -> number
+// expressions.filters.round = Round           // number -> number
+// expressions.filters.integer = Integer       // number -> number
+// expressions.filters.fractional = Fractional // number -> number
 expressions.filters.else = Else             // text/number/date/trueFalse -> same/text
 expressions.filters.contains = Contains     // text/list -> trueFalse
 expressions.filters.punc = Punc             // list -> list of same
@@ -193,6 +199,131 @@ function Ordsuffix (input) {
     case 3: return 'rd'
     default: return 'th'
   }
+}
+
+function CardinalDec (input, places, zpad, separator) {
+  const opts = { places, round: true }
+  const num = truncOrRound(input, opts)
+  if (num === null || typeof num === 'undefined') return num
+  // convert num to string & split into parts
+  const str = num.toString() // NOT locale string!
+  const parts = str.split('.')
+  if (parts.length < 2 && !zpad) { // no fractional part
+    return numWords.toWords(num, { useCommas: false })
+  }
+  places = opts.places
+  // check separator
+  if (!separator) {
+    separator = 'point'
+  }
+  let result = numWords.toWords(Number.parseInt(parts[0])) + ' ' + separator
+  const digits = parts.length < 2 ? [] : parts[1].split('')
+  let current = 0
+  while (current < digits.length) {
+    result += ' ' + numWords.toWords(Number.parseInt(digits[current++]))
+  }
+  if (zpad && current < places) {
+    const str0 = ' ' + numWords.toWords(0)
+    while (current++ < places) {
+      result += str0
+    }
+  }
+  return result
+}
+
+function CardinalCur (input, dollarsN, centsN, exactly, separator) {
+  // check dollarsN (required string)
+  dollarsN = dollarsN && dollarsN.valueOf()
+  if (!dollarsN || typeof dollarsN !== 'string') return null
+  let [dp, ds] = dollarsN.split('/')
+  if (!ds) {
+    ds = dp.toLowerCase().endsWith('s') ? dp.slice(0, -1) : dp
+  }
+  // check centsN (optional string)
+  centsN = centsN && centsN.valueOf()
+  if (centsN && typeof centsN !== 'string') { // unexpected/unsupported value type for centsN
+    return null
+  }
+  let [cp, cs] = centsN ? centsN.split('/') : []
+  if (cp && !cs) {
+    cs = cp.toLowerCase().endsWith('s') ? cp.slice(0, -1) : cp
+  }
+  // check exactly (optional string, default == '')
+  exactly = exactly && exactly.valueOf()
+  if (exactly && typeof exactly !== 'string') return null
+  else if (!exactly) exactly = ''
+  // check separator (optional string, default == 'and')
+  separator = separator && separator.valueOf()
+  if (separator && typeof separator !== 'string') return null
+  else if (!separator) separator = 'and'
+  // round input -- either 2 places or 0, depending on centsN
+  const num = truncOrRound(input, { places: cp ? 2 : 0, round: true })
+  if (num === null || typeof num === 'undefined') return num
+  // integer + fractional parts
+  const dpart = Math.trunc(num)
+  const cpart = Math.round(num % 1 * 100)
+  // put string together
+  let result = numWords.toWords(dpart, { useCommas: false }) + ' ' + (dpart === 1 ? ds : dp)
+  if (cpart) {
+    result += ' ' + separator + ' ' + numWords.toWords(cpart) + ' ' + (cpart === 1 ? cs : cp)
+  } else if (exactly) {
+    result += ' ' + exactly
+  }
+  return result
+}
+
+/* function Integer (input, denom) {
+  if (input === null || typeof input === 'undefined') return input
+  const num = Number(input)
+  if (!Number.isFinite(num)) return null
+  if (denom === null || typeof denom === 'undefined') {
+    denom = 1
+  } else {
+    denom = Number(denom)
+    if (!Number.isFinite(denom) || denom <= 0) return null
+  }
+  return denom === 1 ? Math.trunc(num) : null
+}
+
+function Fractional (input, denom) {
+  if (input === null || typeof input === 'undefined') return input
+  const num = Number(input)
+  if (!Number.isFinite(num)) return null
+  if (denom === null || typeof denom === 'undefined') {
+    denom = 1
+  } else {
+    denom = Number(denom)
+    if (!Number.isFinite(denom) || denom <= 0) return null
+  }
+  return num % 1 * denom
+}
+
+function Round (input, places) {
+  return truncOrRound(input, { places, round: true })
+}
+
+function Truncate (input, places) {
+  return truncOrRound(input, { places, round: false })
+} */
+
+function truncOrRound (number, options) {
+  // check number
+  if (number === null || typeof number === 'undefined') return number
+  const num = Number(number)
+  if (!Number.isFinite(num)) return null
+  let { places, round } = options
+  // check places
+  if (places === null || typeof places === 'undefined') {
+    places = 0
+  } else {
+    places = Number(places)
+    if (!Number.isFinite(places) || places < 0) return null
+  }
+  options.places = places
+  options.round = Boolean(round)
+  // round or truncate as requested
+  const factor = Math.pow(10, places)
+  return (round ? Math.round(num * factor) : Math.trunc(num * factor)) / factor
 }
 
 function Else (input, unansweredFmt) {
