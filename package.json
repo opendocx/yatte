@@ -1,6 +1,6 @@
 {
   "name": "yatte",
-  "version": "2.1.1",
+  "version": "2.1.2",
   "description": "Yet Another Text Templating Engine",
   "files": [
     "/LICENSE",
