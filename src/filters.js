@@ -213,10 +213,10 @@ function CardinalDec (input, places, zpad, separator) {
   }
   places = opts.places
   // check separator
-  if (!separator) {
-    separator = 'point'
-  }
-  let result = numWords.toWords(Number.parseInt(parts[0])) + ' ' + separator
+  separator = getStringArg(separator, 'point')
+  if (separator === null) return null // invalid (non-string) separator
+  let result = numWords.toWords(Number.parseInt(parts[0]), { useCommas: false })
+  if (separator) result += ' ' + separator
   const digits = parts.length < 2 ? [] : parts[1].split('')
   let current = 0
   while (current < digits.length) {
@@ -240,22 +240,18 @@ function CardinalCur (input, dollarsN, centsN, exactly, separator) {
     ds = dp.toLowerCase().endsWith('s') ? dp.slice(0, -1) : dp
   }
   // check centsN (optional string)
-  centsN = centsN && centsN.valueOf()
-  if (centsN && typeof centsN !== 'string') { // unexpected/unsupported value type for centsN
-    return null
-  }
+  centsN = getStringArg(centsN, '')
+  if (centsN === null) return null // unexpected/unsupported value type for centsN
   let [cp, cs] = centsN ? centsN.split('/') : []
   if (cp && !cs) {
     cs = cp.toLowerCase().endsWith('s') ? cp.slice(0, -1) : cp
   }
   // check exactly (optional string, default == '')
-  exactly = exactly && exactly.valueOf()
-  if (exactly && typeof exactly !== 'string') return null
-  else if (!exactly) exactly = ''
+  exactly = getStringArg(exactly, '')
+  if (exactly === null) return null // invalid (non-string)
   // check separator (optional string, default == 'and')
-  separator = separator && separator.valueOf()
-  if (separator && typeof separator !== 'string') return null
-  else if (!separator) separator = 'and'
+  separator = getStringArg(separator, 'and')
+  if (separator === null) return null // invalid (non-string) separator
   // round input -- either 2 places or 0, depending on centsN
   const num = truncOrRound(input, { places: cp ? 2 : 0, round: true })
   if (num === null || typeof num === 'undefined') return num
@@ -265,7 +261,10 @@ function CardinalCur (input, dollarsN, centsN, exactly, separator) {
   // put string together
   let result = numWords.toWords(dpart, { useCommas: false }) + ' ' + (dpart === 1 ? ds : dp)
   if (cpart) {
-    result += ' ' + separator + ' ' + numWords.toWords(cpart) + ' ' + (cpart === 1 ? cs : cp)
+    if (separator) {
+      result += ' ' + separator
+    }
+    result += ' ' + numWords.toWords(cpart) + ' ' + (cpart === 1 ? cs : cp)
   } else if (exactly) {
     result += ' ' + exactly
   }
@@ -324,6 +323,15 @@ function truncOrRound (number, options) {
   // round or truncate as requested
   const factor = Math.pow(10, places)
   return (round ? Math.round(num * factor) : Math.trunc(num * factor)) / factor
+}
+
+function getStringArg (str, defValue) {
+  if (str && typeof str === 'object') str = str.valueOf()
+  if (typeof str === 'string') {
+    return str // a string was provided; use it
+  } // else
+  if (str) return null // invalid argument type
+  return defValue // no string provided; use default
 }
 
 function Else (input, unansweredFmt) {

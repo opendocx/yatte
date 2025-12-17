@@ -123,8 +123,9 @@ describe('number formatting', function () {
     assert.strictEqual(eval1({ num: 12.99 }), "thirteen") // 12.99|cardinaldec
     assert.strictEqual(eval1({ num: 12.99, places: 2 }), "twelve point nine nine") // 12.99|cardinaldec:2
     assert.strictEqual(eval1({ num: 12.99, places: 1 }), "thirteen") // 12.99|cardinaldec:1
-    assert.strictEqual(eval1({ num: 12.99, places: 1, zpad: true }), "thirteen point zero") // 12.99|cardinaldec:1::true
-    assert.strictEqual(eval1({ num: 12.3456, places: 3, zpad: false, sep: "comma" }), "twelve comma three four six") // 12.3456|cardinaldec:3:false:"comma"
+    assert.strictEqual(eval1({ num: 12.99, places: 1, zpad: true }), "thirteen point zero") // 12.99|cardinaldec:1:true
+    assert.strictEqual(eval1({ num: 12.3456, places: 3, zpad: false, sep: "mark" }), "twelve mark three four six") // 12.3456|cardinaldec:3:false:"mark"
+    assert.strictEqual(eval1({ num: 12.3456, places: 5, zpad: true, sep: "" }), "twelve three four five six zero") // 12.3456|cardinaldec:5:true:""
   })
 
   it('cardinalcur', function () {
@@ -141,6 +142,7 @@ describe('number formatting', function () {
     assert.strictEqual(eval1({ num: 12, dname: "dollars", cname: "cents", exact: "and no cents" }), "twelve dollars and no cents")
     assert.strictEqual(eval1({ num: 12, dname: "dollars", cname: "cents", exact: "exactly", sep: "+" }), "twelve dollars exactly")
     assert.strictEqual(eval1({ num: 12.01, dname: "dollars", cname: "cents", exact: "exactly", sep: "+" }), "twelve dollars + one cent")
+    assert.strictEqual(eval1({ num: 12.01, dname: "pounds", cname: "pence", exact: "exactly", sep: "" }), "twelve pounds one pence")
   })
 
   it('ordinal', function () {
