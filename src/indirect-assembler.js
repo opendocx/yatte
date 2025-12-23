@@ -133,7 +133,11 @@ class IndirectAssembler {
       value = this._missingValuePlaceholder(expr, evaluator.ast)
     } else if (typeof value === 'object') {
       if (value instanceof IndirectVirtual) {
-        this.data.set(ident, this._indirectLookup(value))
+        if ((!value.contentType || value.contentType === 'text') && typeof value.toString === 'function') {
+          this.data.set(ident, value.toString())
+        } else {
+          this.data.set(ident, this._indirectLookup(value))
+        }
         return
       } else if (value.errors || value.missing) {
         // value is a yatte EvaluationResult, probably because of nested template evaluation
