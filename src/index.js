@@ -6,6 +6,7 @@ const base = require('./base-templater')
 const EvaluationResult = require('./eval-result')
 const IndirectVirtual = require('./indirect')
 const IndirectAssembler = require('./indirect-assembler')
+const { recurseLimit, RecursionError } = require('./recursion-error')
 exports.Engine = base
 exports.EvaluationResult = EvaluationResult
 exports.IndirectVirtual = IndirectVirtual
@@ -87,9 +88,25 @@ function assembleMeta (metaTemplate, scope) {
 }
 exports.assembleMeta = assembleMeta
 
-async function getIndirectAssembler (logicTree, data, getLogicTree) {
-  if (!Array.isArray(logicTree) && typeof getLogicTree === 'function') {
-    logicTree = await getLogicTree(logicTree)
+async function getIndirectAssembler (indirectVirtualOrLogicTree, data, getLogicTree, recurseProtect = null) {
+  if (!recurseProtect) {
+    recurseProtect = new WeakMap()
+  }
+  let logicTree, recurseDepth
+  if (Array.isArray(indirectVirtualOrLogicTree)) {
+    logicTree = indirectVirtualOrLogicTree
+  } else {
+    const indirectVirtual = indirectVirtualOrLogicTree
+    if (typeof getLogicTree === 'function') {
+      logicTree = await getLogicTree(indirectVirtual)
+    }
+  }
+  if (logicTree) {
+    recurseDepth = recurseProtect.get(logicTree) || 0
+    if (recurseDepth > recurseLimit) {
+      throw new RecursionError()
+    }
+    recurseProtect.set(logicTree, recurseDepth + 1)
   }
   const indirAssembler = new IndirectAssembler(data)
   indirAssembler.assembleData(logicTree)
@@ -97,10 +114,17 @@ async function getIndirectAssembler (logicTree, data, getLogicTree) {
     // recursively assemble data for inserted indirects if there are any
     if (indirAssembler.indirects && indirAssembler.indirects.length > 0) {
       for (const indir of indirAssembler.indirects) {
-        indir.assembler = await getIndirectAssembler(indir, indir.scope, getLogicTree)
+        if (!indir.contentType || indir.contentType === 'docx') {
+          indir.assembler = await getIndirectAssembler(indir, indir.scope, getLogicTree, recurseProtect)
+        } else { // otherwise the indir should already be evaluable as plain text
+          if (typeof indir.toString !== 'function') {
+            throw new Error('Unexpected: IndirectVirtual missing toString')
+          }
+        }
       }
     }
   }
+  recurseProtect.set(logicTree, recurseDepth)
   return indirAssembler
 }
 exports.getIndirectAssembler = getIndirectAssembler

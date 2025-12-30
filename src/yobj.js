@@ -2,6 +2,7 @@
 const base = require('./base-templater')
 const EvaluationResult = require('./eval-result')
 const { AST } = require('./estree')
+const { recurseLimit, RecursionError } = require('./recursion-error')
 
 class YObject {
   constructor (value, parent = null) {
@@ -744,20 +745,10 @@ function isPrimitive (value, includeWrapped = true) {
   return false
 }
 
-const recurseLimit = 20
-
-class RecursionError extends Error {
-  constructor (message) {
-    super(message)
-    this.name = 'RecursionError'
-    this.frames = []
-  }
-}
-
 function increment (compiledVirtual) {
   const currentCount = compiledVirtual._count
   if (currentCount > recurseLimit) {
-    throw new RecursionError(`Runaway recursion?  Recurse count exceeds ${recurseLimit}.`)
+    throw new RecursionError()
   } else if (currentCount === undefined) {
     compiledVirtual._count = 0
   }

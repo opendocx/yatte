@@ -92,6 +92,22 @@ describe('Aggregating data based on extracted logic files', function () {
     const str = new IndirectAssembler(data).assembleData(logic).toXml('_odx')
     assert.strictEqual(str, '<?xml version="1.0"?><_odx><C1b>true</C1b><C2>testing</C2></_odx>')
   })
+  it('should avoid infinite recursion via getIndirectAssembler', async function () {
+    const logic = JSON.parse(await fs.readFile('./test/cases/inserted.logic.json', 'utf-8'))
+    const template = { name: './test/cases/inserted.docx', enc: 'binary' }
+    const data = {
+      Name: (scope) => new IndirectVirtual(template, scope, 'docx'),
+    }
+    data.Name.logic = true // needed so Yatte treats the function as a "virtual"
+    // test getting an indirect assembler to make sure the infinite recursion throws an appropriate error
+    await assert.rejects(
+      yatte.getIndirectAssembler(logic, data, async () => logic),
+      {
+        name: 'RecursionError',
+        message: 'Runaway recursion?  Recurse count exceeds 20.',
+      }
+    )
+  })
   // it('should produce usable XML and a valid assembled document for a simple "if x then x" template', async function () {
   //   // making sure x is emitted only once, whether it is truthy or falsy, so we don't get XML errors
   //   const templatePath = testUtil.GetTemplatePath('self-cond.docx')
@@ -170,9 +186,11 @@ describe('Aggregating data based on MULTIPLE (indirect) extracted logic files', 
     const childTemplate = { name: './test/cases/inserted.md', enc: 'utf-8' }
     const data = {
       Name: 'John',
-      Insert: (scope) => new IndirectVirtual(childTemplate, scope, 'md'),
+      Insert: (scope) => new IndirectVirtual(childTemplate, scope, 'docx'), // 'docx' necessary to ensure indirect behavior
+      InsertT: (scope) => new IndirectVirtual(childTemplate, scope, 'markdown'), // plain text capable
     }
     data.Insert.logic = true // needed so Yatte treats the function as a "virtual"
+    data.InsertT.logic = true // needed so Yatte treats the function as a "virtual"
 
     const templateFileToLogicTree = async (obj) => {
       const template = await fs.readFile(obj.name, obj.enc)
@@ -183,9 +201,11 @@ describe('Aggregating data based on MULTIPLE (indirect) extracted logic files', 
     const data1 = asm.data.toXml('top')
     const data2 = asm.data.toJson()
     const data3 = asm.indirects[0].assembler.data.toJson()
+    const data4 = asm.indirects[1].toString()
     assert(data1.startsWith('<?xml version="1.0"?><top><Name>John</Name><Insert>oxpt://DocumentAssembler/insert/'))
-    assert(data1.endsWith('</Insert></top>'))
+    assert(data1.endsWith('</InsertT></top>'))
     assert.strictEqual(data3, '{"Name":"John"}')
+    // assert.strictEqual(data4, 'what')
     // NEED a way to simulate/test the logic needed for complex DOCX insert scenarios...
     //   - when doing the IndirectAssembler, what files are necessary for inserted templates, and how to fetch them dynamically?
     //   - how best to store and use the correspondences between objects and templates,

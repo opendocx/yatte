@@ -365,6 +365,19 @@ describe('Assembly of text template via exported API', function () {
     assert(result == 'John Smith is 10 characters long (yes 10)')
   })
 
+  // would be nice if the following worked; however right now it doesn't throw an exception (but rather)
+  // recurses 20 times and on the 21st time it inserts an error message instead of recursing further -- wonky :-(
+  // it('should catch infinite recursion in virtuals', function () {
+  //   const data = {}
+  //   defineTemplate('This is an inserted template, {[Name]}.', 'Name', data)
+  //   const scope = Scope.pushObject(data)
+  //   const template = '{[Name]}'
+  //   const result = yatte.assembleText(template, scope)
+  //   assert.equal(result, 'whatever')
+  //   //assert.throws(() => , { name: 'RecursionError' })
+  //   // assert(result == 'John NESTED Smith')
+  // })
+
   it('should assemble template containing nested indirect templates', function () {
     const data = {
       FirstName: 'John',
