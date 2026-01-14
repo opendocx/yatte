@@ -2,7 +2,7 @@ const Engine = require('./base-templater')
 const OD = require('./fieldtypes')
 const IndirectVirtual = require('./indirect')
 const Scope = require('./yobj')
-const uuidv4 = require('uuid/v4')
+const uuidv4 = require('./uuid').v4
 const DataAggregator = require('./data-aggregator')
 
 class IndirectAssembler {
