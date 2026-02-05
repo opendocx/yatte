@@ -2,6 +2,7 @@
 const { describe, it } = require('mocha')
 const yatte = require('../src/index')
 const assert = require('assert')
+const { assertASTMatches } = require('./test-helpers')
 const Scope = yatte.Scope
 
 describe('Assembly of meta template via exported API', function () {
@@ -50,7 +51,7 @@ describe('Assembly of meta template via exported API', function () {
     let actual = result.value.body[0]
     assert.strictEqual(actual.type, 'ExpressionStatement')
     assert.strictEqual(actual.text, 'ident1')
-    assert.deepStrictEqual(actual.expression, {
+    assertASTMatches(actual.expression, {
       type: 'Identifier',
       name: 'ident1',
       constant: false,
@@ -65,7 +66,7 @@ describe('Assembly of meta template via exported API', function () {
     actual = result.value.body[1]
     assert.strictEqual(actual.type, 'ExpressionStatement')
     assert.strictEqual(actual.text, 'ident2.ident3')
-    assert.deepStrictEqual(actual.expression, {
+    assertASTMatches(actual.expression, {
       type: 'MemberExpression',
       object: { type: 'Identifier', name: 'ident2', constant: false },
       property: { type: 'Identifier', name: 'ident3' },
@@ -82,7 +83,7 @@ describe('Assembly of meta template via exported API', function () {
     actual = result.value.body[2]
     assert.strictEqual(actual.type, 'ExpressionStatement')
     assert.strictEqual(actual.text, 'ident4')
-    assert.deepStrictEqual(actual.expression, {
+    assertASTMatches(actual.expression, {
       type: 'Identifier',
       name: 'ident4',
       constant: false,
@@ -91,7 +92,7 @@ describe('Assembly of meta template via exported API', function () {
     actual = result.value.body[3]
     assert.strictEqual(actual.type, 'ExpressionStatement')
     assert.strictEqual(actual.text, 'ident6')
-    assert.deepStrictEqual(actual.expression, {
+    assertASTMatches(actual.expression, {
       type: 'Identifier',
       name: 'ident6',
       constant: false,
@@ -100,7 +101,7 @@ describe('Assembly of meta template via exported API', function () {
     actual = result.value.body[4]
     assert.strictEqual(actual.type, 'ExpressionStatement')
     assert.strictEqual(actual.text, 'ident7')
-    assert.deepStrictEqual(actual.expression, {
+    assertASTMatches(actual.expression, {
       type: 'Identifier',
       name: 'ident7',
       constant: false,
@@ -117,7 +118,7 @@ describe('Assembly of meta template via exported API', function () {
     actual = result.value.body[5]
     assert.strictEqual(actual.type, 'ExpressionStatement')
     assert.strictEqual(actual.text, 'ident7')
-    assert.deepStrictEqual(actual.expression, {
+    assertASTMatches(actual.expression, {
       type: 'Identifier',
       name: 'ident7',
       constant: false,

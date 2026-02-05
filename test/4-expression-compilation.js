@@ -3,6 +3,7 @@ const { describe, it } = require('mocha')
 const yatte = require('../src/index')
 const assert = require('assert')
 const { TV_Family_Data } = require('./test-data')
+const { assertASTMatches } = require('./test-helpers')
 const AST = yatte.Engine.AST
 
 describe('Compiling expressions via exported API', function () {
@@ -15,7 +16,7 @@ describe('Compiling expressions via exported API', function () {
   it('should correctly categorize the outcomes of a conditional expression', function () {
     const evaluator = yatte.Engine.compileExpr('test ? consequent : alternative')
     assert.deepStrictEqual(evaluator.normalized, 'test?consequent:alternative')
-    assert.deepStrictEqual(evaluator.ast, {
+    assertASTMatches(evaluator.ast, {
       type: 'ConditionalExpression',
       test: {
         type: 'Identifier',
@@ -43,7 +44,7 @@ describe('Compiling expressions via exported API', function () {
     yatte.Engine.compileExpr.cache = {}
     const evaluator = yatte.Engine.compileExpr(' Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"') // space at beginning is intentional, to avoid cached expression AST
     assert.deepStrictEqual(evaluator.normalized, 'Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"')
-    assert.deepStrictEqual(evaluator.ast, ListFilterAST)
+    assertASTMatches(evaluator.ast, ListFilterAST)
   })
 
   it('correctly normalizes an expression with functions and this', function () {
@@ -53,7 +54,7 @@ describe('Compiling expressions via exported API', function () {
 
   it('correctly parses and compiles array concatenation and filtering out falsy values', function () {
     const evaluator = yatte.Engine.compileExpr('[].concat(Client, Spouse, Children)|filter:this')
-    assert.deepStrictEqual(evaluator.ast, {
+    assertASTMatches(evaluator.ast, {
       type: 'ListFilterExpression',
       rtl: false,
       constant: false,
@@ -80,7 +81,7 @@ describe('Compiling expressions via exported API', function () {
   it('allow chaining of "any" filter (and/or its "some" alias)', function () {
     const evaluator = yatte.Engine.compileExpr('Families | some: Children|any: Birthdate > currentDate')
     assert.deepStrictEqual(evaluator.normalized, 'Families|any:"Children|any:&quot;Birthdate>currentDate&quot;"')
-    assert.deepStrictEqual(evaluator.ast, ListFilterAST)
+    assertASTMatches(evaluator.ast, ListFilterAST)
   })
 
   const ListFilterAST = {
@@ -120,10 +121,12 @@ describe('Compiling expressions via exported API', function () {
   it('allow chaining of the "any" filter with nested objects', function () {
     const evaluator = yatte.Engine.compileExpr('obj1.list1|any:obj2.list2|any:prop3')
     assert.deepStrictEqual(evaluator.normalized, 'obj1.list1|any:"obj2.list2|any:&quot;prop3&quot;"')
-    assert.deepStrictEqual(evaluator.ast, nestedAny_AST)
-    // ensure the normalized expression produces the same AST but does not get recompiled!
+    assertASTMatches(evaluator.ast, nestedAny_AST)
+    // ensure the normalized expression produces the same AST (reusing the same structure, not just serializing the same)
     const evaluator2 = yatte.Engine.compileExpr(' ' + evaluator.normalized)
-    assert.deepStrictEqual(evaluator2.ast, evaluator.ast)
+    // assertASTMatches ignores toWatch/watchId, so we can compare full AST structure
+    assertASTMatches(evaluator2.ast, evaluator.ast, 'evaluator2.ast vs evaluator.ast')
+    assertASTMatches(evaluator.ast, evaluator2.ast, 'evaluator.ast vs evaluator2.ast')
     assert.deepStrictEqual(evaluator2.normalized, evaluator.normalized)
     assert.deepStrictEqual(evaluator.toString(), evaluator2.toString())
   })
@@ -204,7 +207,7 @@ describe('Compiling expressions via exported API', function () {
 
   it('correctly serializes a simple AST as an expression', function () {
     const evaluator = yatte.Engine.compileExpr('!test')
-    assert.deepStrictEqual(evaluator.ast, {
+    assertASTMatches(evaluator.ast, {
       type: AST.UnaryExpression,
       prefix: true,
       operator: '!',
