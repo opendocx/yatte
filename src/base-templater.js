@@ -161,6 +161,29 @@ compileExpr.cache = {}
 expressions.compile.cache = false // disable angular-expressions' own caching of compiled expressions (we cache instead)
 exports.compileExpr = compileExpr
 
+const setLabel = function (compiledVirtual, label) {
+  if (typeof compiledVirtual !== 'function') {
+    throw new Error('Engine.setLabel expects a compiled function')
+  }
+  if (typeof label !== 'string' || label.length === 0) {
+    throw new Error('Engine.setLabel expects a non-empty string label')
+  }
+  const oldLabel = compiledVirtual.lbl
+  if (oldLabel === label) {
+    return compiledVirtual
+  }
+  if (oldLabel) {
+    const context = compiledVirtual.normalized ||
+      ((compiledVirtual.ast && typeof compiledVirtual.ast === 'object')
+        ? AST.serialize(compiledVirtual.ast)
+        : (compiledVirtual.logic ? '[template]' : '[virtual]'))
+    console.warn(`Warning: overwriting virtual label '${oldLabel}' with '${label}' (${context})`)
+  }
+  compiledVirtual.lbl = label
+  return compiledVirtual
+}
+exports.setLabel = setLabel
+
 const angularExpressionErrorMessage = function (e, expr) {
   const errLines = e.message.split('\n')
   if (errLines[0].startsWith('[$parse:syntax]')) {

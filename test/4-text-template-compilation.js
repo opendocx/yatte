@@ -29,4 +29,41 @@ describe('Compiling text templates via exported API', function () {
     assert.strictEqual(asmResult.value, null)
     assert.deepStrictEqual(asmResult.errors, [expectedError])
   })
+
+  it('setLabel should work for compiled text templates', function () {
+    yatte.compileText.cache = new Map()
+    const compiled = yatte.compileText('{[FirstName]} {[LastName]}')
+    const warnings = []
+    const priorWarn = console.warn
+    console.warn = (message) => warnings.push(message)
+    try {
+      yatte.setLabel(compiled, 'Entity::DisplayName')
+      yatte.setLabel(compiled, 'Entity::DisplayName')
+      yatte.setLabel(compiled, 'Entity::FormalName')
+    } finally {
+      console.warn = priorWarn
+    }
+    assert.strictEqual(compiled.lbl, 'Entity::FormalName')
+    assert.strictEqual(warnings.length, 1)
+    assert.ok(warnings[0].includes('Entity::DisplayName'))
+    assert.ok(warnings[0].includes('Entity::FormalName'))
+  })
+
+  it('setLabel should reveal overwrite collisions on cached compiled templates', function () {
+    yatte.compileText.cache = new Map()
+    const compiled1 = yatte.compileText('{[FirstName]} {[LastName]}')
+    const compiled2 = yatte.compileText('{[FirstName]} {[LastName]}')
+    assert.strictEqual(compiled1, compiled2)
+    const warnings = []
+    const priorWarn = console.warn
+    console.warn = (message) => warnings.push(message)
+    try {
+      yatte.setLabel(compiled1, 'TypeA::Template')
+      yatte.setLabel(compiled2, 'TypeB::Template')
+    } finally {
+      console.warn = priorWarn
+    }
+    assert.strictEqual(compiled1.lbl, 'TypeB::Template')
+    assert.strictEqual(warnings.length, 1)
+  })
 })

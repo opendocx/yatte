@@ -370,23 +370,43 @@ describe('Executing expressions compiled via exported API', function () {
     }
   })
 
-  // it('throws when unbounded recursion occurs in a template', function () {
-  //   const obj = {
-  //     SingleEntity: {
-  //       FirstName: "John",
-  //       LastName: "Smith",
-  //       FullName: yatte.compileText('{[FirstName]} {[FullName]}')
-  //     },
-  //   }
-  //   const scope = Scope.pushObject(obj)
-  //   const template = '{[SingleEntity.FullName]}'
-  //   try {
-  //     const result = yatte.assembleText(template, scope)
-  //     assert.fail('expected error not thrown')
-  //   } catch (err) {
-  //     assert.strictEqual(err.name, 'RecursionError')
-  //   }
-  // })
+  it('uses a fallback frame label when recursion occurs and no explicit labels are set', function () {
+    const obj = {
+      SingleEntity: {
+        FirstName: 'J',
+        LastName: 'Smith',
+        FullName: yatte.Engine.compileExpr('FirstName + " " + FullName')
+      },
+    }
+    const scope = Scope.pushObject(obj)
+    const evaluator = yatte.Engine.compileExpr('SingleEntity.FullName')
+    try {
+      evaluator(scope.scopeProxy, scope.proxy)
+      assert.fail('expected error not thrown')
+    } catch (err) {
+      assert.strictEqual(err.name, 'RecursionError')
+      assert.strictEqual(err.frames.length, 21)
+      assert.strictEqual(err.frames[0], 'FullName')
+    }
+  })
+
+  it('throws when unbounded recursion occurs in a template', function () {
+    const obj = {
+      SingleEntity: {
+        FirstName: 'John',
+        LastName: 'Smith',
+        FullName: yatte.compileText('{[FirstName]} {[FullName]}')
+      },
+    }
+    const scope = Scope.pushObject(obj)
+    const template = '{[SingleEntity.FullName]}'
+    try {
+      const result = yatte.assembleText(template, scope)
+      assert.fail('expected error not thrown')
+    } catch (err) {
+      assert.strictEqual(err.name, 'RecursionError')
+    }
+  })
 
   // it('throws when list filters have no arguments', function () {
   //   const states = [

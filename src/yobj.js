@@ -103,7 +103,7 @@ class YObject {
       const val = this.value[property]
       // check if it's a virtual, and if so, evaluate it
       if (typeof val === 'function' && (val.ast || val.logic)) {
-        let newVal = this.evaluate(val)
+        let newVal = this.evaluate(val, property)
         if (newVal instanceof EvaluationResult) {
           newVal = newVal.value
         }
@@ -166,7 +166,7 @@ class YObject {
     return yobj
   }
 
-  evaluate (compiledVirtual) {
+  evaluate (compiledVirtual, frameHint = undefined) {
     if (typeof compiledVirtual === 'function') {
       if (compiledVirtual.ast) {
         // appears to be a compiled angular expression; it expects a scope object (proxy)
@@ -193,7 +193,7 @@ class YObject {
           return result
         } catch (e) {
           if (e instanceof RecursionError) {
-            const frameLabel = compiledVirtual.lbl || compiledVirtual.ast.type
+            const frameLabel = getFrameLabel(compiledVirtual, frameHint)
             if (frameLabel) {
               e.frames.push(frameLabel)
             }
@@ -209,14 +209,28 @@ class YObject {
       if (compiledVirtual.logic) {
         // appears to be a compiled template; it expects a scope frame (not a proxy)
         increment(compiledVirtual)
-        const result = compiledVirtual(this)
-        decrement(compiledVirtual)
-        return result && result.valueOf()
+        try {
+          const result = compiledVirtual(this)
+          return result && result.valueOf()
+        } catch (e) {
+          if (e instanceof RecursionError) {
+            const frameLabel = getFrameLabel(compiledVirtual, frameHint)
+            if (frameLabel) {
+              e.frames.push(frameLabel)
+            }
+          }
+          throw e
+        } finally {
+          decrement(compiledVirtual)
+        }
       } // else
       increment(compiledVirtual)
-      const result = compiledVirtual(this.scopeProxy, this.proxy)
-      decrement(compiledVirtual)
-      return result
+      try {
+        const result = compiledVirtual(this.scopeProxy, this.proxy)
+        return result
+      } finally {
+        decrement(compiledVirtual)
+      }
     }
     throw new Error('YObject.evaluate invoked against a non-function')
   }
@@ -759,4 +773,26 @@ function decrement (compiledVirtual) {
   if (compiledVirtual._count) {
     compiledVirtual._count--
   }
+}
+
+function getFrameLabel (compiledVirtual, frameHint = undefined) {
+  if (compiledVirtual.lbl) {
+    return compiledVirtual.lbl
+  }
+  if (frameHint) {
+    return frameHint
+  }
+  if (compiledVirtual.normalized) {
+    return compiledVirtual.normalized
+  }
+  if (compiledVirtual.ast && typeof compiledVirtual.ast === 'object') {
+    return AST.serialize(compiledVirtual.ast)
+  }
+  if (compiledVirtual.ast && typeof compiledVirtual.ast.toString === 'function') {
+    return compiledVirtual.ast.toString()
+  }
+  if (compiledVirtual.logic) {
+    return '[template]'
+  }
+  return '[virtual]'
 }

@@ -102,9 +102,26 @@ describe('Aggregating data based on extracted logic files', function () {
     // test getting an indirect assembler to make sure the infinite recursion throws an appropriate error
     await assert.rejects(
       yatte.getIndirectAssembler(logic, data, async () => logic),
+      (err) => {
+        assert.strictEqual(err.name, 'RecursionError')
+        assert.strictEqual(err.message, 'Runaway recursion?  Recurse count exceeds 20.')
+        assert.ok(Array.isArray(err.frames))
+        assert.ok(err.frames.length > 0)
+        assert.ok(err.frames.includes('Name'))
+        return true
+      }
+    )
+  })
+
+  it('should throw RecursionError when direct data aggregation hits recursive template virtual', function () {
+    const logic = yatte.extractLogic('{[Name]}')
+    const data = {
+      Name: yatte.compileText('{[Name]}')
+    }
+    assert.throws(
+      () => new IndirectAssembler(data).assembleData(logic),
       {
         name: 'RecursionError',
-        message: 'Runaway recursion?  Recurse count exceeds 20.',
       }
     )
   })

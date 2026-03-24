@@ -4,6 +4,7 @@ const Scope = require('./yobj')
 const IndirectVirtual = require('./indirect')
 const OD = require('./fieldtypes')
 const base = require('./base-templater')
+const { RecursionError } = require('./recursion-error')
 
 class TextEvaluator {
   constructor (scope) {
@@ -68,6 +69,9 @@ class TextEvaluator {
           }
           return value
         } catch (err) {
+          if (err instanceof RecursionError) {
+            throw err
+          }
           return CreateContextErrorMessage('EvaluationException: ' + err.message)
         }
       case OD.List: {
@@ -77,6 +81,9 @@ class TextEvaluator {
           // todo: make sure the following is memoized to avoid unnecessary re-evaluation
           iterable = frame.evaluate(evaluator)
         } catch (err) {
+          if (err instanceof RecursionError) {
+            throw err
+          }
           return CreateContextErrorMessage('EvaluationException: ' + err.message)
         }
         contextStack = Scope.pushList(iterable, contextStack)
@@ -102,6 +109,9 @@ class TextEvaluator {
           const value = frame.evaluate(evaluator)
           bValue = Scope.isTruthy(value)
         } catch (err) {
+          if (err instanceof RecursionError) {
+            throw err
+          }
           return CreateContextErrorMessage('EvaluationException: ' + err.message)
         }
         if (bValue) {

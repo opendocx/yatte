@@ -332,4 +332,41 @@ describe('Compiling expressions via exported API', function () {
   //   const after = yatte.Engine.AST.serialize(evaluator.ast, true)
   //   assert.deepStrictEqual(after, 'a|any:b|any:c')
   // })
+
+  it('setLabel should set and update labels with warning on overwrite', function () {
+    yatte.Engine.compileExpr.cache = {}
+    const evaluator = yatte.Engine.compileExpr('A + B')
+    const warnings = []
+    const priorWarn = console.warn
+    console.warn = (message) => warnings.push(message)
+    try {
+      yatte.Engine.setLabel(evaluator, 'Entity::Formula1')
+      yatte.Engine.setLabel(evaluator, 'Entity::Formula1')
+      yatte.Engine.setLabel(evaluator, 'Entity::Formula2')
+    } finally {
+      console.warn = priorWarn
+    }
+    assert.strictEqual(evaluator.lbl, 'Entity::Formula2')
+    assert.strictEqual(warnings.length, 1)
+    assert.ok(warnings[0].includes('Entity::Formula1'))
+    assert.ok(warnings[0].includes('Entity::Formula2'))
+  })
+
+  it('setLabel should reveal overwrite collisions on cached compiled expressions', function () {
+    yatte.Engine.compileExpr.cache = {}
+    const evaluator1 = yatte.Engine.compileExpr('A + B')
+    const evaluator2 = yatte.Engine.compileExpr('A + B')
+    assert.strictEqual(evaluator1, evaluator2)
+    const warnings = []
+    const priorWarn = console.warn
+    console.warn = (message) => warnings.push(message)
+    try {
+      yatte.Engine.setLabel(evaluator1, 'TypeA::Expr')
+      yatte.Engine.setLabel(evaluator2, 'TypeB::Expr')
+    } finally {
+      console.warn = priorWarn
+    }
+    assert.strictEqual(evaluator1.lbl, 'TypeB::Expr')
+    assert.strictEqual(warnings.length, 1)
+  })
 })

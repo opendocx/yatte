@@ -63,6 +63,9 @@ function assembleText (template, scope) {
     const value = evaluator.assemble(contentArray)
     return new EvaluationResult(value, evaluator.missing, evaluator.errors)
   } catch (err) {
+    if (err instanceof RecursionError) {
+      throw err
+    }
     return new EvaluationResult(null, [], [err.message])
   }
 }
@@ -93,6 +96,7 @@ async function getIndirectAssembler (indirectVirtualOrLogicTree, data, getLogicT
     recurseProtect = new WeakMap()
   }
   let logicTree, recurseDepth
+  const fromIndirect = !Array.isArray(indirectVirtualOrLogicTree) ? indirectVirtualOrLogicTree : null
   if (Array.isArray(indirectVirtualOrLogicTree)) {
     logicTree = indirectVirtualOrLogicTree
   } else {
@@ -102,32 +106,66 @@ async function getIndirectAssembler (indirectVirtualOrLogicTree, data, getLogicT
     }
   }
   if (logicTree) {
+    const currentFrame = getIndirectFrameLabel(fromIndirect, logicTree)
     recurseDepth = recurseProtect.get(logicTree) || 0
     if (recurseDepth > recurseLimit) {
-      throw new RecursionError()
+      const err = new RecursionError()
+      err.frames.push(currentFrame)
+      throw err
     }
     recurseProtect.set(logicTree, recurseDepth + 1)
   }
-  const indirAssembler = new IndirectAssembler(data)
-  indirAssembler.assembleData(logicTree)
-  if (!indirAssembler.errors || !indirAssembler.errors.length) {
-    // recursively assemble data for inserted indirects if there are any
-    if (indirAssembler.indirects && indirAssembler.indirects.length > 0) {
-      for (const indir of indirAssembler.indirects) {
-        if (!indir.contentType || indir.contentType === 'docx') {
-          indir.assembler = await getIndirectAssembler(indir, indir.scope, getLogicTree, recurseProtect)
-        } else { // otherwise the indir should already be evaluable as plain text
-          if (typeof indir.toString !== 'function') {
-            throw new Error('Unexpected: IndirectVirtual missing toString')
+  try {
+    const indirAssembler = new IndirectAssembler(data)
+    indirAssembler.assembleData(logicTree)
+    if (!indirAssembler.errors || !indirAssembler.errors.length) {
+      // recursively assemble data for inserted indirects if there are any
+      if (indirAssembler.indirects && indirAssembler.indirects.length > 0) {
+        for (const indir of indirAssembler.indirects) {
+          if (!indir.contentType || indir.contentType === 'docx') {
+            try {
+              indir.assembler = await getIndirectAssembler(indir, indir.scope, getLogicTree, recurseProtect)
+            } catch (e) {
+              if (e instanceof RecursionError) {
+                e.frames.push(getIndirectFrameLabel(indir, null))
+              }
+              throw e
+            }
+          } else { // otherwise the indir should already be evaluable as plain text
+            if (typeof indir.toString !== 'function') {
+              throw new Error('Unexpected: IndirectVirtual missing toString')
+            }
           }
         }
       }
     }
+    return indirAssembler
+  } finally {
+    if (logicTree) {
+      recurseProtect.set(logicTree, recurseDepth)
+    }
   }
-  recurseProtect.set(logicTree, recurseDepth)
-  return indirAssembler
 }
 exports.getIndirectAssembler = getIndirectAssembler
+
+function getIndirectFrameLabel (indirectVirtual, logicTree) {
+  if (indirectVirtual) {
+    if (indirectVirtual.lbl) return indirectVirtual.lbl
+    if (indirectVirtual.__yatteExpr) return indirectVirtual.__yatteExpr
+    if (indirectVirtual.name) return indirectVirtual.name
+    if (indirectVirtual.template && indirectVirtual.template.name) return indirectVirtual.template.name
+    if (indirectVirtual.contentType) return `[indirect:${indirectVirtual.contentType}]`
+  }
+  if (logicTree && Array.isArray(logicTree)) {
+    return '[logicTree]'
+  }
+  return '[indirect]'
+}
+
+function setLabel (compiledVirtual, label) {
+  return base.setLabel(compiledVirtual, label)
+}
+exports.setLabel = setLabel
 
 exports.FieldTypes = require('./fieldtypes')
 exports.Scope = require('./yobj')

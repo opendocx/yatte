@@ -4,6 +4,7 @@ const IndirectVirtual = require('./indirect')
 const Scope = require('./yobj')
 const uuidv4 = require('./uuid').v4
 const DataAggregator = require('./data-aggregator')
+const { RecursionError } = require('./recursion-error')
 
 class IndirectAssembler {
   constructor (scope) {
@@ -26,6 +27,9 @@ class IndirectAssembler {
       this.data.popObject()
       return this.data
     } catch (e) {
+      if (e instanceof RecursionError) {
+        throw e
+      }
       this.errors.push(e.message)
     }
   }
@@ -136,7 +140,7 @@ class IndirectAssembler {
         if ((!value.contentType || value.contentType === 'text') && typeof value.toString === 'function') {
           this.data.set(ident, value.toString())
         } else {
-          this.data.set(ident, this._indirectLookup(value))
+          this.data.set(ident, this._indirectLookup(value, expr))
         }
         return
       } else if (value.errors || value.missing) {
@@ -159,13 +163,18 @@ class IndirectAssembler {
     }
   }
 
-  _indirectLookup (indirObj) {
+  _indirectLookup (indirObj, expr = undefined) {
     // see if this indirect has already been encountered/added
     let indirect = this.indirects.find(ex => ex.isEqualTo(indirObj))
     if (!indirect) {
       indirect = new IndirectVirtual(indirObj) // { ...indirObj, id: uuidv4() }
       indirect.id = uuidv4()
+      if (expr) {
+        indirect.__yatteExpr = expr
+      }
       this.indirects.push(indirect)
+    } else if (expr && !indirect.__yatteExpr) {
+      indirect.__yatteExpr = expr
     }
     return indirect
   }
