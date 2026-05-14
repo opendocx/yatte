@@ -79,6 +79,20 @@ class YObject {
     return thisFrame === yobj
   }
 
+  hasObjectParent (yobj) {
+    if (!yobj || yobj.frameType !== YObject.OBJECT) {
+      return false
+    }
+    let thisFrame = this.getParent()
+    while (thisFrame && (thisFrame !== yobj)) {
+      if (thisFrame.frameType !== YObject.OBJECT) {
+        return false
+      }
+      thisFrame = thisFrame.getParent()
+    }
+    return thisFrame === yobj
+  }
+
   getParent () {
     return (typeof this.parent === 'function') ? this.parent() : this.parent
   }
@@ -182,6 +196,17 @@ class YObject {
           // check for array return values, wrap them in a YList, and return a proxy
           if (Array.isArray(result) && !(this instanceof YReducerItem)) {
             return (new YList(result, this)).proxy // scopeProxy
+          }
+          // when evaluating a member virtual that returns a plain object literal, preserve
+          // the current frame as parent context so downstream evaluation can still reach it.
+          if (
+            frameHint &&
+            result &&
+            typeof result === 'object' &&
+            !result.__yobj &&
+            Object.getPrototypeOf(result) === Object.prototype
+          ) {
+            return (new YObject(result, this)).proxy
           }
           // else check for proxied primitives we may need to unwrap
           if (frameType === YObject.PRIMITIVE) {
@@ -420,6 +445,10 @@ class YObject {
     if (yobj) { // it's a list proxy (result of evaluating an expression)
       if (yobj.getParent() === parentObj) { // it already has the correct/desired context
         return yobj // just go with what we've already got
+      } else if (yobj.hasObjectParent(parentObj)) {
+        // preserve list context only for object-member chains (e.g. obj1.obj2 or obj1.obj2.obj3)
+        console.log('pushList reusing broader context[1]')
+        return yobj
       }
       // else
       console.log('pushList called with out-of-context proxy')
@@ -428,6 +457,9 @@ class YObject {
     if (!array) {
       if (iterable instanceof YList) {
         if (iterable.getParent() === parentObj) {
+          return iterable
+        } else if (iterable.hasObjectParent(parentObj)) {
+          console.log('pushList reusing broader list context[2]')
           return iterable
         }
         console.log('pushList called with out-of-context list')

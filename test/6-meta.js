@@ -132,4 +132,91 @@ describe('Assembly of meta template via exported API', function () {
     assert.strictEqual(actualValue2.ident7.description, 'mock template #7')
     assert.strictEqual(actualValue2.iter, 2)
   })
+
+  it('should preserve parent object context for list-item virtuals in meta assembly', function () {
+    const metaTemplate = `
+{[list obj1.obj2]}
+{[virtual]}
+{[endlist]}
+`
+    const data = Scope.pushObject({
+      obj1: {
+        shared: 'S',
+        obj2: [
+          { local: 'a', virtual: yatte.Engine.compileExpr('shared + local') },
+          { local: 'b', virtual: yatte.Engine.compileExpr('shared + local') }
+        ]
+      }
+    })
+    const result = yatte.assembleMeta(metaTemplate, data)
+    assert.strictEqual(result.value.body.length, 2)
+    const evaluator = yatte.Engine.compileExpr('virtual')
+    const values = result.value.body.map(node => {
+      const rebuiltScope = Scope.pushContext(node.context, data)
+      return rebuiltScope.evaluate(evaluator)
+    })
+    assert.deepStrictEqual(values, ['Sa', 'Sb'])
+  })
+
+  it('should preserve _parent context for list-item virtuals in meta assembly', function () {
+    const metaTemplate = `
+{[list obj1.obj2]}
+{[virtual]}
+{[endlist]}
+`
+    const data = Scope.pushObject({
+      obj1: {
+        shared: 'S',
+        obj2: [
+          { local: 'a', virtual: yatte.Engine.compileExpr('_parent.shared + local') },
+          { local: 'b', virtual: yatte.Engine.compileExpr('_parent.shared + local') }
+        ]
+      }
+    })
+    const result = yatte.assembleMeta(metaTemplate, data)
+    assert.strictEqual(result.value.body.length, 2)
+    const evaluator = yatte.Engine.compileExpr('virtual')
+    const values = result.value.body.map(node => {
+      const rebuiltScope = Scope.pushContext(node.context, data)
+      return rebuiltScope.evaluate(evaluator)
+    })
+    assert.deepStrictEqual(values, ['Sa', 'Sb'])
+  })
+
+  it('should preserve parent context through meta node scope handoff to text assembly', function () {
+    const fileTemplateVirtual = function (scope) {
+      return new yatte.IndirectVirtual(
+        {
+          typeName: 'MockType',
+          name: 'MockTemplate',
+          type: 'file',
+          templateDef: { text: '{[virtual]}' }
+        },
+        scope,
+        'text'
+      )
+    }
+    fileTemplateVirtual.logic = true
+    const metaTemplate = `
+{[list obj1.obj2]}
+{[FileTemplate]}
+{[endlist]}
+`
+    const data = Scope.pushObject({
+      obj1: {
+        shared: 'S',
+        obj2: [
+          { local: 'a', virtual: yatte.Engine.compileExpr('shared + local'), FileTemplate: fileTemplateVirtual },
+          { local: 'b', virtual: yatte.Engine.compileExpr('shared + local'), FileTemplate: fileTemplateVirtual }
+        ]
+      }
+    })
+    const result = yatte.assembleMeta(metaTemplate, data)
+    const values = result.value.body.map(node => {
+      const tmplInfo = node.data.getProperty(node.expression.name)
+      const scopeForAssembly = tmplInfo.scope || node.data
+      return yatte.assembleText(tmplInfo.templateDef.text, scopeForAssembly).value
+    })
+    assert.deepStrictEqual(values, ['Sa', 'Sb'])
+  })
 })

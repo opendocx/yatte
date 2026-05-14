@@ -348,6 +348,143 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(result.length, 1)
   })
 
+  // member expressions push the object onto the context stack when evaluating the property
+  //   obj.virtual ... virtual (when being evaluated) should have all members of obj available to it
+  //   obj1.obj2.virtual ... virtual (when being evaluated) should have access not only to obj2 but also to obj1
+
+  // object literals produce objects that preserve the context stack they were evaluated with
+  //   obj.virtual ... virtual evaluates an object literal to produce an object value. That value should carry obj as its parent context.
+
+  it('evaluates obj.virtual with obj as the active context', function () {
+    const data = {
+      obj: {
+        first: 'Hello',
+        second: 'World',
+        virtual: yatte.Engine.compileExpr('first + " " + second')
+      }
+    }
+    const scope = Scope.pushObject(data)
+    const evaluator = yatte.Engine.compileExpr('obj.virtual')
+    const result = scope.evaluate(evaluator)
+    assert.strictEqual(result, 'Hello World')
+  })
+
+  it('evaluates obj1.obj2.virtual with both obj2 and obj1 in context', function () {
+    const data = {
+      obj1: {
+        shared: 'Hello',
+        obj2: {
+          local: 'World',
+          virtual: yatte.Engine.compileExpr('shared + " " + local')
+        }
+      }
+    }
+    const scope = Scope.pushObject(data)
+    const evaluator = yatte.Engine.compileExpr('obj1.obj2.virtual')
+    const result = scope.evaluate(evaluator)
+    assert.strictEqual(result, 'Hello World')
+  })
+
+  it('maps obj1.obj2 array virtuals that reference shared (unqualified)', function () {
+    const data = {
+      obj1: {
+        shared: 'S',
+        obj2: [
+          { local: 'a', virtual: yatte.Engine.compileExpr('shared + local') },
+          { local: 'b', virtual: yatte.Engine.compileExpr('shared + local') }
+        ]
+      }
+    }
+    const scope = Scope.pushObject(data)
+    const evaluator = yatte.Engine.compileExpr('(obj1.obj2|map:virtual).join(",")')
+    const result = scope.evaluate(evaluator)
+    assert.strictEqual(result, 'Sa,Sb')
+  })
+
+  it('maps obj1.obj2 array virtuals that reference shared via _parent', function () {
+    const data = {
+      obj1: {
+        shared: 'S',
+        obj2: [
+          { local: 'a', virtual: yatte.Engine.compileExpr('_parent.shared + local') },
+          { local: 'b', virtual: yatte.Engine.compileExpr('_parent.shared + local') }
+        ]
+      }
+    }
+    const scope = Scope.pushObject(data)
+    const evaluator = yatte.Engine.compileExpr('(obj1.obj2|map:virtual).join(",")')
+    const result = scope.evaluate(evaluator)
+    assert.strictEqual(result, 'Sa,Sb')
+  })
+
+  it('preserves map virtual context for obj1.obj2 when parent scope is virtualized and replaced', function () {
+    const rows = [
+      { local: 'a', virtual: yatte.Engine.compileExpr('_parent.shared + local') },
+      { local: 'b', virtual: yatte.Engine.compileExpr('_parent.shared + local') }
+    ]
+    let data = { obj1: { shared: 'S1', obj2: rows } }
+    let rootScope = Scope.pushObject(data)
+    const link = () => rootScope
+    const childScope = Scope.pushObject({ marker: true }, link)
+    const evaluator = yatte.Engine.compileExpr('(obj1.obj2|map:virtual).join(",")')
+    const first = childScope.evaluate(evaluator)
+    assert.strictEqual(first, 'S1a,S1b')
+    data = { obj1: { shared: 'S2', obj2: rows } }
+    rootScope = Scope.pushObject(data)
+    const second = childScope.evaluate(evaluator)
+    assert.strictEqual(second, 'S2a,S2b')
+  })
+
+  it('preserves context when obj1.obj2 is evaluated first and virtual is evaluated per item', function () {
+    const data = {
+      obj1: {
+        shared: 'S',
+        obj2: [
+          { local: 'a', virtual: yatte.Engine.compileExpr('shared + local') },
+          { local: 'b', virtual: yatte.Engine.compileExpr('shared + local') }
+        ]
+      }
+    }
+    const scope = Scope.pushObject(data)
+    const getRows = yatte.Engine.compileExpr('obj1.obj2')
+    const evalVirtual = yatte.Engine.compileExpr('virtual')
+    const rows = scope.evaluate(getRows)
+    const values = rows.map(row => Scope.pushObject(row).evaluate(evalVirtual))
+    assert.strictEqual(values.join(','), 'Sa,Sb')
+  })
+
+  it('retains _parent access when obj1.obj2 is evaluated first and virtual is evaluated per item', function () {
+    const data = {
+      obj1: {
+        shared: 'S',
+        obj2: [
+          { local: 'a', virtual: yatte.Engine.compileExpr('_parent.shared + local') },
+          { local: 'b', virtual: yatte.Engine.compileExpr('_parent.shared + local') }
+        ]
+      }
+    }
+    const scope = Scope.pushObject(data)
+    const getRows = yatte.Engine.compileExpr('obj1.obj2')
+    const evalVirtual = yatte.Engine.compileExpr('virtual')
+    const rows = scope.evaluate(getRows)
+    const values = rows.map(row => Scope.pushObject(row).evaluate(evalVirtual))
+    assert.strictEqual(values.join(','), 'Sa,Sb')
+  })
+
+  it('preserves parent context when a virtual returns an object literal', function () {
+    const data = {
+      obj: {
+        prefix: 'parent value',
+        virtual: yatte.Engine.compileExpr('{ marker: "child value" }')
+      }
+    }
+    const scope = Scope.pushObject(data)
+    const childObj = scope.evaluate(yatte.Engine.compileExpr('obj.virtual'))
+    const childScope = Scope.pushObject(childObj)
+    const result = childScope.evaluate(yatte.Engine.compileExpr('_parent.prefix'))
+    assert.strictEqual(result, 'parent value')
+  })
+
   it('throws when unbounded recursion occurs in an expression', function () {
     const obj = {
       SingleEntity: {
