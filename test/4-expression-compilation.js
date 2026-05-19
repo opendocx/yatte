@@ -197,11 +197,25 @@ describe('Compiling expressions via exported API', function () {
     assert.throws(() => yatte.Engine.compileExpr('ProbateClient.MaritalStatus == “Married”'), // used curly quotes
       {
         name: 'SyntaxError',
-        message: "Lexer Error: Unexpected next character '“':\nProbateClient.MaritalStatus == “Married”\n                               ^" })
+        message: "Lexer Error: Unexpected next character '“':\nProbateClient.MaritalStatus == “Married”\n                               ^"
+      })
     assert.throws(() => yatte.Engine.compileExpr('Name|UPPER'), // non-existing filter
       {
         name: 'SyntaxError',
         message: 'Syntax Error: did you refer to a nonexistent filter?\nName|UPPER'
+      })
+  })
+
+  it('handles angular-expression parse errors on expressions containing line breaks', function () {
+    assert.throws(() => yatte.Engine.compileExpr('(\na\n))'), // extra paren + ignore line breaks
+    {
+      name: 'SyntaxError',
+      message: "Syntax Error: ')' is an unexpected token:\n( a ))\n     ^"
+    })
+    assert.throws(() => yatte.Engine.compileExpr('ProbateClient\n  .MaritalStatus == “Married”'), // used curly quotes + line break
+      {
+        name: 'SyntaxError',
+        message: "Lexer Error: Unexpected next character '“':\nProbateClient   .MaritalStatus == “Married”\n                                  ^"
       })
   })
 

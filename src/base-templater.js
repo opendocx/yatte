@@ -187,21 +187,35 @@ exports.setLabel = setLabel
 const angularExpressionErrorMessage = function (e, expr) {
   const errLines = e.message.split('\n')
   if (errLines[0].startsWith('[$parse:syntax]')) {
-    const errUrl = new URL(errLines[1])
+    const lineCount = errLines.length
+    const errUrl = new URL(errLines[lineCount - 1])
     const token = errUrl.searchParams.get('p0')
     const msg = errUrl.searchParams.get('p1')
     const position = errUrl.searchParams.get('p2')
-    const expr = errUrl.searchParams.get('p3')
+    const expr = errUrl.searchParams.get('p3').replace(/\n/g, ' ')
     return `Syntax Error: '${token}' ${msg}:\n${expr}\n${' '.repeat(position - 1) + '^'.repeat(token.length)}`
   }
   if (errLines[0].startsWith('[$parse:lexerr]')) {
-    let msg = errLines[0].substr(15).trim()
-    const errInfo = msg.match(/^(.+) +at columns (\d+).*?\[(.*?)\]/)
-    const expr = msg.match(/in expression \[(.*)\].*?$/)[1]
-    msg = errInfo[1].trim()
-    const position = errInfo[2]
-    const token = errInfo[3]
-    return `${msg} '${token}':\n${expr}\n${' '.repeat(position) + '^'.repeat(token.length)}`
+    const lineCount = errLines.length
+    const errUrl = new URL(errLines[lineCount - 1])
+    const msg = errUrl.searchParams.get('p0').trim()
+    const expr = errUrl.searchParams.get('p2').replace(/\n/g, ' ')
+    const raw = errUrl.searchParams.get('p1') // e.g. 's 34-34 [“]'
+    let info = raw.match(/^(?<kind>s)?\s*(?<start>\d+)(?:-(?<end>\d+))?\s+\[(?<token>[^\]]*)\]$/)
+    let position, token
+    if (info) {
+      // const isSpan = info.groups.kind === 's'
+      position = info.groups.start
+      // const end = info.groups.end ? Number(info.groups.end) : position
+      token = info.groups.token
+    } else { // fall-back to older logic
+      info = errLines[0].match(/^(.+) +at columns (\d+).*?\[(.*?)\]/)
+      position = info[2]
+      token = info[3]
+    }
+    if (msg && token && expr) {
+      return `Lexer Error: ${msg} '${token}':\n${expr}\n${' '.repeat(position) + '^'.repeat(token.length)}`
+    }
   }
   if (e.message.startsWith('Cannot read propert') && e.message.includes('$stateful')) {
     return 'Syntax Error: did you refer to a nonexistent filter?\n' + expr
