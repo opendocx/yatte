@@ -46,18 +46,20 @@ class MetaEvaluator {
         } catch (err) {
           return CreateContextErrorMessage(err.message)
         }
+        const priorContext = contextStack
         contextStack = Scope.pushList(iterable, contextStack)
-        contextStack.__expr = contentItem.expr // for deferred re-evaluation of list if necessary
-        const allContent = contextStack.indices.map(index => {
-          contextStack = Scope.pushListItem(index, contextStack)
+        const listContext = contextStack
+        listContext.__expr = contentItem.expr // for deferred re-evaluation of list if necessary
+        const allContent = listContext.indices.map(index => {
+          contextStack = Scope.pushListItem(index, listContext) // "hard push"
           contextStack.__index = index // for deferred re-selection of list item if necessary
           const listItemContent = contentItem.contentArray.map(
             listContentItem => this.ContentReplacementTransform(listContentItem, contextStack)
           )
-          contextStack = Scope.pop(contextStack)
+          contextStack = listContext // "hard pop" ListItem
           return FlatSingle(listItemContent)
         })
-        contextStack = Scope.pop(contextStack)
+        contextStack = priorContext // "hard pop" List
         return FlatSingle(allContent)
       }
 

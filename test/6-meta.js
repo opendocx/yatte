@@ -219,4 +219,83 @@ describe('Assembly of meta template via exported API', function () {
     })
     assert.deepStrictEqual(values, ['Sa', 'Sb'])
   })
+
+  it('should fully unwind nested member-expression list contexts before later meta fields', function () {
+    const metaTemplate = `
+{[list test1]}
+{[a]}
+{[list test2.test3]}
+{[c]}
+{[endlist]}
+{[b]}
+{[endlist]}
+{[x]}
+`
+    const data = Scope.pushObject({
+      x: 'X',
+      test1: [
+        {
+          a: 'A',
+          b: 'B',
+          test2: {
+            test3: [
+              { c: 'C1' },
+              { c: 'C2' }
+            ]
+          }
+        }
+      ]
+    })
+    const result = yatte.assembleMeta(metaTemplate, data)
+    assert.strictEqual(result.value.body.length, 5)
+    const xNode = result.value.body.find(node => node.text === 'x')
+    assert.ok(xNode, 'expected x expression node')
+    assert.deepStrictEqual(xNode.context, [])
+    const rebuiltScope = Scope.pushContext(xNode.context, data)
+    const xValue = rebuiltScope.evaluate(yatte.Engine.compileExpr('x'))
+    assert.strictEqual(xValue, 'X')
+  })
+
+  it('should keep meta node contexts stable for nested list map member paths', function () {
+    const metaTemplate = `
+{[list test1]}
+{[list test2.test3|map:test4.test5]}
+{[x]}
+{[endlist]}
+{[b]}
+{[endlist]}
+{[outside]}
+`
+    const data = Scope.pushObject({
+      outside: 'OUT',
+      x: 'TOP',
+      test1: [
+        {
+          b: 'B1',
+          test2: {
+            test3: [
+              {
+                test4: {
+                  test5: { x: 'T5' }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    })
+    const result = yatte.assembleMeta(metaTemplate, data)
+    const xNode = result.value.body.find(node => node.text === 'x')
+    const bNode = result.value.body.find(node => node.text === 'b')
+    const outsideNode = result.value.body.find(node => node.text === 'outside')
+    assert.ok(xNode && bNode && outsideNode)
+    assert.deepStrictEqual(bNode.context, ['test1', 0])
+    assert.deepStrictEqual(outsideNode.context, [])
+    const xValue = Scope.pushContext(xNode.context, data).evaluate(yatte.Engine.compileExpr('x'))
+    const bValue = Scope.pushContext(bNode.context, data).evaluate(yatte.Engine.compileExpr('b'))
+    const outsideValue = Scope.pushContext(outsideNode.context, data).evaluate(yatte.Engine.compileExpr('outside'))
+    assert.strictEqual(xValue, 'T5')
+    assert.strictEqual(bValue, 'B1')
+    assert.strictEqual(outsideValue, 'OUT')
+  })
 })

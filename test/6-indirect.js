@@ -71,6 +71,72 @@ describe('Aggregating data based on extracted logic files', function () {
     assert.strictEqual(str,
       '{"Children|punc:\\"1, 2 and 3\\"":[{"Name":"Greg","Children|punc:\\"1, 2 and 3\\"_PUNC":", "},{"Name":"Marcia","Children|punc:\\"1, 2 and 3\\"_PUNC":", "},{"Name":"Peter","Children|punc:\\"1, 2 and 3\\"_PUNC":", "},{"Name":"Jan","Children|punc:\\"1, 2 and 3\\"_PUNC":", "},{"Name":"Bobby","Children|punc:\\"1, 2 and 3\\"_PUNC":" and "},{"Name":"Cindy"}],"Children|punc:\\"1;2; and3.\\"":[{"Name":"Greg","Birthdate|format:\\"MM/DD/YYYY\\"":"09/30/1954","Children|punc:\\"1;2; and3.\\"_PUNC":";"},{"Name":"Marcia","Birthdate|format:\\"MM/DD/YYYY\\"":"08/05/1956","Children|punc:\\"1;2; and3.\\"_PUNC":";"},{"Name":"Peter","Birthdate|format:\\"MM/DD/YYYY\\"":"11/07/1957","Children|punc:\\"1;2; and3.\\"_PUNC":";"},{"Name":"Jan","Birthdate|format:\\"MM/DD/YYYY\\"":"04/29/1958","Children|punc:\\"1;2; and3.\\"_PUNC":";"},{"Name":"Bobby","Birthdate|format:\\"MM/DD/YYYY\\"":"12/19/1960","Children|punc:\\"1;2; and3.\\"_PUNC":"; and"},{"Name":"Cindy","Birthdate|format:\\"MM/DD/YYYY\\"":"08/14/1961","Children|punc:\\"1;2; and3.\\"_PUNC":"."}]}')
   })
+  it('nested list member-expression contexts should fully unwind after endlist', function () {
+    const template = `{[list test1]}
+{[a]}
+{[list test2.test3]}
+{[c]}
+{[endlist]}
+{[b]}
+{[endlist]}
+{[x]}`
+    const data = {
+      x: 'outside',
+      test1: [
+        {
+          a: 'A',
+          b: 'B',
+          test2: {
+            test3: [
+              { c: 'C1' },
+              { c: 'C2' }
+            ]
+          }
+        }
+      ]
+    }
+    const logic = yatte.extractLogic(template)
+    const asm = new IndirectAssembler(data)
+    asm.assembleData(logic)
+    assert.deepStrictEqual(asm.errors, [])
+    const outputJson = asm.data.toJson()
+    assert.ok(outputJson.includes('"x":"outside"'), 'expected x to be evaluated in top-level context')
+  })
+  it('nested list map member-path contexts should unwind and keep outer fields available', function () {
+    const template = `{[list test1]}
+{[list test2.test3|map:test4.test5]}
+{[x]}
+{[endlist]}
+{[b]}
+{[endlist]}
+{[outside]}`
+    const data = {
+      outside: 'OUT',
+      x: 'TOP',
+      test1: [
+        {
+          b: 'B1',
+          test2: {
+            test3: [
+              {
+                test4: {
+                  test5: { x: 'T5' }
+                }
+              }
+            ]
+          }
+        }
+      ]
+    }
+    const logic = yatte.extractLogic(template)
+    const asm = new IndirectAssembler(data)
+    asm.assembleData(logic)
+    assert.deepStrictEqual(asm.errors, [])
+    const outputJson = asm.data.toJson()
+    assert.ok(outputJson.includes('"x":"T5"'), 'expected inner x to resolve from test5')
+    assert.ok(outputJson.includes('"b":"B1"'), 'expected b to resolve after inner endlist')
+    assert.ok(outputJson.includes('"outside":"OUT"'), 'expected outside to resolve after outer endlist')
+  })
   it('should assemble data XML that includes unanswered placeholders', async function () {
     const logic = JSON.parse(await fs.readFile('./test/cases/SimpleWill2.logic.json', 'utf-8'))
     const data = {

@@ -297,6 +297,86 @@ describe('Assembly of text template via exported API', function () {
     assert(result == 'The first item is ONE, followed by TWO, followed by THREE, and lastly FOUR.')
   })
 
+  it('should fully unwind nested member-expression list contexts before continuing outer content', function () {
+    const template = `{[list test1]}
+{[a]} is in each item of test1, as is test2:
+{[list test2.test3]}
+{[c]} is in each item of test3
+{[endlist]}
+{[b]} is in test1
+{[endlist]}
+{[x]} is outside of test1 (in the top-level model)`
+    const data = {
+      x: 'X',
+      test1: [
+        {
+          a: 'A',
+          b: 'B',
+          test2: {
+            test3: [
+              { c: 'C1' },
+              { c: 'C2' }
+            ]
+          }
+        }
+      ]
+    }
+    const result = yatte.assembleText(template, data)
+    const output = result.value.toString()
+    assert(output.includes('A is in each item of test1, as is test2:'))
+    assert(output.includes('C1 is in each item of test3'))
+    assert(output.includes('C2 is in each item of test3'))
+    assert(output.includes('B is in test1'))
+    assert(output.includes('X is outside of test1 (in the top-level model)'))
+  })
+
+  it('characterizes context lookup for list map member paths and confirms unwind behavior', function () {
+    const template = '{[list test1]}{[list test2.test3|map:test4.test5]}{[x]}{[endlist]}|{[b]}{[endlist]}|{[outside]}'
+    const buildData = (where) => {
+      const data = {
+        outside: 'OUT',
+        x: 'TOP',
+        test1: [
+          {
+            b: 'B1',
+            test2: {
+              test3: [
+                {
+                  test4: {
+                    test5: {}
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+      const t1 = data.test1[0]
+      const t2 = t1.test2
+      const t3 = t2.test3[0]
+      const t4 = t3.test4
+      const t5 = t4.test5
+      if (where === 'test1') t1.x = 'T1'
+      if (where === 'test2') t2.x = 'T2'
+      if (where === 'test3') t3.x = 'T3'
+      if (where === 'test4') t4.x = 'T4'
+      if (where === 'test5') t5.x = 'T5'
+      return data
+    }
+    const scenarios = [
+      { where: 'top', expected: 'TOP|B1|OUT' },
+      { where: 'test1', expected: 'T1|B1|OUT' },
+      { where: 'test2', expected: 'TOP|B1|OUT' },
+      { where: 'test3', expected: 'TOP|B1|OUT' },
+      { where: 'test4', expected: 'TOP|B1|OUT' },
+      { where: 'test5', expected: 'T5|B1|OUT' }
+    ]
+    for (const scenario of scenarios) {
+      const result = yatte.assembleText(template, buildData(scenario.where))
+      assert.strictEqual(result.value.toString(), scenario.expected, `scenario ${scenario.where}`)
+    }
+  })
+
   it('should assemble a template without any data', function () {
     const template = '{[list items|filter:_index == 1]}The first item is {[FieldName]}{[endlist]}{[list items|filter:_index > 1 && _index < items.length]}, followed by {[FieldName]}{[endlist]}{[if items.length > 1]}, and lastly {[items[items.length-1].FieldName]}{[endif]}.'
     const result = yatte.assembleText(template, {})

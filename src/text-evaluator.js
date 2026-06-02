@@ -86,15 +86,17 @@ class TextEvaluator {
           }
           return CreateContextErrorMessage('EvaluationException: ' + err.message)
         }
+        const priorContext = contextStack
         contextStack = Scope.pushList(iterable, contextStack)
-        const allContent = contextStack.indices.map(index => {
-          contextStack = Scope.pushListItem(index, contextStack)
+        const listContext = contextStack
+        const allContent = listContext.indices.map(index => {
+          contextStack = Scope.pushListItem(index, listContext) // "hard push"
           const listItemContent = contentItem.contentArray.map(
             listContentItem => this.ContentReplacementTransform(listContentItem, contextStack))
-          contextStack = Scope.pop(contextStack)
+          contextStack = listContext // "hard pop" ListItem
           return listItemContent.join('')
         })
-        contextStack = Scope.pop(contextStack)
+        contextStack = priorContext // "hard pop" List
         return allContent.join('')
       }
       case OD.If:

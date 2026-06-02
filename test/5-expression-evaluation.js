@@ -471,6 +471,82 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(values.join(','), 'Sa,Sb')
   })
 
+  it('keeps nested map context anchored to current list item (where map is invoked)', function () {
+    const mkTest5 = () => yatte.Engine.compileExpr(
+      '(_parent.tag3 || "NO3") + ":" + (tag2 || "NO2") + ":" + (id || "NO1") + ":" + x'
+    )
+    const data = {
+      x: 'TOP',
+      test4_from_top: { test5: mkTest5() },
+      test1: [
+        {
+          id: 'I1',
+          test4_from_t1: { test5: mkTest5() },
+          test2: {
+            tag2: 'T2',
+            test4_from_t2: { test5: mkTest5() },
+            test3: [
+              { tag3: 'A', test4: { test5: mkTest5() } },
+              { tag3: 'B', test4: { test5: mkTest5() } }
+            ]
+          }
+        }
+      ]
+    }
+    let scope = Scope.pushObject(data)
+    scope = Scope.pushList(data.test1, scope)
+    scope = Scope.pushListItem(0, scope)
+    const expressions = [
+      '(test2.test3|map:test4|map:test5).join(",")',
+      '(test2.test3|map:test4_from_t2|map:test5).join(",")',
+      '(test2.test3|map:test4_from_t1|map:test5).join(",")',
+      '(test2.test3|map:test4_from_top|map:test5).join(",")'
+    ]
+    const results = expressions.map(expr => scope.evaluate(yatte.Engine.compileExpr(expr)))
+    assert.deepStrictEqual(results, [
+      'A:T2:I1:TOP,B:T2:I1:TOP',
+      'A:T2:I1:TOP,B:T2:I1:TOP',
+      'A:T2:I1:TOP,B:T2:I1:TOP',
+      'A:T2:I1:TOP,B:T2:I1:TOP'
+    ])
+  })
+
+  it('keeps _parent in nested map tied to the current test3 item', function () {
+    const mkTest5 = () => yatte.Engine.compileExpr('(_parent.tag3 || "NO3") + ":" + (_parent.tag2 || "NO2")')
+    const data = {
+      test4_from_top: { test5: mkTest5() },
+      test1: [
+        {
+          test4_from_t1: { test5: mkTest5() },
+          test2: {
+            tag2: 'T2',
+            test4_from_t2: { test5: mkTest5() },
+            test3: [
+              { tag3: 'A', test4: { test5: mkTest5() } },
+              { tag3: 'B', test4: { test5: mkTest5() } }
+            ]
+          }
+        }
+      ]
+    }
+    let scope = Scope.pushObject(data)
+    scope = Scope.pushList(data.test1, scope)
+    scope = Scope.pushListItem(0, scope)
+    const expressions = [
+      '(test2.test3|map:test4|map:test5).join(",")',
+      '(test2.test3|map:test4_from_t2|map:test5).join(",")',
+      '(test2.test3|map:test4_from_t1|map:test5).join(",")',
+      '(test2.test3|map:test4_from_top|map:test5).join(",")'
+    ]
+    const results = expressions.map(expr => scope.evaluate(yatte.Engine.compileExpr(expr)))
+    assert.deepStrictEqual(results, [
+      'A:NO2,B:NO2',
+      'A:NO2,B:NO2',
+      'A:NO2,B:NO2',
+      'A:NO2,B:NO2'
+    ])
+  })
+
   it('preserves parent context when a virtual returns an object literal', function () {
     const data = {
       obj: {

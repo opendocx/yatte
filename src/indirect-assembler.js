@@ -72,11 +72,12 @@ class IndirectAssembler {
 
   _assembleListContext (node) {
     // begin list context:
-    const frame = this.contextStack
+    const priorContext = this.contextStack
     const evaluator = Engine.compileExpr(node.expr)
-    const iterable = frame.evaluate(evaluator)
+    const iterable = priorContext.evaluate(evaluator)
     this.contextStack = Scope.pushList(iterable || [], this.contextStack)
-    const indices = this.contextStack.indices
+    const listContext = this.contextStack
+    const indices = listContext.indices
     this.data.pushList(node.atom || node.expr)
     // set data for each row
     // atom to represent an individual item in the list
@@ -84,17 +85,17 @@ class IndirectAssembler {
     for (const itemIndex of indices) {
       // was serializeContextInDataJs
       // begin child object context -- individual item in a list context
-      this.contextStack = Scope.pushListItem(itemIndex, this.contextStack)
+      this.contextStack = Scope.pushListItem(itemIndex, listContext) // "hard push"
       this.data.pushObject(itemAtom)
       // evaluate each expression in this context
       this._assembleContextFields(node.contentArray, node)
       // end object context
-      this.contextStack = Scope.pop(this.contextStack)
+      this.contextStack = listContext // "hard pop" ListItem
       this.data.popObject()
     }
     // end list context:
     this.data.popList()
-    this.contextStack = Scope.pop(this.contextStack)
+    this.contextStack = priorContext // "hard pop" List
   }
 
   _assembleConditionalContext (node) {

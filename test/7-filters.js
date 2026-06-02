@@ -487,6 +487,219 @@ describe('reduce filter', function () {
   })
 })
 
+describe('list filter context behavior', function () {
+  const nestedFilterData = {
+    top: 'TOP',
+    test1: [
+      {
+        id: 'I1',
+        test2: {
+          tag2: 'T2',
+          x: 'X2',
+          test3: [
+            {
+              tag3: 'A',
+              test4: {
+                x: 'X4A',
+                test5: {
+                  x: 'X5A',
+                },
+                tag4: 'T4A',
+              }
+            },
+            {
+              tag3: 'B',
+              test4: {
+                x: 'X4B',
+                test5: {
+                  x: 'X5B',
+                },
+                tag4: 'T4B',
+              }
+            }
+          ]
+        }
+      }
+    ]
+  }
+  const probe = yatte.Engine.compileExpr('(tag4 || "NO4") + ":" + (tag3 || "NO3") + ":" + (tag2 || "NO2") + ":" + (id || "NO1") + ":" + top')
+  const topDesc = yatte.Engine.compileExpr('top')
+  const t1Desc = yatte.Engine.compileExpr('id + ":" + _parent.desc')
+  const t2Desc = yatte.Engine.compileExpr('tag2 + ":" + _parent.desc')
+  const t3Desc = yatte.Engine.compileExpr('tag3 + ":" + _parent.desc')
+  const t4Desc = yatte.Engine.compileExpr('tag4 + ":" + _parent.desc')
+  const t5Desc = yatte.Engine.compileExpr('x + ":" + _parent.desc')
+  nestedFilterData.desc = topDesc
+  nestedFilterData.test1[0].desc = t1Desc
+  nestedFilterData.test1[0].test2.desc = t2Desc
+  nestedFilterData.test1[0].test2.test3[0].desc = t3Desc
+  nestedFilterData.test1[0].test2.test3[0].test4.desc = t4Desc
+  nestedFilterData.test1[0].test2.test3[0].test4.test5.desc = t5Desc
+  nestedFilterData.test1[0].test2.test3[0].test4.test5.probe = probe
+  nestedFilterData.test1[0].test2.test3[1].desc = t3Desc
+  nestedFilterData.test1[0].test2.test3[1].test4.desc = t4Desc
+  nestedFilterData.test1[0].test2.test3[1].test4.test5.desc = t5Desc
+  nestedFilterData.test1[0].test2.test3[1].test4.test5.probe = probe
+
+  function scopeOnFirstTest1Item () {
+    let scope = Scope.pushObject(nestedFilterData)
+    scope = Scope.pushList(nestedFilterData.test1, scope)
+    scope = Scope.pushListItem(0, scope)
+    return scope
+  }
+
+  it('evaluates lambda arguments against each list item with expected ancestor access', function () {
+    const scope = scopeOnFirstTest1Item()
+    const checks = [
+      ['(test2.test3|filter:_parent.tag2=="T2" && id=="I1" && top=="TOP").length', 2],
+      ['(test2.test3|find:_parent.tag2=="T2" && id=="I1" && top=="TOP").tag3', 'A'],
+      ['test2.test3|any:_parent.tag2=="T2" && id=="I1" && top=="TOP"', true],
+      ['test2.test3|every:_parent.tag2=="T2" && id=="I1" && top=="TOP"', true],
+      ['(test2.test3|map:tag3 + ":" + _parent.tag2 + ":" + id + ":" + top).join(",")', 'A:T2:I1:TOP,B:T2:I1:TOP'],
+      ['(test2.test3|group:_parent.tag2 + ":" + id + ":" + top)[0]._key', 'T2:I1:TOP'],
+      ['test2.test3|reduce:_result + this.tag3 + this._parent.tag2 + id + top:""', 'AT2I1TOPBT2I1TOP']
+    ]
+    for (const [expr, expected] of checks) {
+      const actual = scope.evaluate(yatte.Engine.compileExpr(expr))
+      assert.deepStrictEqual(actual, expected, expr)
+    }
+  })
+
+  it('characterizes object-result context from map member paths', function () {
+    const scope = scopeOnFirstTest1Item()
+    const checks = [
+      ['(test2.test3|map:test4.test5|map:probe).join(",")', 'T4A:A:T2:I1:TOP,T4B:B:T2:I1:TOP'],
+      ['(test2.test3|map:test4.test5|map:x).join(",")', 'X5A,X5B'],
+      ['(test2.test3|map:test4.test5|map:test2.x).join(",")', 'X2,X2'],
+      ['(test2.test3|map:test4.test5|map:top).join(",")', 'TOP,TOP']
+    ]
+    for (const [expr, expected] of checks) {
+      const actual = scope.evaluate(yatte.Engine.compileExpr(expr))
+      assert.strictEqual(actual, expected, expr)
+    }
+  })
+
+  it('characterizes equivalence between member-path map and chained map for context lookup', function () {
+    const scope = scopeOnFirstTest1Item()
+    const checks = [
+      ['(test2.test3|map:test4.test5|map:x).join(",")', 'X5A,X5B'],
+      ['(test2.test3|map:test4|map:test5|map:x).join(",")', 'X5A,X5B'],
+      ['(test2.test3|map:test4.test5|map:tag4).join(",")', 'T4A,T4B'],
+      ['(test2.test3|map:test4|map:test5|map:tag4).join(",")', 'T4A,T4B'],
+      ['(test2.test3|map:test4.test5|map:tag3).join(",")', 'A,B'],
+      ['(test2.test3|map:test4|map:test5|map:tag3).join(",")', 'A,B'],
+      ['(test2.test3|map:test4.test5|map:test2.x).join(",")', 'X2,X2'],
+      ['(test2.test3|map:test4|map:test5|map:test2.x).join(",")', 'X2,X2'],
+      ['(test2.test3|map:test4.test5|map:id).join(",")', 'I1,I1'],
+      ['(test2.test3|map:test4|map:test5|map:id).join(",")', 'I1,I1']
+    ]
+    for (const [expr, expected] of checks) {
+      const actual = scope.evaluate(yatte.Engine.compileExpr(expr))
+      assert.strictEqual(actual, expected, expr)
+    }
+  })
+
+  it('resolves desc virtuals directly at each nested object level', function () {
+    const scope = scopeOnFirstTest1Item()
+    const checks = [
+      ['desc', 'I1:TOP'],
+      ['test2.desc', 'T2:I1:TOP'],
+      ['test2.test3[0].desc', 'A:T2:I1:TOP'],
+      ['test2.test3[0].test4.desc', 'T4A:A:T2:I1:TOP'],
+      ['test2.test3[0].test4.test5.desc', 'X5A:T4A:A:T2:I1:TOP'],
+      ['test2.test3[1].desc', 'B:T2:I1:TOP'],
+      ['test2.test3[1].test4.desc', 'T4B:B:T2:I1:TOP'],
+      ['test2.test3[1].test4.test5.desc', 'X5B:T4B:B:T2:I1:TOP']
+    ]
+    for (const [expr, expected] of checks) {
+      const actual = scope.evaluate(yatte.Engine.compileExpr(expr))
+      assert.strictEqual(actual, expected, expr)
+    }
+  })
+
+  it('keeps desc virtuals aligned with mapped object level across list filters', function () {
+    const scope = scopeOnFirstTest1Item()
+    const checks = [
+      ['(test2.test3|map:desc).join(",")', 'A:T2:I1:TOP,B:T2:I1:TOP'],
+      ['(test2.test3|map:test4|map:desc).join(",")', 'T4A:A:T2:I1:TOP,T4B:B:T2:I1:TOP'],
+      ['(test2.test3|map:test4.test5|map:desc).join(",")', 'X5A:T4A:A:T2:I1:TOP,X5B:T4B:B:T2:I1:TOP'],
+      ['(test2.test3|map:test4|map:test5|map:desc).join(",")', 'X5A:T4A:A:T2:I1:TOP,X5B:T4B:B:T2:I1:TOP']
+    ]
+    for (const [expr, expected] of checks) {
+      const actual = scope.evaluate(yatte.Engine.compileExpr(expr))
+      assert.strictEqual(actual, expected, expr)
+    }
+  })
+})
+
+describe('list filter context behavior - test2.test4', function () {
+  const nestedFilterData = {
+    top: 'TOP',
+    test1: [
+      {
+        id: 'I1',
+        test2: {
+          tag2: 'T2',
+          x: 'X2',
+          test3: [
+            {
+              tag3: 'A',
+            },
+            {
+              tag3: 'B',
+            }
+          ],
+          test4: {
+            x: 'X4A',
+            test5: {
+              x: 'X5A',
+            },
+            tag4: 'T4A',
+          }
+        }
+      }
+    ]
+  }
+  const probe = yatte.Engine.compileExpr('(tag4 || "NO4") + ":" + (tag3 || "NO3") + ":" + (tag2 || "NO2") + ":" + (id || "NO1") + ":" + top')
+  const topDesc = yatte.Engine.compileExpr('top')
+  const t1Desc = yatte.Engine.compileExpr('id + ":" + _parent.desc')
+  const t2Desc = yatte.Engine.compileExpr('tag2 + ":" + _parent.desc')
+  const t3Desc = yatte.Engine.compileExpr('tag3 + ":" + _parent.desc')
+  const t4Desc = yatte.Engine.compileExpr('tag4 + ":" + _parent.desc')
+  const t5Desc = yatte.Engine.compileExpr('x + ":" + _parent.desc')
+  nestedFilterData.desc = topDesc
+  nestedFilterData.test1[0].desc = t1Desc
+  nestedFilterData.test1[0].test2.desc = t2Desc
+  nestedFilterData.test1[0].test2.test3[0].desc = t3Desc
+  nestedFilterData.test1[0].test2.test3[1].desc = t3Desc
+  nestedFilterData.test1[0].test2.test4.desc = t4Desc
+  nestedFilterData.test1[0].test2.test4.test5.desc = t5Desc
+  nestedFilterData.test1[0].test2.test4.test5.probe = probe
+  
+  function scopeOnFirstTest1Item () {
+    let scope = Scope.pushObject(nestedFilterData)
+    scope = Scope.pushList(nestedFilterData.test1, scope)
+    scope = Scope.pushListItem(0, scope)
+    return scope
+  }
+
+  it('keeps desc virtuals aligned with mapped object level across list filters', function () {
+    const scope = scopeOnFirstTest1Item()
+    const checks = [
+      // ['(test2.test3|map:test4|map:desc).join(",")', 'T4A:T2:I1:TOP,T4A:T2:I1:TOP'],
+      ['(test2.test3|map:test4|map:desc).join(",")', 'T4A:A:T2:I1:TOP,T4A:B:T2:I1:TOP'],
+      // ['(test2.test3|map:test4.test5|map:desc).join(",")', 'X5A:T4A:T2:I1:TOP,X5A:T4A:T2:I1:TOP'],
+      ['(test2.test3|map:test4.test5|map:desc).join(",")', 'X5A:T4A:A:T2:I1:TOP,X5A:T4A:B:T2:I1:TOP'],
+      // ['(test2.test3|map:test4|map:test5|map:desc).join(",")', 'X5A:T4A:T2:I1:TOP,X5A:T4A:T2:I1:TOP']
+      ['(test2.test3|map:test4|map:test5|map:desc).join(",")', 'X5A:T4A:A:T2:I1:TOP,X5A:T4A:B:T2:I1:TOP']
+    ]
+    for (const [expr, expected] of checks) {
+      const actual = scope.evaluate(yatte.Engine.compileExpr(expr))
+      assert.strictEqual(actual, expected, expr)
+    }
+  })
+})
+
 const data_Children = {
   Children: [
     { Name: 'John', Birth: new Date(1970, 8, 5) },
