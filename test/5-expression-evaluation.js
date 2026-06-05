@@ -246,7 +246,7 @@ describe('Executing expressions compiled via exported API', function () {
     // (2) map that list of empty objects, to a list of values synthesized from the context.
     // An error occurs when evaluating, because the first sub-expression (the input to |map)
     // provides no context, so when evaluating the map, 'val' and '_index' cannot be found/evaluated.
-    const evaluator = yatte.Engine.compileExpr('("X!".repeat(2)+"X").split("!")|map:{label: val+" "+_index }')
+    const evaluator = yatte.Engine.compileExpr('"#".repeat(3).split("")|map:{label: val+" "+_index }')
     const data = {
       val: 'number',
     }
@@ -257,11 +257,25 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(result, undefined)
   })
 
+  it('synthesized list without context can map this but not _index', function () {
+    const evaluator1 = yatte.Engine.compileExpr('"#".repeat(3).split("")|map:this')
+    const evaluator2 = yatte.Engine.compileExpr('"#".repeat(3).split("")|map:_index')
+    const scope = Scope.pushObject({})
+    const result1 = scope.evaluate(evaluator1)
+    assert.strictEqual(result1.length, 3)
+    assert.strictEqual(result1[0].valueOf(), '#')
+    assert.strictEqual(result1[1].valueOf(), '#')
+    assert.strictEqual(result1[2].valueOf(), '#')
+    // _index is not available when the synthesized list carries no context
+    const result2 = scope.evaluate(evaluator2)
+    assert.strictEqual(result2, undefined)
+  })
+
   it('work around loss of context (when calling builtin functions on primitive values) using virtuals', function () {
     // this test case documents a workaround for the above error
     const data = {
       val: 'number',
-      listGen: yatte.Engine.compileExpr('("X!".repeat(2)+"X").split("!")') // virtual / workaround
+      listGen: yatte.Engine.compileExpr('"#".repeat(3).split("")') // virtual / workaround
     }
     const evaluator = yatte.Engine.compileExpr('listGen|map:{label: val+" "+_index }') // workaround
     const scope = Scope.pushObject(data)
@@ -270,6 +284,16 @@ describe('Executing expressions compiled via exported API', function () {
     assert.strictEqual(result[0].label, 'number 1')
     assert.strictEqual(result[1].label, 'number 2')
     assert.strictEqual(result[2].label, 'number 3')
+  })
+
+  it('virtual-generated list preserves parent-frame context during map evaluation', function () {
+    let scope = Scope.pushObject({ val: 'global' })
+    scope = Scope.pushObject({
+      listGen: yatte.Engine.compileExpr('"#".repeat(3).split("")')
+    }, scope)
+    const evaluator = yatte.Engine.compileExpr('listGen|map:val + " " + _index')
+    const result = scope.evaluate(evaluator)
+    assert.strictEqual(result.join(','), 'global 1,global 2,global 3')
   })
 
   it('allows fetching of hybrid objects (directly)', function () {
