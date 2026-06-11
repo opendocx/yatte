@@ -225,15 +225,19 @@ describe('number formatting', function () {
     assert.strictEqual(evaluator({ num: 12.34,    d: -5  }), null)
     assert.strictEqual(evaluator({ num: Infinity, d: 10  }), null)
   })
-
+*/
   it('truncate', function () {
     const Truncate = yatte.Engine.compileExpr('num|truncate:p')
     assert.strictEqual(Truncate({ num: 12.3456,  p: 2 }), 12.34)
     assert.strictEqual(Truncate({ num: 12.3456        }), 12)
     assert.strictEqual(Truncate({ num: "99.999", p: 1 }), 99.9)
+    assert.strictEqual(Truncate({ num: -12.3456, p: 2 }), -12.34) // truncates toward zero
+    assert.strictEqual(Truncate({ num: 12.3456,  p: "2" }), 12.34) // numeric-string places allowed
+    assert.strictEqual(Truncate({ num: null,     p: 2 }), null) // null/undefined passthrough
     // failure cases
     assert.strictEqual(Truncate({ num: "abc",    p: 2 }), null)
     assert.strictEqual(Truncate({ num: 12.3456, p: -1 }), null)
+    assert.strictEqual(Truncate({ num: 12.3456, p: "abc" }), null)
     assert.strictEqual(Truncate({ num: Infinity, p: 2 }), null)
   })
 
@@ -242,12 +246,39 @@ describe('number formatting', function () {
     assert.strictEqual(Round({ num: 12.3456,  p: 2 }), 12.35)
     assert.strictEqual(Round({ num: 12.3456        }), 12)
     assert.strictEqual(Round({ num: "99.999", p: 1 }), 100.0)
+    assert.strictEqual(Round({ num: -12.5,    p: 0 }), -12) // mirrors Math.round semantics
+    assert.strictEqual(Round({ num: 12.3456,  p: "2" }), 12.35) // numeric-string places allowed
+    assert.strictEqual(Round({ num: null,     p: 2 }), null) // null/undefined passthrough
     // failure cases
     assert.strictEqual(Round({ num: "abc",    p: 2 }), null)
     assert.strictEqual(Round({ num: 12.3456, p: -1 }), null)
+    assert.strictEqual(Round({ num: 12.3456, p: "abc" }), null)
     assert.strictEqual(Round({ num: Infinity, p: 2 }), null)
   })
-*/
+
+  it('round matches cardinalcur numeric rounding behavior', function () {
+    const cardinalWithCents = yatte.Engine.compileExpr('num|cardinalcur:"dollars":"cents"')
+    const cardinalNoCents = yatte.Engine.compileExpr('num|cardinalcur:"dollars"')
+    const round2 = yatte.Engine.compileExpr('num|round:2')
+    const round0 = yatte.Engine.compileExpr('num|round:0')
+    const samples = [12.3456, 12.999, 12.994, 1.005, -12.5]
+
+    for (const num of samples) {
+      const rounded2 = round2({ num })
+      assert.strictEqual(
+        cardinalWithCents({ num }),
+        cardinalWithCents({ num: rounded2 }),
+        `cardinalcur cents should match pre-round:2 for ${num}`
+      )
+      const rounded0 = round0({ num })
+      assert.strictEqual(
+        cardinalNoCents({ num }),
+        cardinalNoCents({ num: rounded0 }),
+        `cardinalcur dollars-only should match pre-round:0 for ${num}`
+      )
+    }
+  })
+
   it('base 26 - under 26', function () {
     const evaluator = yatte.Engine.compileExpr('num|format:"a"')
     assert.strictEqual(evaluator({ num: 3 }), 'c')

@@ -29,8 +29,8 @@ expressions.filters.cardinaldec = CardinalDec // number -> text
 expressions.filters.cardinalcur = CardinalCur // number -> text
 expressions.filters.ordinal = Ordinal       // number -> text
 expressions.filters.ordsuffix = Ordsuffix   // number -> text
-// expressions.filters.truncate = Truncate     // number -> number
-// expressions.filters.round = Round           // number -> number
+expressions.filters.truncate = Truncate     // number -> number
+expressions.filters.round = Round           // number -> number
 // expressions.filters.integer = Integer       // number -> number
 // expressions.filters.fractional = Fractional // number -> number
 expressions.filters.else = Else             // text/number/date/trueFalse -> same/text
@@ -295,7 +295,7 @@ function Fractional (input, denom) {
     if (!Number.isFinite(denom) || denom <= 0) return null
   }
   return num % 1 * denom
-}
+} */
 
 function Round (input, places) {
   return truncOrRound(input, { places, round: true })
@@ -303,7 +303,7 @@ function Round (input, places) {
 
 function Truncate (input, places) {
   return truncOrRound(input, { places, round: false })
-} */
+}
 
 function truncOrRound (number, options) {
   // check number
