@@ -73,6 +73,10 @@ class DataAggregator {
     }
   }
 
+  get (ident) {
+    return this.peek()[ident]
+  }
+
   push (frame) {
     this.stack.push(frame)
   }

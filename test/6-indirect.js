@@ -158,6 +158,53 @@ describe('Aggregating data based on extracted logic files', function () {
     const str = new IndirectAssembler(data).assembleData(logic).toXml('_odx')
     assert.strictEqual(str, '<?xml version="1.0"?><_odx><C1b>true</C1b><C2>testing</C2></_odx>')
   })
+  it('reuses an indirect at an identical list data path reached through multiple branches', async function () {
+    const makeList = () => ({
+      type: 'List',
+      expr: 'people',
+      atom: 'L1',
+      contentArray: [{
+        type: 'Content',
+        expr: 'NotaryAcknowledgment',
+        atom: 'C2',
+      }],
+    })
+    // OpenDocx atomizes matching expressions to the same names. Separate
+    // conditional blocks are retained in the logic tree, so both lists are
+    // evaluated even though they write the same L1/C2 data path.
+    const logic = [
+      { type: 'If', expr: 'showFirst', atom: 'C3', contentArray: [makeList()] },
+      { type: 'If', expr: 'showSecond', atom: 'C4', contentArray: [makeList()] },
+    ]
+    const data = {
+      showFirst: true,
+      showSecond: true,
+      people: [{}],
+    }
+    data.people[0].NotaryAcknowledgment = scope => new IndirectVirtual({
+      // These definitions are intentionally recreated for each evaluation.
+      // They identify the same DOCX insert but do not compare by reference.
+      templateDef: { name: 'NotaryAcknowledgment' },
+      name: 'NotaryAcknowledgment',
+      type: 'docx',
+      typeDef: { name: 'person' },
+      typeName: 'person',
+    }, scope, 'docx')
+    data.people[0].NotaryAcknowledgment.logic = true
+
+    let childLogicRequests = 0
+    const assembler = await yatte.getIndirectAssembler(logic, data, async () => {
+      childLogicRequests++
+      return []
+    })
+
+    assert.deepStrictEqual(assembler.errors, [])
+    assert.strictEqual(assembler.indirects.length, 1)
+    assert.strictEqual(childLogicRequests, 1)
+    assert.ok(assembler.indirects[0].assembler)
+    assert.match(assembler.data.toXml('_odx'),
+      /<L1><L1i><C2>oxpt:\/\/DocumentAssembler\/insert\/.+<\/C2><L1p\/><\/L1i><\/L1>/)
+  })
   it('should avoid infinite recursion via getIndirectAssembler', async function () {
     const logic = JSON.parse(await fs.readFile('./test/cases/inserted.logic.json', 'utf-8'))
     const template = { name: './test/cases/inserted.docx', enc: 'binary' }

@@ -141,7 +141,13 @@ class IndirectAssembler {
         if ((!value.contentType || value.contentType === 'text') && typeof value.toString === 'function') {
           this.data.set(ident, value.toString())
         } else {
-          this.data.set(ident, this._indirectLookup(value, expr))
+          // OpenDocx assigns identical expressions a shared atom/data path. If the
+          // same path is reached from more than one logical branch, retain the
+          // original indirect and its ID rather than overwriting it with an
+          // equivalent indirect created while evaluating the other branch.
+          if (!(this.data.get(ident) instanceof IndirectVirtual)) {
+            this.data.set(ident, this._indirectLookup(value, expr))
+          }
         }
         return
       } else if (value.errors || value.missing) {
