@@ -347,7 +347,7 @@ describe('Compiling expressions via exported API', function () {
   //   assert.deepStrictEqual(after, 'a|any:b|any:c')
   // })
 
-  it('setLabel should set and update labels with warning on overwrite', function () {
+  it('setLabel should retain each distinct label without warning', function () {
     yatte.Engine.compileExpr.cache = {}
     const evaluator = yatte.Engine.compileExpr('A + B')
     const warnings = []
@@ -357,16 +357,15 @@ describe('Compiling expressions via exported API', function () {
       yatte.Engine.setLabel(evaluator, 'Entity::Formula1')
       yatte.Engine.setLabel(evaluator, 'Entity::Formula1')
       yatte.Engine.setLabel(evaluator, 'Entity::Formula2')
+      yatte.Engine.setLabel(evaluator, 'Entity::Formula1')
     } finally {
       console.warn = priorWarn
     }
-    assert.strictEqual(evaluator.lbl, 'Entity::Formula2')
-    assert.strictEqual(warnings.length, 1)
-    assert.ok(warnings[0].includes('Entity::Formula1'))
-    assert.ok(warnings[0].includes('Entity::Formula2'))
+    assert.strictEqual(evaluator.lbl, 'Entity::Formula1|Entity::Formula2')
+    assert.strictEqual(warnings.length, 0)
   })
 
-  it('setLabel should reveal overwrite collisions on cached compiled expressions', function () {
+  it('setLabel should retain labels on cached compiled expressions', function () {
     yatte.Engine.compileExpr.cache = {}
     const evaluator1 = yatte.Engine.compileExpr('A + B')
     const evaluator2 = yatte.Engine.compileExpr('A + B')
@@ -377,10 +376,29 @@ describe('Compiling expressions via exported API', function () {
     try {
       yatte.Engine.setLabel(evaluator1, 'TypeA::Expr')
       yatte.Engine.setLabel(evaluator2, 'TypeB::Expr')
+      yatte.Engine.setLabel(evaluator1, 'TypeA::Expr')
     } finally {
       console.warn = priorWarn
     }
-    assert.strictEqual(evaluator1.lbl, 'TypeB::Expr')
-    assert.strictEqual(warnings.length, 1)
+    assert.strictEqual(evaluator1.lbl, 'TypeA::Expr|TypeB::Expr')
+    assert.strictEqual(warnings.length, 0)
+  })
+
+  it('setLabel should retain a directly replaced public label', function () {
+    yatte.Engine.compileExpr.cache = {}
+    const evaluator = yatte.Engine.compileExpr('A + B')
+    yatte.Engine.setLabel(evaluator, 'TypeA::Expr')
+    yatte.Engine.setLabel(evaluator, 'TypeB::Expr')
+    evaluator.lbl = 'Manual::Expr'
+    yatte.Engine.setLabel(evaluator, 'TypeC::Expr')
+    assert.strictEqual(evaluator.lbl, 'Manual::Expr|TypeC::Expr')
+  })
+
+  it('setLabel should reject labels containing the separator', function () {
+    const evaluator = yatte.Engine.compileExpr('A + B')
+    assert.throws(
+      () => yatte.Engine.setLabel(evaluator, 'TypeA|Expr'),
+      { message: 'Engine.setLabel labels cannot contain "|"' }
+    )
   })
 })

@@ -30,7 +30,7 @@ describe('Compiling text templates via exported API', function () {
     assert.deepStrictEqual(asmResult.errors, [expectedError])
   })
 
-  it('setLabel should work for compiled text templates', function () {
+  it('setLabel should retain each distinct label for compiled text templates', function () {
     yatte.compileText.cache = new Map()
     const compiled = yatte.compileText('{[FirstName]} {[LastName]}')
     const warnings = []
@@ -40,16 +40,15 @@ describe('Compiling text templates via exported API', function () {
       yatte.setLabel(compiled, 'Entity::DisplayName')
       yatte.setLabel(compiled, 'Entity::DisplayName')
       yatte.setLabel(compiled, 'Entity::FormalName')
+      yatte.setLabel(compiled, 'Entity::DisplayName')
     } finally {
       console.warn = priorWarn
     }
-    assert.strictEqual(compiled.lbl, 'Entity::FormalName')
-    assert.strictEqual(warnings.length, 1)
-    assert.ok(warnings[0].includes('Entity::DisplayName'))
-    assert.ok(warnings[0].includes('Entity::FormalName'))
+    assert.strictEqual(compiled.lbl, 'Entity::DisplayName|Entity::FormalName')
+    assert.strictEqual(warnings.length, 0)
   })
 
-  it('setLabel should reveal overwrite collisions on cached compiled templates', function () {
+  it('setLabel should retain labels on cached compiled templates', function () {
     yatte.compileText.cache = new Map()
     const compiled1 = yatte.compileText('{[FirstName]} {[LastName]}')
     const compiled2 = yatte.compileText('{[FirstName]} {[LastName]}')
@@ -60,10 +59,11 @@ describe('Compiling text templates via exported API', function () {
     try {
       yatte.setLabel(compiled1, 'TypeA::Template')
       yatte.setLabel(compiled2, 'TypeB::Template')
+      yatte.setLabel(compiled1, 'TypeA::Template')
     } finally {
       console.warn = priorWarn
     }
-    assert.strictEqual(compiled1.lbl, 'TypeB::Template')
-    assert.strictEqual(warnings.length, 1)
+    assert.strictEqual(compiled1.lbl, 'TypeA::Template|TypeB::Template')
+    assert.strictEqual(warnings.length, 0)
   })
 })

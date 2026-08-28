@@ -168,18 +168,14 @@ const setLabel = function (compiledVirtual, label) {
   if (typeof label !== 'string' || label.length === 0) {
     throw new Error('Engine.setLabel expects a non-empty string label')
   }
+  if (label.includes('|')) {
+    throw new Error('Engine.setLabel labels cannot contain "|"')
+  }
   const oldLabel = compiledVirtual.lbl
-  if (oldLabel === label) {
-    return compiledVirtual
+  const labels = oldLabel ? oldLabel.split('|') : []
+  if (!labels.includes(label)) {
+    compiledVirtual.lbl = oldLabel ? `${oldLabel}|${label}` : label
   }
-  if (oldLabel) {
-    const context = compiledVirtual.normalized ||
-      ((compiledVirtual.ast && typeof compiledVirtual.ast === 'object')
-        ? AST.serialize(compiledVirtual.ast)
-        : (compiledVirtual.logic ? '[template]' : '[virtual]'))
-    console.warn(`Warning: overwriting virtual label '${oldLabel}' with '${label}' (${context})`)
-  }
-  compiledVirtual.lbl = label
   return compiledVirtual
 }
 exports.setLabel = setLabel
